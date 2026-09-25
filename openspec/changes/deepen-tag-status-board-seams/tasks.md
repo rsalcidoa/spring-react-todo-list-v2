@@ -7,7 +7,7 @@
 - [x] 1.3 Reescribir `TagController` como delegate delgado (patrón `TaskController`): `GET` → `tagService.list(me)`; `POST` → `@Valid @RequestBody TagRequest` → `tagService.create(me, name)` → 201 `TagResponse`; `DELETE /{id}` → `tagService.delete(me, id)` → 204; eliminar la dependencia de `TagRepository`. Depende de 1.1 y 1.2. Verificar con `mvn compile` (backend/).
 - [x] 1.4 Reescribir `TaskService.createTask`/`updateTask` (diseño D2): `TransactionTemplate.execute` que (1) llama `tagService.resolve(me, names)` UNA vez, (2) asigna tags al task, (3) `taskRepository.save(task)`; loop de máx 2 intentos alrededor de la `execute` completa (catch solo `DataIntegrityViolationException`); eliminar `resolveTag`. Depende de 1.1. Verificar con `mvn compile` (backend/).
 - [x] 1.5 Reducir `TagRepository` a `findByUserId(Long)` + CRUD heredado; eliminar `findAllByUser` y `findByNameAndUser` (ya sin callers). Depende de 1.3 y 1.4. Verificar con `mvn compile` (backend/).
-- [ ] 1.6 Commit A (fix de seguridad + módulo Tag), solo tras el gate de la sección 2. Verificar con `git log --oneline -1` (raíz).
+- [x] 1.6 Commit A (fix de seguridad + módulo Tag), solo tras el gate de la sección 2. Verificar con `git log --oneline -1` (raíz).
 
 ## 2. Módulo Tag — tests (candidato A)
 
@@ -23,7 +23,7 @@
 - [x] 3.3 Extender `TaskServiceTest`: `applyStatus` válido → set + save; inválido → `InvalidStatusValueException`; `updateTask` con status inválido → mismo failure; `createTask` con status inválido → mismo failure. Depende de 3.2. Verificar con `mvn test -Dtest=TaskServiceTest` (backend/).
 - [x] 3.4 Extender `ErrorContractIntegrationTest`: PATCH `/v1/tasks/{id}/status` `{"status":"INVALID"}` → 400 `errors.status`; PUT `/v1/tasks/{id}` `{"status":"INVALID"}` → 400 `errors.status`. Requiere `docker compose up -d`. Depende de 3.2. Verificar con `mvn test -Dtest=ErrorContractIntegrationTest` (backend/).
 - [x] 3.5 Gate B: todos los tests backend verdes. Depende de 3.3 y 3.4. Verificar con `cd backend && docker compose up -d && mvn test`.
-- [ ] 3.6 Commit B (status operation), solo tras el gate de la sección 3. Verificar con `git log --oneline -1` (raíz).
+- [x] 3.6 Commit B (status operation), solo tras el gate de la sección 3. Verificar con `git log --oneline -1` (raíz).
 
 ## 4. Frontend: board seam (candidato C)
 
@@ -33,9 +33,9 @@
 - [x] 4.4 Crear `AddTaskModal.test.tsx` (pendiente del plan de tests de C6): render, completar form, `onSave` llamado con `TaskInput` (`tagNames: string[]`), toggle de pills de tags. Depende de 4.2. Verificar con `npx vitest run` (frontend/).
 - [x] 4.5 Actualizar `TodoListPage.test.tsx` a la interface nueva (`remove`/`move`). Depende de 4.2. Verificar con `npx vitest run` (frontend/).
 - [x] 4.6 Gate C: tests frontend + build. Depende de 4.3, 4.4, 4.5. Verificar con `cd frontend && npx vitest run && npm run build`.
-- [ ] 4.7 Commit C (board seam), solo tras el gate de la sección 4. Verificar con `git log --oneline -1` (raíz).
+- [x] 4.7 Commit C (board seam), solo tras el gate de la sección 4. Verificar con `git log --oneline -1` (raíz).
 
 ## 5. Gate final
 
-- [ ] 5.1 Gate completo: backend + frontend. Depende de 2.4, 3.5, 4.7. Verificar con `cd backend && docker compose up -d && mvn test` y `cd frontend && npx vitest run && npm run build`.
-- [ ] 5.2 Verificar que ningún `as any`/`any` queda en la seam (grep `as any` en `frontend/src` → 0 en `data/TaskRepository.ts`, `pages/TodoListPage.tsx`, `components/AddTaskModal.tsx`, `services/ApiService.ts`). Depende de 4.7. Verificar con `grep -rn "as any" frontend/src | grep -E "TaskRepository|TodoListPage|AddTaskModal|ApiService"` (sin resultados; raíz).
+- [x] 5.1 Gate completo: backend + frontend. Depende de 2.4, 3.5, 4.7. Verificar con `cd backend && docker compose up -d && mvn test` y `cd frontend && npx vitest run && npm run build`.
+- [x] 5.2 Verificar que ningún `as any`/`any` queda en la seam (grep `as any` en `frontend/src` → 0 en `data/TaskRepository.ts`, `pages/TodoListPage.tsx`, `components/AddTaskModal.tsx`, `services/ApiService.ts`). Depende de 4.7. Verificar con `grep -rn "as any" frontend/src | grep -E "TaskRepository|TodoListPage|AddTaskModal|ApiService"` (sin resultados; raíz).
