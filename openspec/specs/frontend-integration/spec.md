@@ -83,13 +83,14 @@ The frontend task data layer SHALL expose board operations through the `TaskRepo
 - **THEN** the caller receives the contract message through one shared mapping used by page and modal alike
 
 ### Requirement: API Integration
-The system SHALL communicate with the backend REST API, automatically including `Authorization: Bearer <token>` header on every authenticated request via an Axios interceptor. Every ApiService function must use a shared axios instance created via `axios.create({ baseURL: '/v1' })` that includes both auth interceptor and response error handler for 401 redirects. **All authentication calls must also use this shared instance.**
+The system SHALL communicate with the backend REST API, automatically including `Authorization: Bearer <token>` header on every authenticated request via an Axios interceptor. Session storage and the 401 policy SHALL live in exactly one place: the session module (`getToken`, `saveSession`, `clearSession`, `handleUnauthorized`). The interceptor SHALL delegate header injection and 401 handling to it; the auth context SHALL delegate persistence to it. Every ApiService function must use a shared axios instance created via `axios.create({ baseURL: '/v1' })` that includes both auth interceptor and response error handler for 401 redirects. **All authentication calls must also use this shared instance.**
 
 **Affected files**: 
-- `frontend/src/services/ApiService.ts` — existing shared instance, no changes (already compliant)
-- `frontend/src/context/AuthContext.tsx` — `login()` now uses `api.post('/auth/login', ...)` instead of `axios.post('/v1/auth/login', ...)` (import de axios global eliminado)
-- `frontend/src/services/AuthService.ts` — `registerUser()` now uses `api.post('/auth/register', ...)` instead of dynamic `import('axios')` + `axios.post('/v1/auth/register', ...)`
-- `frontend/src/pages/RegisterPage.tsx` — catch block reads `error.response?.status` and `error.response.data.error` for 409 responses; displays structured error message from backend
+- `frontend/src/services/session.ts` — new module owning keys and 401 policy
+- `frontend/src/services/ApiService.ts` — interceptors delegate to the session module
+- `frontend/src/context/AuthContext.tsx` — `login()`/`logout()` delegate persistence (same React interface)
+- `frontend/src/context/AuthContext.tsx` — `login()` uses `api.post('/auth/login', ...)` (no global axios import)
+- `frontend/src/pages/RegisterPage.tsx` — calls `api.post('/auth/register', …)` directly (no `AuthService` indirection); catch block reads `error.response?.status` and `error.response.data.error` for 409 responses; displays structured error message from backend
 
 #### Scenario: Axios Interceptor Adds Auth Header to All Requests
 - **WHEN** user navigates to /tasks or performs any CRUD action on a task
@@ -101,15 +102,19 @@ The system SHALL communicate with the backend REST API, automatically including 
 - **THEN** Axios interceptor catches the 401 response, clears `localStorage` entries for jwt and email, and redirects user to /login
 
 #### Scenario: Auth Calls Use the Shared API Instance
-- **WHEN** user logs in via AuthContext or registers via AuthService
+- **WHEN** user logs in via AuthContext or registers via RegisterPage
 - **THEN** all auth requests (login, register) go through the shared api instance from ApiService, not a direct axios import
 
+#### Scenario: Session policy is unit-testable without network
+- **WHEN** a `401` arrives for a non-login request
+- **THEN** the session is cleared and navigation to `/login` happens through the module (covered without HTTP mocks)
+
 ### Requirement: Registration Page Route
-The system SHALL expose a `/register` route that displays the registration form, accepts email and password, calls `registerUser()` service, auto-login after successful registration, and navigates to /tasks.
+The system SHALL expose a `/register` route that displays the registration form, accepts email and password, calls `POST /v1/auth/register` directly, auto-login after successful registration, and navigates to /tasks.
 
 **Affected files**: 
 - `frontend/src/App.tsx` — add `<Route path="/register" element={<RegisterPage />} />` before catch-all route
-- `frontend/src/pages/RegisterPage.tsx` — call `registerUser(email, password)` from AuthService; on success auto-login then navigate to /tasks
+- `frontend/src/pages/RegisterPage.tsx` — call `api.post('/auth/register', …)`; on success auto-login then navigate to /tasks
 - `frontend/src/pages/LoginPage.tsx` — add Link component "¿No tienes cuenta? Registrarse" pointing to `/register`
 
 #### Scenario: User Navigates to Register Route
@@ -118,7 +123,7 @@ The system SHALL expose a `/register` route that displays the registration form,
 
 #### Scenario: Successful Registration Triggers Auto-login Redirect
 - **WHEN** user submits valid credentials via the register form
-- **THEN** system calls POST /v1/auth/register with `registerUser()` service function
+- **THEN** system calls POST /v1/auth/register directly
 - **AND** upon 201 Created response, automatically calls POST /v1/auth/login with same credentials
 - **AND** after receiving JWT token, navigates to `/tasks` page
 
@@ -145,7 +150,7 @@ The system SHALL validate email format on the frontend before submitting login o
 **ID**: REQ-FE-010
 **Affected files**:
 - `frontend/src/pages/LoginPage.tsx` — `validateEmail()` helper, check before `login()` call
-- `frontend/src/pages/RegisterPage.tsx` — `validateEmail()` helper, check before `registerUser()` call
+- `frontend/src/pages/RegisterPage.tsx` — `validateEmail()` helper, check before submit
 
 #### Scenario: Valid email passes frontend validation
 - **WHEN** user enters `usuario@dominio.com` in the login or register email field

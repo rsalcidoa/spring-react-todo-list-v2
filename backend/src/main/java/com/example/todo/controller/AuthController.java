@@ -32,10 +32,10 @@ public class AuthController {
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    public RegisterRequest register(@Valid @RequestBody RegisterRequest request) {
+    public RegisterResponse register(@Valid @RequestBody RegisterRequest request) {
         // Validate and register user
         userService.register(request.getEmail(), request.getPassword());
-        return new RegisterRequest(request.getEmail(), "[REDACTED]");
+        return new RegisterResponse(request.getEmail());
     }
 
     @PostMapping("/login")
@@ -65,6 +65,7 @@ public class AuthController {
 
     // Simple response DTOs
     public record LoginResponse(String token) {}
+    public record RegisterResponse(String email) {}
     public record ResetRequestResponse(String token) {}
     public record VerifyResponse(boolean verified) {}
 }

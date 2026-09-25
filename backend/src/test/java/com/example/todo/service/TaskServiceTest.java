@@ -87,6 +87,7 @@ class TaskServiceTest {
         Task task = taskOwnedBy(10L, other);
         when(currentUser.requireCurrent()).thenReturn(me);
         when(taskRepository.findById(10L)).thenReturn(Optional.of(task));
+        when(currentUser.requireOwned(2L)).thenThrow(new OwnershipDeniedException());
 
         assertThrows(OwnershipDeniedException.class, () -> service.getTaskById(10L));
     }
@@ -123,6 +124,7 @@ class TaskServiceTest {
         Task task = taskOwnedBy(10L, other);
         when(currentUser.requireCurrent()).thenReturn(me);
         when(taskRepository.findById(10L)).thenReturn(Optional.of(task));
+        when(currentUser.requireOwned(2L)).thenThrow(new OwnershipDeniedException());
         TaskRequest request = new TaskRequest("Updated", "desc", Priority.HIGH, null);
 
         assertThrows(OwnershipDeniedException.class, () -> service.updateTask(10L, request));
@@ -161,6 +163,7 @@ class TaskServiceTest {
         Task task = taskOwnedBy(10L, other);
         when(currentUser.requireCurrent()).thenReturn(me);
         when(taskRepository.findById(10L)).thenReturn(Optional.of(task));
+        when(currentUser.requireOwned(2L)).thenThrow(new OwnershipDeniedException());
 
         assertThrows(OwnershipDeniedException.class, () -> service.deleteTask(10L));
     }
@@ -247,6 +250,7 @@ class TaskServiceTest {
         Task task = taskOwnedBy(10L, other);
         when(currentUser.requireCurrent()).thenReturn(me);
         when(taskRepository.findById(10L)).thenReturn(Optional.of(task));
+        when(currentUser.requireOwned(2L)).thenThrow(new OwnershipDeniedException());
 
         assertThrows(OwnershipDeniedException.class, () -> service.applyStatus(10L, "ACTIVE"));
     }

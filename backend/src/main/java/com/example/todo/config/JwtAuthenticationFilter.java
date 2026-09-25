@@ -41,8 +41,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authentication);
                 }
-            } catch (Exception ignored) {
-                // Token invalid or expired; ignore and proceed without auth
+            } catch (org.springframework.security.core.userdetails.UsernameNotFoundException e) {
+                // Token subject unknown; proceed without auth (entry point handles it downstream)
             }
         }
         filterChain.doFilter(request, response);

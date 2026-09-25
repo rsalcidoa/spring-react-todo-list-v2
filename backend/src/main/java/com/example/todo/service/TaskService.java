@@ -4,7 +4,6 @@ import com.example.todo.dto.TagResponse;
 import com.example.todo.dto.TaskRequest;
 import com.example.todo.dto.TaskResponse;
 import com.example.todo.exception.InvalidStatusValueException;
-import com.example.todo.exception.OwnershipDeniedException;
 import com.example.todo.exception.ResourceNotFoundException;
 import com.example.todo.exception.TagAlreadyExistsException;
 import com.example.todo.model.Task;
@@ -149,12 +148,11 @@ public class TaskService {
         taskRepository.delete(task);
     }
 
-    // Ownership operation: 1 findById, 3 states (found / not-found / forbidden).
+    // Ownership operation: lookup stays here (404), the forbidden decision
+    // lives in CurrentUserProvider.requireOwned (shared with tags).
     private Task findOwnedTask(Long id, User me) {
         Task task = taskRepository.findById(id).orElseThrow(ResourceNotFoundException::new);
-        if (!task.getUser().getId().equals(me.getId())) {
-            throw new OwnershipDeniedException();
-        }
+        currentUser.requireOwned(task.getUser().getId());
         return task;
     }
 

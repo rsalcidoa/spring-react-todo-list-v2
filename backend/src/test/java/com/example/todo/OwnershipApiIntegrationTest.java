@@ -20,6 +20,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -178,13 +179,15 @@ class OwnershipApiIntegrationTest {
     }
 
     @Test
-    void unauthenticatedReturns401() throws Exception {
-        // GET task sin token -> 401
+    void unauthenticatedReturns401WithBody() throws Exception {
+        // GET task sin token -> 401 con body
         mockMvc.perform(get("/v1/tasks/{id}", taskIdA))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("Authentication required"));
 
-        // DELETE tag sin token -> 401
+        // DELETE tag sin token -> 401 con body
         mockMvc.perform(delete("/v1/tags/{id}", tagIdA))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("Authentication required"));
     }
 }

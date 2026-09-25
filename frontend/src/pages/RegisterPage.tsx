@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { registerUser } from '../services/AuthService';
+import { api } from '../services/ApiService';
 import { useNavigate, Link } from 'react-router-dom';
 import styles from './RegisterPage.module.css';
 import ErrorBanner from '../components/ErrorBanner';
@@ -24,7 +24,7 @@ export default function RegisterPage() {
       return;
     }
     try {
-      await registerUser(email, password);
+      await api.post('/auth/register', { email, password });
       await auth.login(email, password);
       navigate('/tasks');
     } catch (error: any) {

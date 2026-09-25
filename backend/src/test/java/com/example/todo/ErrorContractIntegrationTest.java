@@ -88,6 +88,38 @@ class ErrorContractIntegrationTest {
     }
 
     @Test
+    void registerReturnsEmailOnlyWithoutPassword() throws Exception {
+        String uuid = UUID.randomUUID().toString();
+        String userJson = String.format("{\"email\": \"%s\", \"password\": \"secret123\"}", uuid + "@example.com");
+
+        mockMvc.perform(post("/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(userJson))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.email").value(uuid + "@example.com"))
+                .andExpect(jsonPath("$.password").doesNotExist());
+    }
+
+    @Test
+    void loginWithWrongPasswordReturns401WithMessage() throws Exception {
+        String uuid = UUID.randomUUID().toString();
+        String email = uuid + "@example.com";
+        String userJson = String.format("{\"email\": \"%s\", \"password\": \"secret123\"}", email);
+
+        mockMvc.perform(post("/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(userJson))
+                .andExpect(status().isCreated());
+
+        String badLogin = String.format("{\"email\": \"%s\", \"password\": \"wrongpass1\"}", email);
+        mockMvc.perform(post("/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(badLogin))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("Invalid email or password"));
+    }
+
+    @Test
     void createTaskWithDueDateReturns201AndEchoesDate() throws Exception {
         String uuid = UUID.randomUUID().toString();
         String email = uuid + "@example.com";

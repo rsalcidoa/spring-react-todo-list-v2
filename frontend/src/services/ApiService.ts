@@ -1,10 +1,11 @@
 import axios from 'axios';
 import { TaskInput } from './types/task';
+import { getToken, handleUnauthorized } from './session';
 
 const api = axios.create({ baseURL: '/v1' });
 
 api.interceptors.request.use(config => {
-  const token = localStorage.getItem('jwt');
+  const token = getToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
@@ -14,10 +15,8 @@ api.interceptors.response.use(
     return response;
   },
   error => {
-    if (error?.response?.status === 401 && error.config?.url !== '/auth/login') {
-      localStorage.removeItem('jwt');
-      localStorage.removeItem('email');
-      window.location.href = '/login';
+    if (error?.response?.status === 401) {
+      handleUnauthorized(error.config?.url);
     }
     return Promise.reject(error);
   }

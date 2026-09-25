@@ -67,8 +67,11 @@ public class SecurityConfig {
             .cors().and()
             .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             .and()
-            .exceptionHandling(ex -> ex.authenticationEntryPoint((request, response, e) ->
-                    response.setStatus(org.springframework.http.HttpStatus.UNAUTHORIZED.value())))
+            .exceptionHandling(ex -> ex.authenticationEntryPoint((request, response, e) -> {
+                    response.setStatus(org.springframework.http.HttpStatus.UNAUTHORIZED.value());
+                    response.setContentType(org.springframework.http.MediaType.APPLICATION_JSON_VALUE);
+                    response.getWriter().write("{\"error\":\"Authentication required\"}");
+                }))
             .authorizeHttpRequests(auth -> auth
                     .requestMatchers(HttpMethod.POST, "/v1/auth/**").permitAll()
                     .requestMatchers(HttpMethod.PUT, "/v1/auth/reset-change").permitAll()

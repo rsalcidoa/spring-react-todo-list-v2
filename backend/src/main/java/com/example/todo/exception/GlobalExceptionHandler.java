@@ -24,8 +24,8 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(UnauthenticatedException.class)
-    public ResponseEntity<Void> handleUnauthenticated(UnauthenticatedException ex) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+    public ResponseEntity<Map<String, String>> handleUnauthenticated(UnauthenticatedException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorBody("Authentication required"));
     }
 
     @ExceptionHandler(InvalidStatusValueException.class)
@@ -77,6 +77,11 @@ public class GlobalExceptionHandler {
             return "tagNames";
         }
         return field;
+    }
+
+    @ExceptionHandler(org.springframework.security.core.AuthenticationException.class)
+    public ResponseEntity<Map<String, String>> handleAuthentication(org.springframework.security.core.AuthenticationException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorBody("Invalid email or password"));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

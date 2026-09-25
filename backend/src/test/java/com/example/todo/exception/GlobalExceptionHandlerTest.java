@@ -36,10 +36,11 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    void unauthenticatedMapsTo401() {
-        ResponseEntity<Void> response = handler.handleUnauthenticated(new UnauthenticatedException());
+    void unauthenticatedMapsTo401WithBody() {
+        ResponseEntity<Map<String, String>> response = handler.handleUnauthenticated(new UnauthenticatedException());
 
         assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+        assertEquals("Authentication required", response.getBody().get("error"));
     }
 
     @Test
@@ -147,5 +148,14 @@ class GlobalExceptionHandlerTest {
 
         assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
         assertEquals("Reset token has expired", response.getBody().get("error"));
+    }
+
+    @Test
+    void springAuthenticationFailureMapsTo401WithMessage() {
+        ResponseEntity<Map<String, String>> response = handler.handleAuthentication(
+                new org.springframework.security.authentication.BadCredentialsException("bad"));
+
+        assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+        assertEquals("Invalid email or password", response.getBody().get("error"));
     }
 }
