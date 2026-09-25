@@ -1,0 +1,41 @@
+# Tasks
+
+## 1. Módulo Tag — backend (candidato A)
+
+- [x] 1.1 Crear `com.example.todo.service.TagService` (`@Service`, constructor con `TagRepository` + `CurrentUserProvider`) con las 4 operaciones del diseño D1: `list(User)` → `List<TagResponse>` orden alfabético case-insensitive; `create(User, String)` → trim → lookup case-insensitive → `TagAlreadyExistsException` o `save(Tag(name.trim(), me))` (DIVE en el save → re-lookup → `TagAlreadyExistsException`); `delete(User, Long)` → `findById` (404) → `currentUser.requireOwned` (403) → `delete`; `resolve(User, List<String>)` → UNA `findByUserId` + map keyed por `name.trim().toLowerCase()`, retorna existing + crea los missing (sin `TransactionTemplate` propio). Verificar con `mvn compile` (backend/).
+- [x] 1.2 Crear `com.example.todo.dto.TagRequest` (`@NotBlank @Size(min=1, max=50) String name`) y `com.example.todo.exception.TagAlreadyExistsException`; añadir `@ExceptionHandler(TagAlreadyExistsException.class)` → 409 en `GlobalExceptionHandler`. Verificar con `mvn compile` (backend/).
+- [x] 1.3 Reescribir `TagController` como delegate delgado (patrón `TaskController`): `GET` → `tagService.list(me)`; `POST` → `@Valid @RequestBody TagRequest` → `tagService.create(me, name)` → 201 `TagResponse`; `DELETE /{id}` → `tagService.delete(me, id)` → 204; eliminar la dependencia de `TagRepository`. Depende de 1.1 y 1.2. Verificar con `mvn compile` (backend/).
+- [x] 1.4 Reescribir `TaskService.createTask`/`updateTask` (diseño D2): `TransactionTemplate.execute` que (1) llama `tagService.resolve(me, names)` UNA vez, (2) asigna tags al task, (3) `taskRepository.save(task)`; loop de máx 2 intentos alrededor de la `execute` completa (catch solo `DataIntegrityViolationException`); eliminar `resolveTag`. Depende de 1.1. Verificar con `mvn compile` (backend/).
+- [x] 1.5 Reducir `TagRepository` a `findByUserId(Long)` + CRUD heredado; eliminar `findAllByUser` y `findByNameAndUser` (ya sin callers). Depende de 1.3 y 1.4. Verificar con `mvn compile` (backend/).
+- [ ] 1.6 Commit A (fix de seguridad + módulo Tag), solo tras el gate de la sección 2. Verificar con `git log --oneline -1` (raíz).
+
+## 2. Módulo Tag — tests (candidato A)
+
+- [x] 2.1 Crear `TagServiceTest` (JUnit5 + Mockito, sin contexto Spring): `create` existente case-insensitive ("work" vs "Work") → `TagAlreadyExistsException`; `create` nuevo → `save` con nombre trimmed; `save` lanza DIVE → re-lookup → `TagAlreadyExistsException`; `list` → solo `TagResponse`; `delete` → 404/403/ok vía la seam; `resolve` con N nombres → `findByUserId` **una** vez (`verify(times(1))`) + existing por key + missing creados. Depende de 1.1. Verificar con `mvn test -Dtest=TagServiceTest` (backend/).
+- [x] 2.2 Extender `TaskServiceTest`: `createTask` → `tagService.resolve` UNA vez con todos los nombres (batch, no por nombre); la `execute` lanza el failure del save de task → se verifica rollback de la transacción (tags no commiteados). Depende de 1.4. Verificar con `mvn test -Dtest=TaskServiceTest` (backend/).
+- [x] 2.3 Crear `TagApiIntegrationTest` (`@SpringBootTest` + `@AutoConfigureMockMvc`, patrón `TaskCrudIntegrationTest`; requiere `docker compose up -d`): (a) POST `/v1/tags` `{"name":" Personal "}` → 201 + name `Personal`; (b) con `Work` existente, POST `{"name":"work"}` → 409 y sin rows nuevos en `GET /v1/tags`; (c) `GET /v1/tags` → cada elemento solo `id`+`name` (JsonPath: sin `user`, body sin `"password"`); (d) 2 hilos (ExecutorService) POST el mismo nombre nuevo → {201, 409}, ninguna 500, 1 row; (e) POST `{"name":""}` → 400 con `errors.name`. Depende de 1.3. Verificar con `mvn test -Dtest=TagApiIntegrationTest` (backend/).
+- [x] 2.4 Gate A: todos los tests backend verdes (incluye `TagResolutionIntegrationTest`, `TaskCrudIntegrationTest`, `OwnershipApiIntegrationTest` sin cambios de aserción). Depende de 2.1, 2.2, 2.3. Verificar con `cd backend && docker compose up -d && mvn test`.
+
+## 3. Status: una sola operación (candidato B)
+
+- [x] 3.1 Crear `com.example.todo.exception.InvalidStatusValueException` (field + message) y su `@ExceptionHandler` → 400 con shape idéntico al `@Valid`: `{"error":"Validation failed","errors":{"status":[msg]}}`. Verificar con `mvn compile` (backend/).
+- [x] 3.2 `TaskRequest.status` → `String`; `TaskService.applyStatus(Long id, String rawStatus)` (requireCurrent + `findOwnedTask` + parse estricto → `TaskStatus` + set + save); `createTask`/`updateTask` usan el parse compartido (null → default/conservar, inválido → `InvalidStatusValueException`); `TaskController.patchStatus` delega `applyStatus` y elimina el `valueOf` manual. Depende de 3.1. Verificar con `mvn compile` (backend/).
+- [x] 3.3 Extender `TaskServiceTest`: `applyStatus` válido → set + save; inválido → `InvalidStatusValueException`; `updateTask` con status inválido → mismo failure; `createTask` con status inválido → mismo failure. Depende de 3.2. Verificar con `mvn test -Dtest=TaskServiceTest` (backend/).
+- [x] 3.4 Extender `ErrorContractIntegrationTest`: PATCH `/v1/tasks/{id}/status` `{"status":"INVALID"}` → 400 `errors.status`; PUT `/v1/tasks/{id}` `{"status":"INVALID"}` → 400 `errors.status`. Requiere `docker compose up -d`. Depende de 3.2. Verificar con `mvn test -Dtest=ErrorContractIntegrationTest` (backend/).
+- [x] 3.5 Gate B: todos los tests backend verdes. Depende de 3.3 y 3.4. Verificar con `cd backend && docker compose up -d && mvn test`.
+- [ ] 3.6 Commit B (status operation), solo tras el gate de la sección 3. Verificar con `git log --oneline -1` (raíz).
+
+## 4. Frontend: board seam (candidato C)
+
+- [x] 4.1 Añadir `TaskInput` (`{ title, description?, priority, status, dueDate?, tagNames: string[] }`) a `frontend/src/services/types/task.ts`. Verificar con `npm run build` (frontend/).
+- [x] 4.2 Profundizar la seam (diseño D5) + actualizar callers al tipado nuevo (el rename de interface y el tipado son atómicos; sin `any`/`as any`): `frontend/src/data/TaskRepository.ts` — interface `fetchAll/create(input)/update(id, input)/move(id, status)/remove(id)/listTags`; helpers puros `toWire`/`fromWire` (omite `dueDate`/`description` vacíos; `tags` default `[]`); `HttpTaskRepository(client?)` con client inyectable (default `ApiService`) que posee la conversión; `InMemoryTaskRepository` (estado en memoria, ids autoincrementales, `create`/`update` registran `tagNames` en `tags`); `ApiService.updateTask(id, task: TaskInput)`; `TodoListPage.handleSave(data: TaskInput)` + `repository.update/create/move/remove`; `AddTaskModal` `onSave: (data: TaskInput) => void` + `existingTags: Tag[]`. Depende de 4.1. Verificar con `npm run build` (frontend/).
+- [x] 4.3 Reescribir `TaskRepository.test.ts`: suite compartida contra `InMemoryTaskRepository` (flujo board completo sin red) y contra `HttpTaskRepository` con client stub que registra requests wire (no mock del módulo): `create` con `tagNames: ["Work","Personal"]` → body wire con `tagNames` exactos; `create` con `dueDate: ''` → body wire SIN `dueDate`; `fetchAll` wire → dominio `tags: Tag[]`; `move`/`remove` → calls wire esperadas. Depende de 4.2. Verificar con `npx vitest run` (frontend/).
+- [x] 4.4 Crear `AddTaskModal.test.tsx` (pendiente del plan de tests de C6): render, completar form, `onSave` llamado con `TaskInput` (`tagNames: string[]`), toggle de pills de tags. Depende de 4.2. Verificar con `npx vitest run` (frontend/).
+- [x] 4.5 Actualizar `TodoListPage.test.tsx` a la interface nueva (`remove`/`move`). Depende de 4.2. Verificar con `npx vitest run` (frontend/).
+- [x] 4.6 Gate C: tests frontend + build. Depende de 4.3, 4.4, 4.5. Verificar con `cd frontend && npx vitest run && npm run build`.
+- [ ] 4.7 Commit C (board seam), solo tras el gate de la sección 4. Verificar con `git log --oneline -1` (raíz).
+
+## 5. Gate final
+
+- [ ] 5.1 Gate completo: backend + frontend. Depende de 2.4, 3.5, 4.7. Verificar con `cd backend && docker compose up -d && mvn test` y `cd frontend && npx vitest run && npm run build`.
+- [ ] 5.2 Verificar que ningún `as any`/`any` queda en la seam (grep `as any` en `frontend/src` → 0 en `data/TaskRepository.ts`, `pages/TodoListPage.tsx`, `components/AddTaskModal.tsx`, `services/ApiService.ts`). Depende de 4.7. Verificar con `grep -rn "as any" frontend/src | grep -E "TaskRepository|TodoListPage|AddTaskModal|ApiService"` (sin resultados; raíz).

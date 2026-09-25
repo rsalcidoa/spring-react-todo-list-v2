@@ -1,0 +1,25 @@
+.column {
+  flex: 1;
+  margin: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 100px;
+}
+
+.header {
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--color-primary);
+  font-size: 1rem;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.body {
+  flex: 1;
+  min-height: 60px;
+}
+
+.dragover {
+  background-color: rgba(0, 175, 169, 0.08);
+  border-radius: var(--radius);
+}

@@ -1,0 +1,16 @@
+ALTER TABLE tasks ADD COLUMN status VARCHAR(10) NOT NULL DEFAULT 'PENDING';
+
+CREATE TABLE tags (
+  id BIGSERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  user_id BIGINT NOT NULL REFERENCES users(id),
+  CONSTRAINT uq_user_tag UNIQUE (user_id, name)
+);
+
+CREATE TABLE task_tags (
+  task_id BIGINT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  tag_id BIGINT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+  PRIMARY KEY (task_id, tag_id)
+);
+
+UPDATE tasks SET status = 'PENDING' WHERE status IS NULL;

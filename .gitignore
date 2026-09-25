@@ -1,0 +1,40 @@
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Build artifacts
+target/
+build/
+dist/
+*.jar
+
+# Test reports
+**/*.coverage
+coverage/
+
+# Logs
+*.log
+
+# Frontend build output
+frontend/dist/
+frontend/node_modules/.cache/
+
+# IDE logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Maven metadata (keep .m2 repo)
+target/.mvn
+
+# Local environment
+.env
+.env.*
+
+# OpenSpec generated reports
+compliance-report.html

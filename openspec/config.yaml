@@ -1,0 +1,39 @@
+schema: spec-driven
+
+context: |
+  Tech stack principal: Java 17+ (Maven/Gradle, Spring Boot), JavaScript/TypeScript (Node 20+, Express/Nest o React).
+  Lenguajes esporádicos: Scala, Kotlin, .NET, Dart, Python, Go, SQL según el cambio.
+  API: RESTful, respuestas JSON, versionado /v1.
+  Testing: JUnit5 + Mockito para Java, Vitest para TS unit, Playwright para e2e. Cada tarea de código debe dejar tests en verde.
+  Estilo: Google Java Format, ESLint + Prettier, TypeScript estricto. Commits convencionales.
+  Prioridad del usuario: calidad del plan sobre velocidad. Preferir proposal/specs/design precisos aunque la inferencia sea más lenta.
+  Restricción hardware: modelos locales 16GB VRAM (RX 9070) + 32GB RAM. Mantener cambios pequeños y verificables.
+
+rules:
+  proposal:
+    - Incluir sección "Non-goals" y alcance explícito
+    - Incluir rollback plan y módulos afectados (paquete Java o ruta TS)
+    - Si el cambio toca >3 archivos, proponer dividir en 2 cambios
+  specs:
+    - Usar formato Given/When/Then para cada escenario
+    - Cada requirement con ID estable (ej. REQ-001) y criterio verificable
+    - Para Java indicar paquete/clase afectada. Para TS indicar ruta/archivo afectado
+  design:
+    - Incluir diagrama de secuencia Mermaid si hay >3 componentes o un flujo async
+    - Listar decisiones con alternativas consideradas (formato ADR corto)
+    - Indicar estrategia de tests por capa (unit/integration/e2e)
+  tasks:
+    - Tareas de max ~200 líneas o 2h cada una, con checkbox
+    - Cada tarea termina con comando de verificación (ej. `mvn test -Dtest=X`, `npm run test`, `npm run build`)
+    - Marcar dependencias entre tareas cuando existan
+
+operations:
+  apply:
+    guidance:
+      - Implementar una tarea a la vez y ejecutar su verificación antes de seguir
+      - Si el diseño resulta incorrecto, actualizar design.md primero y continuar
+      - Priorizar compilación + tests en verde sobre cobertura perfecta
+  archive:
+    guidance:
+      - Resumir outcome (qué cambió, tests, archivos) antes de archivar
+      - Verificar que delta specs (ADDED/MODIFIED/REMOVED) mergearon a specs/

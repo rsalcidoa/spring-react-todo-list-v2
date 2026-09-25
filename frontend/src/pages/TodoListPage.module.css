@@ -1,0 +1,71 @@
+.page {
+  min-height: 100vh;
+  background-color: var(--color-bg);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.5rem;
+  background-color: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.header h1 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.newTaskBtn, .logoutBtn {
+  padding: 0.4rem 0.75rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-family: inherit;
+}
+
+.newTaskBtn {
+  background-color: var(--color-primary);
+  color: #fff;
+}
+
+.logoutBtn {
+  background-color: var(--color-danger);
+  color: #fff;
+}
+
+.board {
+  display: flex;
+  gap: 1rem;
+  padding: 1.5rem;
+  min-height: calc(100vh - 60px);
+}
+
+.KanbanColumn-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius) var(--radius) 0 0;
+  color: #fff;
+}
+
+.KanbanColumn-label {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.KanbanColumn-count {
+  background-color: rgba(255, 255, 255, 0.3);
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+}
+
+.KanbanColumn-tasks {
+  padding: 0.5rem;
+  min-height: 200px;
+}
