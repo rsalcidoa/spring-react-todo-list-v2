@@ -85,6 +85,24 @@
   font-size: 0.75rem;
   padding: 0.2rem 0.5rem;
   border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.tagPill button {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.tagDeleteBtn {
+  color: var(--color-danger);
+  font-size: 0.85rem;
+  line-height: 1;
 }
 
 .selected {
@@ -95,6 +113,31 @@
 .newTagRow {
   display: flex;
   gap: 0.35rem;
+}
+
+.tagInput {
+  flex: 1;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+
+.tagInput:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(0, 175, 169, 0.2);
+}
+
+.tagCreateBtn {
+  background-color: var(--color-primary);
+  color: #fff;
+  border: none;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 0.85rem;
 }
 
 .tagBtn {

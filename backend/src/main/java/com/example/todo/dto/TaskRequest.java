@@ -10,14 +10,14 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 
 public class TaskRequest {
     @NotBlank(message="Title must not be blank")
-    @Size(max=255)
+    @Size(max=255, message="Title must not exceed 255 characters")
     private String title;
     private String description;
     private Priority priority;
     // Optional status – parsed strictly by the module (PENDING / ACTIVE / COMPLETED)
     private String status;
     // Optional tag names – used for creating/updating tags per user
-    private Set<String> tagNames;
+    private Set<@NotBlank(message="Tag name must not be blank") @Size(max=50, message="Tag name must not exceed 50 characters") String> tagNames;
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate dueDate;
 

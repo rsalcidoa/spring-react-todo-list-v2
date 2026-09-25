@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -48,15 +49,14 @@ class TagServiceTest {
 
     @Test
     void createExistingCaseInsensitiveThrowsTagAlreadyExists() {
-        Tag existing = new Tag("Work", me);
-        when(tagRepository.findByUserId(1L)).thenReturn(List.of(existing));
+        when(tagRepository.existsByUserIdAndNameIgnoreCase(1L, "work")).thenReturn(true);
 
         assertThrows(TagAlreadyExistsException.class, () -> service.create(me, "work"));
     }
 
     @Test
     void createNewSavesTrimmedName() {
-        when(tagRepository.findByUserId(1L)).thenReturn(List.of());
+        when(tagRepository.existsByUserIdAndNameIgnoreCase(1L, "Personal")).thenReturn(false);
         when(tagRepository.save(any(Tag.class))).thenAnswer(inv -> inv.getArgument(0));
 
         TagResponse response = service.create(me, "  Personal ");
@@ -66,9 +66,9 @@ class TagServiceTest {
 
     @Test
     void createSaveThrowsDataIntegrityViolationThenReLookupFindsExisting() {
-        when(tagRepository.findByUserId(1L))
-                .thenReturn(List.of())
-                .thenReturn(List.of(new Tag("Work", me)));
+        when(tagRepository.existsByUserIdAndNameIgnoreCase(1L, "work"))
+                .thenReturn(false)
+                .thenReturn(true);
         org.mockito.Mockito.doThrow(new DataIntegrityViolationException("unique constraint"))
                 .when(tagRepository).save(any(Tag.class));
 
@@ -116,16 +116,51 @@ class TagServiceTest {
     }
 
     @Test
-    void resolveCallsFindByUserIdOnceAndCreatesMissing() {
+    void resolveReusesExistingCaseInsensitivelyWithoutSaving() {
         Tag existing = new Tag("Work", me);
-        when(tagRepository.findByUserId(1L)).thenReturn(List.of(existing));
+        existing.setId(10L);
+        when(tagRepository.findByUserIdAndNameIgnoreCase(1L, "work"))
+                .thenReturn(Optional.of(existing));
+
+        List<TagResponse> result = service.resolve(me, List.of("work"));
+
+        verify(tagRepository, times(0)).save(any(Tag.class));
+        assertEquals(1, result.size());
+        assertEquals(10L, result.get(0).getId());
+        assertEquals("Work", result.get(0).getName());
+    }
+
+    @Test
+    void resolveCreatesMissingWithTrimmedName() {
+        when(tagRepository.findByUserIdAndNameIgnoreCase(1L, "Personal"))
+                .thenReturn(Optional.empty());
+        when(tagRepository.save(any(Tag.class))).thenAnswer(inv -> {
+            Tag t = inv.getArgument(0);
+            t.setId(11L);
+            return t;
+        });
+
+        List<TagResponse> result = service.resolve(me, List.of(" Personal "));
+
+        assertEquals(1, result.size());
+        assertEquals(11L, result.get(0).getId());
+        assertEquals("Personal", result.get(0).getName());
+    }
+
+    @Test
+    void resolveDedupesSameNormalizedNamesWithSingleSave() {
+        when(tagRepository.findByUserIdAndNameIgnoreCase(eq(1L), any(String.class)))
+                .thenReturn(Optional.empty());
         when(tagRepository.save(any(Tag.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        List<Tag> result = service.resolve(me, List.of("work", " Personal ", "personal"));
+        List<TagResponse> result = service.resolve(me, List.of("work", " Work ", "WORK"));
 
-        verify(tagRepository, times(1)).findByUserId(1L);
-        assertEquals(2, result.size());
-        assertSame(existing, result.get(0));
-        assertEquals("Personal", result.get(1).getName());
+        verify(tagRepository, times(1)).save(any(Tag.class));
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    void resolveBlankNameFailsFast() {
+        assertThrows(IllegalArgumentException.class, () -> service.resolve(me, List.of("   ")));
     }
 }

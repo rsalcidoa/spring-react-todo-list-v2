@@ -43,19 +43,17 @@ describe('RegisterPage', () => {
   };
 
   it('shows backend message on 409 conflict', async () => {
-    vi.spyOn(window, 'alert').mockImplementation(() => undefined);
     (ApiService.api.post as any)
       .mockRejectedValueOnce({ response: { status: 409, data: { error: 'Este email ya está registrado' } } });
     renderWithProvider(<RegisterPage />);
     submit();
-    await waitFor(() => expect(window.alert).toHaveBeenCalledWith('Este email ya está registrado'));
+    await waitFor(() => expect(screen.getByText('Este email ya está registrado')).toBeTruthy());
   });
 
   it('shows generic message on other errors', async () => {
-    vi.spyOn(window, 'alert').mockImplementation(() => undefined);
     (ApiService.api.post as any).mockRejectedValueOnce({ response: { status: 500 } });
     renderWithProvider(<RegisterPage />);
     submit();
-    await waitFor(() => expect(window.alert).toHaveBeenCalledWith('Error en registro'));
+    await waitFor(() => expect(screen.getByText('Error en registro')).toBeTruthy());
   });
 });

@@ -6,4 +6,5 @@ import com.example.todo.model.User;
 public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByEmail(String email);
     java.util.Optional<com.example.todo.model.User> findByEmail(String email);
+    java.util.Optional<com.example.todo.model.User> findByResetToken(String resetToken);
 }

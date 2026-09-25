@@ -1,34 +1,87 @@
 import { Task, Tag, TaskInput, TaskStatus, Priority } from '../services/types/task';
-import { getTasks, createTask, updateTask, deleteTask, patchStatus, getTags, api } from '../services/ApiService';
+import { getTasks, createTask, updateTask, deleteTask, patchStatus, getTags, createTag as apiCreateTag, deleteTag as apiDeleteTag } from '../services/ApiService';
 
 export interface TaskRepository {
   fetchAll(): Promise<Task[]>;
   create(input: TaskInput): Promise<Task>;
-  update(id: number, input: TaskInput): Promise<void>;
+  update(id: number, input: TaskInput): Promise<Task>;
   move(id: number, status: TaskStatus): Promise<void>;
   remove(id: number): Promise<void>;
   listTags(): Promise<Tag[]>;
+  createTag(name: string): Promise<Tag>;
+  deleteTag(id: number): Promise<void>;
 }
 
-export interface ApiClient {
-  getTasks(): Promise<{ data?: Task[] }>;
-  createTask(body: WireTaskBody): Promise<{ data: Task }>;
-  updateTask(id: number, body: WireTaskBody): Promise<unknown>;
-  deleteTask(id: number): Promise<unknown>;
-  patchStatus(id: number, status: string): Promise<unknown>;
-  getTags(): Promise<{ data?: Tag[] }>;
+export type RepositoryErrorCode = 'conflict' | 'not-found' | 'validation' | 'unknown';
+
+export class RepositoryError extends Error {
+  readonly code: RepositoryErrorCode;
+  readonly status?: number;
+
+  constructor(code: RepositoryErrorCode, message: string, status?: number) {
+    super(message);
+    this.name = 'RepositoryError';
+    this.code = code;
+    this.status = status;
+  }
+}
+
+/** Single interpretation of the HTTP contract, shared by page and modal. */
+export function getApiStatus(e: unknown): number | undefined {
+  return (e as { response?: { status?: number } }).response?.status;
+}
+
+export function getApiMessage(e: unknown): string {
+  const err = e as { response?: { data?: { error?: string } }; message?: string };
+  return err.response?.data?.error || err.message || 'Error';
+}
+
+export function mapApiError(e: unknown): RepositoryError {
+  if (e instanceof RepositoryError) return e;
+  const status = getApiStatus(e);
+  const detail = getApiMessage(e);
+  if (status === 409) return new RepositoryError('conflict', detail, status);
+  if (status === 404) return new RepositoryError('not-found', detail, status);
+  if (status === 400) return new RepositoryError('validation', detail, status);
+  return new RepositoryError('unknown', detail, status);
+}
+
+export function toDisplayMessage(
+  e: unknown,
+  fallbacks: { conflict?: string; badRequest?: string; notFound?: string } = {},
+): string {
+  const err = mapApiError(e);
+  switch (err.code) {
+    case 'conflict':
+      return fallbacks.conflict ?? err.message;
+    case 'validation':
+      return fallbacks.badRequest ?? err.message;
+    case 'not-found':
+      return fallbacks.notFound ?? err.message;
+    default:
+      return err.message;
+  }
+}
+
+const normalizeKey = (name: string): string => name.trim().toLowerCase();
+
+function checkTagName(name: string): string {
+  const trimmed = name.trim();
+  if (!trimmed) throw new RepositoryError('validation', 'Tag name must not be blank');
+  if (trimmed.length > 50) throw new RepositoryError('validation', 'Tag name must not exceed 50 characters');
+  return trimmed;
 }
 
 interface WireTaskBody {
   title: string;
   description?: string;
-  priority: Priority;
-  status?: TaskStatus;
+  priority: Task['priority'];
+  status: TaskStatus;
   dueDate?: string;
   tagNames: string[];
 }
 
-export function toWire(input: TaskInput): WireTaskBody {
+function toWire(input: TaskInput): WireTaskBody {
   const wire: WireTaskBody = {
     title: input.title,
     priority: input.priority,
@@ -44,73 +97,88 @@ export function toWire(input: TaskInput): WireTaskBody {
   return wire;
 }
 
-export function fromWire(wire: Partial<Task> & { id?: number }): Task {
+function fromWire(wire: Partial<Task> & { id?: number }): Task {
   return {
     id: wire.id ?? 0,
     title: wire.title ?? '',
     description: wire.description,
-    priority: (wire.priority as Priority) ?? Priority.LOW,
+    priority: wire.priority ?? Priority.LOW,
     dueDate: wire.dueDate,
-    status: (wire.status as TaskStatus) ?? TaskStatus.PENDING,
+    status: wire.status ?? TaskStatus.PENDING,
     tags: Array.isArray(wire.tags) ? wire.tags : [],
     createdAt: wire.createdAt,
     updatedAt: wire.updatedAt,
   };
 }
 
-class DefaultClient implements ApiClient {
-  async getTasks() {
-    return getTasks();
-  }
-  async createTask(body: WireTaskBody) {
-    return createTask(body);
-  }
-  async updateTask(id: number, body: WireTaskBody) {
-    return updateTask(id, body);
-  }
-  async deleteTask(id: number) {
-    return deleteTask(id);
-  }
-  async patchStatus(id: number, status: string) {
-    return patchStatus(id, status);
-  }
-  async getTags() {
-    return getTags();
-  }
-}
-
 export class HttpTaskRepository implements TaskRepository {
-  private readonly client: ApiClient;
-
-  constructor(client?: ApiClient) {
-    this.client = client ?? new DefaultClient();
-  }
-
   async fetchAll(): Promise<Task[]> {
-    const r = await this.client.getTasks();
-    return (r.data ?? []).map(fromWire);
+    try {
+      const r = await getTasks();
+      return (r.data ?? []).map(fromWire);
+    } catch (e) {
+      throw mapApiError(e);
+    }
   }
 
   async create(input: TaskInput): Promise<Task> {
-    const r = await this.client.createTask(toWire(input));
-    return fromWire(r.data);
+    try {
+      const r = await createTask(toWire(input));
+      return fromWire(r.data);
+    } catch (e) {
+      throw mapApiError(e);
+    }
   }
 
-  async update(id: number, input: TaskInput): Promise<void> {
-    await this.client.updateTask(id, toWire(input));
+  async update(id: number, input: TaskInput): Promise<Task> {
+    try {
+      const r = await updateTask(id, toWire(input));
+      return fromWire(r.data);
+    } catch (e) {
+      throw mapApiError(e);
+    }
   }
 
   async move(id: number, status: TaskStatus): Promise<void> {
-    await this.client.patchStatus(id, status);
+    try {
+      await patchStatus(id, status);
+    } catch (e) {
+      throw mapApiError(e);
+    }
   }
 
   async remove(id: number): Promise<void> {
-    await this.client.deleteTask(id);
+    try {
+      await deleteTask(id);
+    } catch (e) {
+      throw mapApiError(e);
+    }
   }
 
   async listTags(): Promise<Tag[]> {
-    const r = await this.client.getTags();
-    return Array.isArray(r.data) ? r.data : [];
+    try {
+      const r = await getTags();
+      return Array.isArray(r.data) ? [...r.data] : [];
+    } catch (e) {
+      throw mapApiError(e);
+    }
+  }
+
+  async createTag(name: string): Promise<Tag> {
+    try {
+      const r = await apiCreateTag(name.trim());
+      return r.data as Tag;
+    } catch (e) {
+      throw mapApiError(e);
+    }
+  }
+
+  async deleteTag(id: number): Promise<void> {
+    try {
+      await apiDeleteTag(id);
+    } catch (e) {
+      throw mapApiError(e);
+    }
   }
 }
 
@@ -121,11 +189,11 @@ export class InMemoryTaskRepository implements TaskRepository {
   private nextTagId = 1;
 
   async fetchAll(): Promise<Task[]> {
-    return [...this.tasks];
+    return this.tasks.map(t => ({ ...t, tags: [...t.tags] }));
   }
 
   async create(input: TaskInput): Promise<Task> {
-    const tagNames = this.registerTags(input.tagNames);
+    const tags = this.registerTags(input.tagNames);
     const task: Task = {
       id: this.nextTaskId++,
       title: input.title,
@@ -133,16 +201,16 @@ export class InMemoryTaskRepository implements TaskRepository {
       priority: input.priority,
       status: input.status,
       dueDate: input.dueDate,
-      tags: tagNames.map(name => this.tags.find(t => t.name === name)!),
+      tags: [...tags],
     };
     this.tasks.push(task);
-    return { ...task };
+    return { ...task, tags: [...task.tags] };
   }
 
-  async update(id: number, input: TaskInput): Promise<void> {
+  async update(id: number, input: TaskInput): Promise<Task> {
     const index = this.tasks.findIndex(t => t.id === id);
-    if (index === -1) throw new Error(`Task ${id} not found`);
-    const tagNames = this.registerTags(input.tagNames);
+    if (index === -1) throw new RepositoryError('not-found', `Task ${id} not found`);
+    const tags = this.registerTags(input.tagNames);
     this.tasks[index] = {
       ...this.tasks[index],
       title: input.title,
@@ -150,30 +218,61 @@ export class InMemoryTaskRepository implements TaskRepository {
       priority: input.priority,
       status: input.status,
       dueDate: input.dueDate,
-      tags: tagNames.map(name => this.tags.find(t => t.name === name)!),
+      tags: [...tags],
     };
+    return { ...this.tasks[index], tags: [...this.tasks[index].tags] };
   }
 
   async move(id: number, status: TaskStatus): Promise<void> {
     const task = this.tasks.find(t => t.id === id);
-    if (task) task.status = status;
+    if (!task) throw new RepositoryError('not-found', `Task ${id} not found`);
+    task.status = status;
   }
 
   async remove(id: number): Promise<void> {
-    this.tasks = this.tasks.filter(t => t.id !== id);
+    const index = this.tasks.findIndex(t => t.id === id);
+    if (index === -1) throw new RepositoryError('not-found', `Task ${id} not found`);
+    this.tasks.splice(index, 1);
   }
 
   async listTags(): Promise<Tag[]> {
     return [...this.tags];
   }
 
-  private registerTags(names: string[]): string[] {
-    const unique = [...new Set(names)];
-    for (const name of unique) {
-      if (!this.tags.some(t => t.name === name)) {
-        this.tags.push({ id: this.nextTagId++, name });
-      }
+  async createTag(name: string): Promise<Tag> {
+    const trimmed = checkTagName(name);
+    const key = normalizeKey(trimmed);
+    const existing = this.tags.find(t => normalizeKey(t.name) === key);
+    if (existing) throw new RepositoryError('conflict', 'Tag already exists');
+    const tag: Tag = { id: this.nextTagId++, name: trimmed };
+    this.tags.push(tag);
+    return { ...tag };
+  }
+
+  async deleteTag(id: number): Promise<void> {
+    const index = this.tags.findIndex(t => t.id === id);
+    if (index === -1) throw new RepositoryError('not-found', `Tag ${id} not found`);
+    this.tags.splice(index, 1);
+    for (const task of this.tasks) {
+      task.tags = task.tags.filter(t => t.id !== id);
     }
-    return unique;
+  }
+
+  private registerTags(names: string[]): Tag[] {
+    const seen = new Set<string>();
+    const result: Tag[] = [];
+    for (const raw of names) {
+      const trimmed = checkTagName(raw);
+      const key = normalizeKey(trimmed);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      let tag = this.tags.find(t => normalizeKey(t.name) === key);
+      if (!tag) {
+        tag = { id: this.nextTagId++, name: trimmed };
+        this.tags.push(tag);
+      }
+      result.push(tag);
+    }
+    return result;
   }
 }

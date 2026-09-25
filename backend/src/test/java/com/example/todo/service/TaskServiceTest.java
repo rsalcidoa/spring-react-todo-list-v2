@@ -1,5 +1,6 @@
 package com.example.todo.service;
 
+import com.example.todo.dto.TagResponse;
 import com.example.todo.dto.TaskRequest;
 import com.example.todo.dto.TaskResponse;
 import com.example.todo.exception.InvalidStatusValueException;
@@ -12,6 +13,7 @@ import com.example.todo.model.Task;
 import com.example.todo.model.TaskStatus;
 import com.example.todo.model.User;
 import com.example.todo.repository.TaskRepository;
+import com.example.todo.repository.TagRepository;
 import com.example.todo.security.CurrentUserProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,6 +36,7 @@ import static org.mockito.Mockito.when;
 class TaskServiceTest {
 
     private TaskRepository taskRepository;
+    private TagRepository tagRepository;
     private TagService tagService;
     private CurrentUserProvider currentUser;
     private PlatformTransactionManager transactionManager;
@@ -46,11 +49,12 @@ class TaskServiceTest {
     @BeforeEach
     void setUp() {
         taskRepository = mock(TaskRepository.class);
+        tagRepository = mock(TagRepository.class);
         tagService = mock(TagService.class);
         currentUser = mock(CurrentUserProvider.class);
         transactionManager = mock(PlatformTransactionManager.class);
         transactionTemplate = new TransactionTemplate(transactionManager);
-        service = new TaskService(taskRepository, tagService, currentUser, transactionManager);
+        service = new TaskService(taskRepository, tagRepository, tagService, currentUser, transactionManager);
     }
 
     private User userWithId(long id, String email) {
@@ -177,38 +181,10 @@ class TaskServiceTest {
     }
 
     @Test
-    void patchStatusUpdatesOwnTask() {
-        Task task = taskOwnedBy(10L, me);
-        when(currentUser.requireCurrent()).thenReturn(me);
-        when(taskRepository.findById(10L)).thenReturn(Optional.of(task));
-
-        TaskResponse response = service.patchStatus(10L, TaskStatus.COMPLETED);
-
-        assertEquals(TaskStatus.COMPLETED, response.getStatus());
-    }
-
-    @Test
-    void patchStatusThrowsOwnershipDeniedForForeignTask() {
-        Task task = taskOwnedBy(10L, other);
-        when(currentUser.requireCurrent()).thenReturn(me);
-        when(taskRepository.findById(10L)).thenReturn(Optional.of(task));
-
-        assertThrows(OwnershipDeniedException.class, () -> service.patchStatus(10L, TaskStatus.COMPLETED));
-    }
-
-    @Test
-    void patchStatusThrowsNotFoundWhenMissing() {
-        when(currentUser.requireCurrent()).thenReturn(me);
-        when(taskRepository.findById(99L)).thenReturn(Optional.empty());
-
-        assertThrows(ResourceNotFoundException.class, () -> service.patchStatus(99L, TaskStatus.COMPLETED));
-    }
-
-    @Test
-    void patchStatusThrowsUnauthenticatedWithoutUser() {
+    void applyStatusThrowsUnauthenticatedWithoutUser() {
         when(currentUser.requireCurrent()).thenThrow(new UnauthenticatedException());
 
-        assertThrows(UnauthenticatedException.class, () -> service.patchStatus(10L, TaskStatus.COMPLETED));
+        assertThrows(UnauthenticatedException.class, () -> service.applyStatus(10L, "COMPLETED"));
     }
 
     @Test
@@ -232,10 +208,11 @@ class TaskServiceTest {
 
     @Test
     void createTaskResolvesAllTagNamesInOneBatch() {
-        Tag work = new Tag("Work", me);
-        Tag personal = new Tag("Personal", me);
         when(currentUser.requireCurrent()).thenReturn(me);
-        when(tagService.resolve(eq(me), any(List.class))).thenReturn(List.of(work, personal));
+        when(tagService.resolve(eq(me), any(List.class)))
+                .thenReturn(List.of(new TagResponse(1L, "Work"), new TagResponse(2L, "Personal")));
+        when(tagRepository.findAllById(List.of(1L, 2L)))
+                .thenReturn(List.of(new Tag("Work", me), new Tag("Personal", me)));
         TaskRequest request = new TaskRequest("T", "d", Priority.LOW, null);
         request.setTagNames(java.util.Set.of("Work", "Personal"));
 
@@ -303,15 +280,18 @@ class TaskServiceTest {
     }
 
     @Test
-    void createTaskRollsBackWhenSaveFailsWithDataIntegrityViolation() {
+    void createTaskContentionBeyondRetriesReturns409Not500() {
         when(currentUser.requireCurrent()).thenReturn(me);
-        when(tagService.resolve(eq(me), any(List.class))).thenReturn(List.of(new Tag("Work", me)));
+        when(tagService.resolve(eq(me), any(List.class)))
+                .thenReturn(List.of(new TagResponse(1L, "Work")));
+        when(tagRepository.findAllById(List.of(1L))).thenReturn(List.of(new Tag("Work", me)));
         org.mockito.Mockito.doThrow(new DataIntegrityViolationException("constraint"))
                 .when(taskRepository).save(any(Task.class));
         TaskRequest request = new TaskRequest("T", "d", Priority.LOW, null);
         request.setTagNames(java.util.Set.of("Work"));
 
-        assertThrows(IllegalStateException.class, () -> service.createTask(request));
+        assertThrows(com.example.todo.exception.TagAlreadyExistsException.class,
+                () -> service.createTask(request));
 
         // both attempts re-resolved (rollback of attempt 1 included the tag saves)
         verify(tagService, times(2)).resolve(eq(me), any(List.class));

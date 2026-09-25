@@ -22,6 +22,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
 import java.util.List;
+import java.time.Clock;
 
 @Configuration
 @EnableWebSecurity
@@ -38,6 +39,11 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public Clock clock() {
+        return Clock.systemUTC();
     }
 
     @Bean
@@ -65,6 +71,7 @@ public class SecurityConfig {
                     response.setStatus(org.springframework.http.HttpStatus.UNAUTHORIZED.value())))
             .authorizeHttpRequests(auth -> auth
                     .requestMatchers(HttpMethod.POST, "/v1/auth/**").permitAll()
+                    .requestMatchers(HttpMethod.PUT, "/v1/auth/reset-change").permitAll()
                     .anyRequest().authenticated())
             .addFilterBefore(new JwtAuthenticationFilter(jwtUtil, userDetailsService), UsernamePasswordAuthenticationFilter.class);
         return http.build();

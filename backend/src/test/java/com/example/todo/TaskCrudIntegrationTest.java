@@ -70,5 +70,49 @@ class TaskCrudIntegrationTest {
                     assertTrue(found, "Created task should appear in list");
                 });
     }
+
+    @Test
+    void statusQueryFiltersAndAbsentParamReturnsAll() throws Exception {
+        String uuid = UUID.randomUUID().toString();
+        String userEmail = uuid + "@example.com";
+        String userJson = String.format("{\"email\": \"%s\", \"password\": \"secret123\"}", userEmail);
+
+        mockMvc.perform(post("/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(userJson))
+                .andExpect(status().isCreated());
+
+        String loginResp = mockMvc.perform(post("/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(userJson))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String token = mapper.readTree(loginResp).path("token").asText();
+
+        mockMvc.perform(post("/v1/tasks")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\": \"Pending one\", \"priority\": \"LOW\", \"status\": \"PENDING\"}"))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/v1/tasks")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\": \"Active one\", \"priority\": \"LOW\", \"status\": \"ACTIVE\"}"))
+                .andExpect(status().isCreated());
+
+        String filtered = mockMvc.perform(get("/v1/tasks?status=PENDING")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        var filteredNodes = mapper.readTree(filtered);
+        assertEquals(1, filteredNodes.size());
+        assertEquals("Pending one", filteredNodes.get(0).path("title").asText());
+
+        String all = mockMvc.perform(get("/v1/tasks")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertEquals(2, mapper.readTree(all).size());
+    }
 }
 

@@ -20,6 +20,12 @@ public class User {
     @Column(name="created_at", nullable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "reset_token")
+    private String resetToken;
+
+    @Column(name = "reset_expires")
+    private LocalDateTime resetExpires;
+
     public User() {
         this.createdAt = LocalDateTime.now();
     }
@@ -39,6 +45,10 @@ public class User {
     public void setPassword(String password) { this.password = password; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public String getResetToken() { return resetToken; }
+    public void setResetToken(String resetToken) { this.resetToken = resetToken; }
+    public LocalDateTime getResetExpires() { return resetExpires; }
+    public void setResetExpires(LocalDateTime resetExpires) { this.resetExpires = resetExpires; }
 
     @Override
     public boolean equals(Object o) {

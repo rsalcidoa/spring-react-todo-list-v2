@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, afterAll, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import TodoListPage from '../pages/TodoListPage';
-import * as ApiService from '../services/ApiService';
+import { InMemoryTaskRepository } from '../data/TaskRepository';
+import { Priority, TaskStatus } from '../services/types/task';
 
 vi.mock('../context/AuthContext', () => ({
   useAuth: vi.fn(() => ({
@@ -10,39 +11,39 @@ vi.mock('../context/AuthContext', () => ({
   })),
 }));
 
-vi.mock('../services/ApiService', () => ({
-  getTasks: vi.fn().mockResolvedValue({ data: [
-    { id: 1, title: 'Task A', description: 'Desc A', priority: 'LOW', status: 'PENDING' as const, tags: [] },
-    { id: 2, title: 'Task B', description: 'Desc B', priority: 'HIGH', status: 'ACTIVE' as const, tags: [] },
-  ]}),
-  createTask: vi.fn().mockImplementation((t) => Promise.resolve({ data: { id: 3, ...t } })),
-  updateTask: vi.fn().mockResolvedValue({ data: {} }),
-  deleteTask: vi.fn().mockResolvedValue({}),
-  getTags: vi.fn().mockResolvedValue({ data: [{ id: 1, name: 'Work' }] }),
-  createTag: vi.fn(),
-}));
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
-afterEach(cleanup);
-
-describe('TodoListPage Kanban', () => {
-  const renderWithProvider = (component: React.ReactElement) => {
-    global.localStorage = {
-      getItem: vi.fn(() => null),
-      setItem: vi.fn(),
-      removeItem: vi.fn(),
-      clear: vi.fn(),
-    } as unknown as Storage;
+describe('TodoListPage Kanban (through the repository seam)', () => {
+  const renderWithRepo = (repository: InMemoryTaskRepository) => {
     return render(
       <MemoryRouter initialEntries={['/tasks']}>
         <Routes>
-          <Route path="/tasks" element={component} />
+          <Route path="/tasks" element={<TodoListPage repository={repository} />} />
         </Routes>
       </MemoryRouter>,
     );
   };
 
+  async function seedBoard() {
+    const repository = new InMemoryTaskRepository();
+    const work = await repository.createTag('Work');
+    const personal = await repository.createTag('Personal');
+    await repository.create({
+      title: 'Task Alpha', description: 'Desc A', priority: Priority.LOW,
+      status: TaskStatus.PENDING, tagNames: ['Work'],
+    });
+    await repository.create({
+      title: 'Task Beta', description: 'Desc B', priority: Priority.HIGH,
+      status: TaskStatus.ACTIVE, tagNames: [],
+    });
+    return { repository, work, personal };
+  }
+
   it('renders three Kanban columns with correct labels', async () => {
-    renderWithProvider(<TodoListPage />);
+    renderWithRepo(new InMemoryTaskRepository());
     await waitFor(() => expect(screen.getByText(/Task Board/i)).toBeTruthy());
     expect(screen.getByText(/To Do/i)).toBeTruthy();
     expect(screen.getByText(/In Progress/i)).toBeTruthy();
@@ -50,93 +51,126 @@ describe('TodoListPage Kanban', () => {
   });
 
   it('displays tasks in the correct columns by status', async () => {
-    renderWithProvider(<TodoListPage />);
-    await waitFor(() => {
-      const taskA = screen.queryByText(/Task A/i);
-      expect(taskA).toBeTruthy();
-    }, { timeout: 5000 });
+    const { repository } = await seedBoard();
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy(), { timeout: 5000 });
+    expect(screen.queryByText(/Task Beta/i)).toBeTruthy();
   });
 
-  it('can create a new task via modal', async () => {
-    renderWithProvider(<TodoListPage />);
-    await waitFor(() => {
-      const heading = screen.queryByText(/Task Board/i);
-      expect(heading).toBeTruthy();
-    }, { timeout: 5000 });
+  it('creates a task via modal and stores it through the repository', async () => {
+    const repository = new InMemoryTaskRepository();
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.queryByText(/Task Board/i)).toBeTruthy());
 
-    const newTaskBtn = screen.getByRole('button', { name: /\+ Task/i });
-    fireEvent.click(newTaskBtn);
+    fireEvent.click(screen.getByRole('button', { name: /\+ Task/i }));
+    fireEvent.change(screen.getByPlaceholderText(/Enter task title/), { target: { value: 'New Modal Task' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save/i }));
 
-    const titleInput = screen.getByPlaceholderText(/Enter task title/);
-    expect(titleInput).toBeTruthy();
-
-    fireEvent.change(titleInput, { target: { value: 'New Modal Task' } });
-
-    const saveBtn = screen.getByRole('button', { name: /Save/i });
-    fireEvent.click(saveBtn);
-
-    await waitFor(() => expect(ApiService.createTask).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByText(/New Modal Task/i)).toBeTruthy());
+    const tasks = await repository.fetchAll();
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0].title).toBe('New Modal Task');
   });
 
-  it('can delete a task via delete button', async () => {
-    renderWithProvider(<TodoListPage />);
-    await waitFor(() => {
-      const taskA = screen.queryByText(/Task A/i);
-      expect(taskA).toBeTruthy();
-    }, { timeout: 5000 });
+  it('deletes a task via delete button and removes it from the repository', async () => {
+    const { repository } = await seedBoard();
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy(), { timeout: 5000 });
 
     vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const taskACard = screen.getByText(/Task Alpha/i).closest('[data-task]');
+    fireEvent.click(taskACard!.querySelector('button[aria-label="Delete task"]')!);
 
-    const taskACard = screen.getByText(/Task A/i).closest('[data-task]');
-    const deleteBtn = taskACard!.querySelector('button[aria-label="Delete task"]')!;
-    fireEvent.click(deleteBtn);
-
-    await waitFor(() => expect(ApiService.deleteTask).toHaveBeenCalledWith(1));
-    await waitFor(() => {
-      expect(screen.queryByText(/Task A/i)).toBeNull();
-    }, { timeout: 5000 });
+    await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeNull(), { timeout: 5000 });
+    expect(await repository.fetchAll()).toHaveLength(1);
   });
 
-  it('refreshes tags after task creation so new tags appear in modal', async () => {
-    const initialTags = [{ id: 1, name: 'Work' }];
-    const refreshedTags = [
-      { id: 1, name: 'Work' },
-      { id: 2, name: 'NewTag' },
-    ];
+  it('shows ErrorBanner instead of console.error when loading tasks fails', async () => {
+    const repository = new InMemoryTaskRepository();
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.spyOn(repository, 'fetchAll').mockRejectedValueOnce(new Error('Network down'));
 
-    vi.mocked(ApiService.getTags)
-      .mockResolvedValueOnce({ data: initialTags } as any)
-      .mockResolvedValue({ data: refreshedTags } as any);
+    renderWithRepo(repository);
 
-    renderWithProvider(<TodoListPage />);
-    await waitFor(() => {
-      const heading = screen.queryByText(/Task Board/i);
-      expect(heading).toBeTruthy();
-    }, { timeout: 5000 });
+    const alert = await screen.findByRole('alert');
+    expect(alert).toBeTruthy();
+    expect(screen.getByText(/Network down/)).toBeTruthy();
+    expect(console.error).not.toHaveBeenCalled();
 
-    const newTaskBtn = screen.getByRole('button', { name: /\+ Task/i });
-    fireEvent.click(newTaskBtn);
+    fireEvent.click(screen.getByRole('button', { name: /Close/i }));
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+  });
 
-    const titleInput = screen.getByPlaceholderText(/Enter task title/);
-    fireEvent.change(titleInput, { target: { value: 'Tagged Task' } });
+  it('saves edited tags with real ids from the repository', async () => {
+    const { repository } = await seedBoard();
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy(), { timeout: 5000 });
 
-    const saveBtn = screen.getByRole('button', { name: /Save/i });
-    fireEvent.click(saveBtn);
+    fireEvent.click(screen.getByText(/Task Alpha/i).closest('[data-task]')!);
+    await waitFor(() => expect(screen.queryByText(/Edit Task/i)).toBeTruthy());
 
-    await waitFor(() => expect(ApiService.createTask).toHaveBeenCalled());
+    fireEvent.click(screen.getByText('Personal'));
+    fireEvent.change(screen.getByPlaceholderText(/Enter task title/), { target: { value: 'Task Alpha updated' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save/i }));
 
-    // After create succeeds, loadTags() is called again → getTags called a 2nd time
-    // with the refreshed list containing 'NewTag'
-    await waitFor(() => {
-      const calls = vi.mocked(ApiService.getTags).mock.calls;
-      expect(calls.length).toBeGreaterThanOrEqual(2);
-    }, { timeout: 5000 });
+    await waitFor(() => expect(screen.queryByText(/Task Alpha updated/i)).toBeTruthy());
+    const tasks = await repository.fetchAll();
+    const saved = tasks.find(t => t.title === 'Task Alpha updated')!;
+    expect(saved.tags.map(t => t.name).sort()).toEqual(['Personal', 'Work']);
+    expect(saved.tags.every(t => typeof t.id === 'number')).toBe(true);
+  });
 
-    // Reopen modal — existingTags should now include the refreshed tags
-    fireEvent.click(newTaskBtn);
-    await waitFor(() => {
-      const tagOption = screen.queryByText(/NewTag/i);
-      expect(tagOption).toBeTruthy();
-    }, { timeout: 5000 });
+  it('removes a deleted tag from the repository and unassigns it', async () => {
+    const { repository } = await seedBoard();
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy(), { timeout: 5000 });
+
+    fireEvent.click(screen.getByText(/Task Alpha/i).closest('[data-task]')!);
+    await waitFor(() => expect(screen.queryByText(/Edit Task/i)).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: /Delete tag Personal/i }));
+
+    await waitFor(async () => expect(await repository.listTags()).toHaveLength(1));
+    const tasks = await repository.fetchAll();
+    expect(tasks.every(t => t.tags.every(tag => tag.name !== 'Personal'))).toBe(true);
+  });
+
+  it('creates tags with real ids so they reconcile without refresh hacks', async () => {
+    const repository = new InMemoryTaskRepository();
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.queryByText(/Task Board/i)).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: /\+ Task/i }));
+    fireEvent.change(screen.getByPlaceholderText(/New tag name/), { target: { value: 'NewTag' } });
+    fireEvent.click(screen.getByRole('button', { name: /Create/i }));
+
+    await waitFor(async () => expect(await repository.listTags()).toHaveLength(1));
+    const [tag] = await repository.listTags();
+    expect(typeof tag.id).toBe('number');
+
+    fireEvent.change(screen.getByPlaceholderText(/Enter task title/), { target: { value: 'Tagged Task' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save/i }));
+
+    await waitFor(() => expect(screen.queryByText(/Tagged Task/i)).toBeTruthy());
+    const tasks = await repository.fetchAll();
+    expect(tasks[0].tags).toEqual([{ id: tag.id, name: 'NewTag' }]);
+  });
+
+  it('rolls back optimistic status when move fails', async () => {
+    const { repository } = await seedBoard();
+    vi.spyOn(repository, 'move').mockRejectedValueOnce(new Error('offline'));
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy(), { timeout: 5000 });
+
+    const header = screen.getByText('In Progress');
+    const body = header.closest('div')!.querySelector('div')!;
+    fireEvent.drop(body, {
+      dataTransfer: { getData: () => '1' },
+      preventDefault: () => {},
+    });
+
+    await waitFor(() => expect(screen.getByText(/offline/i)).toBeTruthy());
+    const tasks = await repository.fetchAll();
+    expect(tasks.find(t => t.id === 1)!.status).toBe(TaskStatus.PENDING);
   });
 });

@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -158,5 +159,84 @@ class TagResolutionIntegrationTest {
                 .andReturn();
         assertEquals(1, mapper.readTree(tagsResp.getResponse().getContentAsString()).size(),
                 "Only 1 tag should exist (no duplicate from case-insensitive match)");
+    }
+
+    @Test
+    void createTaskWithCaseVariantOfNewTagReusesSingleRow() throws Exception {
+        String uuid = UUID.randomUUID().toString();
+        String token = registerAndLogin(uuid);
+        String tagName = "CaseTag" + uuid;
+
+        String taskJson1 = String.format("{\"title\": \"T1\", \"description\": \"d\", \"priority\": \"LOW\", \"tagNames\": [\"%s\"]}", tagName);
+        MvcResult r1 = mockMvc.perform(post("/v1/tasks")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(taskJson1))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        String taskJson2 = String.format("{\"title\": \"T2\", \"description\": \"d\", \"priority\": \"LOW\", \"tagNames\": [\"%s\"]}", tagName.toLowerCase());
+        MvcResult r2 = mockMvc.perform(post("/v1/tasks")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(taskJson2))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        // Both tasks reference the canonical first-creation name, no duplicate row.
+        assertEquals(tagName, mapper.readTree(r1.getResponse().getContentAsString())
+                .path("tags").get(0).path("name").asText());
+        assertEquals(tagName, mapper.readTree(r2.getResponse().getContentAsString())
+                .path("tags").get(0).path("name").asText());
+
+        MvcResult tagsResp = mockMvc.perform(get("/v1/tags")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn();
+        assertEquals(1, mapper.readTree(tagsResp.getResponse().getContentAsString()).size(),
+                "Only 1 tag row should exist after case-variant reuse");
+    }
+
+    @Test
+    void createTaskWithBlankTagNameReturns400WithoutCreatingAnything() throws Exception {
+        String uuid = UUID.randomUUID().toString();
+        String token = registerAndLogin(uuid);
+
+        mockMvc.perform(post("/v1/tasks")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\": \"T\", \"description\": \"d\", \"priority\": \"LOW\", \"tagNames\": [\"\"]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation failed"))
+                .andExpect(jsonPath("$.errors.tagNames[0]").exists());
+
+        MvcResult tasksResp = mockMvc.perform(get("/v1/tasks")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn();
+        assertEquals(0, mapper.readTree(tasksResp.getResponse().getContentAsString()).size(),
+                "No task may be created on validation failure");
+
+        MvcResult tagsResp = mockMvc.perform(get("/v1/tags")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn();
+        assertEquals(0, mapper.readTree(tagsResp.getResponse().getContentAsString()).size(),
+                "No tag may be created on validation failure");
+    }
+
+    @Test
+    void createTaskWithOversizedTagNameReturns400() throws Exception {
+        String uuid = UUID.randomUUID().toString();
+        String token = registerAndLogin(uuid);
+        String longName = "x".repeat(51);
+
+        mockMvc.perform(post("/v1/tasks")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(String.format("{\"title\": \"T\", \"priority\": \"LOW\", \"tagNames\": [\"%s\"]}", longName)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation failed"))
+                .andExpect(jsonPath("$.errors.tagNames[0]").exists());
     }
 }

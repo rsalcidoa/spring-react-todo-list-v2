@@ -3,7 +3,6 @@ package com.example.todo.controller;
 import com.example.todo.dto.StatusUpdateRequest;
 import com.example.todo.dto.TaskRequest;
 import com.example.todo.dto.TaskResponse;
-import com.example.todo.model.TaskStatus;
 import com.example.todo.service.TaskService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -24,10 +23,12 @@ public class TaskController {
     }
 
     /**
-     * Retrieve the authenticated user's tasks.
+     * Retrieve the authenticated user's tasks, optionally filtered by status.
+     * The raw value is parsed by the Task module so an invalid status yields
+     * the structured 400 contract instead of a generic conversion error.
      */
     @GetMapping
-    public ResponseEntity<List<TaskResponse>> getAllTasks(@RequestParam(name="status", required=false) Optional<TaskStatus> status) {
+    public ResponseEntity<List<TaskResponse>> getAllTasks(@RequestParam(name="status", required=false) Optional<String> status) {
         List<TaskResponse> tasks;
         if (status.isPresent()) {
             tasks = taskService.getAllTasksByStatus(status.get());

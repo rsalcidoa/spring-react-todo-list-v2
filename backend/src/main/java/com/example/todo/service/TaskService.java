@@ -6,10 +6,12 @@ import com.example.todo.dto.TaskResponse;
 import com.example.todo.exception.InvalidStatusValueException;
 import com.example.todo.exception.OwnershipDeniedException;
 import com.example.todo.exception.ResourceNotFoundException;
+import com.example.todo.exception.TagAlreadyExistsException;
 import com.example.todo.model.Task;
 import com.example.todo.model.User;
 import com.example.todo.model.Tag;
 import com.example.todo.repository.TaskRepository;
+import com.example.todo.repository.TagRepository;
 import com.example.todo.security.CurrentUserProvider;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -26,13 +28,15 @@ public class TaskService {
     private static final int MAX_ATTEMPTS = 2;
 
     private final TaskRepository taskRepository;
+    private final TagRepository tagRepository;
     private final TagService tagService;
     private final CurrentUserProvider currentUser;
     private final TransactionTemplate transactionTemplate;
 
-    public TaskService(TaskRepository taskRepository, TagService tagService,
+    public TaskService(TaskRepository taskRepository, TagRepository tagRepository, TagService tagService,
                        CurrentUserProvider currentUser, PlatformTransactionManager transactionManager) {
         this.taskRepository = taskRepository;
+        this.tagRepository = tagRepository;
         this.tagService = tagService;
         this.currentUser = currentUser;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
@@ -52,6 +56,10 @@ public class TaskService {
                 .collect(Collectors.toList());
     }
 
+    public List<TaskResponse> getAllTasksByStatus(String rawStatus) {
+        return getAllTasksByStatus(parseStatus(rawStatus));
+    }
+
     public TaskResponse getTaskById(Long id) {
         User me = currentUser.requireCurrent();
         return toResponse(findOwnedTask(id, me));
@@ -63,20 +71,13 @@ public class TaskService {
         applyFields(task, request);
         task.setUser(me);
         Set<String> tagNames = request.getTagNames();
-        for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
-            try {
-                return transactionTemplate.execute(status -> {
-                    if (tagNames != null && !tagNames.isEmpty()) {
-                        assignTags(task, me, tagNames);
-                    }
-                    taskRepository.save(task);
-                    return toResponse(task);
-                });
-            } catch (DataIntegrityViolationException e) {
-                // retry: re-resolve reuses tags committed by the concurrent transaction
+        return withTagRetry(() -> {
+            if (tagNames != null && !tagNames.isEmpty()) {
+                assignTags(task, me, tagNames);
             }
-        }
-        throw new IllegalStateException("Failed to save task after retries");
+            taskRepository.save(task);
+            return toResponse(task);
+        });
     }
 
     public TaskResponse updateTask(Long id, TaskRequest request) {
@@ -84,20 +85,26 @@ public class TaskService {
         Task task = findOwnedTask(id, me);
         applyFields(task, request);
         Set<String> tagNames = request.getTagNames();
-        for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+        return withTagRetry(() -> {
+            if (tagNames != null) {
+                assignTags(task, me, tagNames);
+            }
+            taskRepository.save(task);
+            return toResponse(task);
+        });
+    }
+
+    // Single retry driver for tag contention: one fresh transaction per
+    // attempt so re-resolution reuses tags committed concurrently.
+    private TaskResponse withTagRetry(java.util.function.Supplier<TaskResponse> attempt) {
+        for (int i = 0; i < MAX_ATTEMPTS; i++) {
             try {
-                return transactionTemplate.execute(status -> {
-                    if (tagNames != null) {
-                        assignTags(task, me, tagNames);
-                    }
-                    taskRepository.save(task);
-                    return toResponse(task);
-                });
+                return transactionTemplate.execute(status -> attempt.get());
             } catch (DataIntegrityViolationException e) {
                 // retry: re-resolve reuses tags committed by the concurrent transaction
             }
         }
-        throw new IllegalStateException("Failed to save task after retries");
+        throw new TagAlreadyExistsException();
     }
 
     private void applyFields(Task task, TaskRequest request) {
@@ -127,17 +134,13 @@ public class TaskService {
     }
 
     private void assignTags(Task task, User me, Set<String> tagNames) {
-        List<Tag> tags = tagService.resolve(me, new ArrayList<>(tagNames));
+        // Values cross the tag module seam; entities are attached mechanically by id.
+        List<Long> ids = tagService.resolve(me, new ArrayList<>(tagNames)).stream()
+                .map(TagResponse::getId)
+                .collect(Collectors.toList());
+        List<Tag> managed = tagRepository.findAllById(ids);
         task.getTags().clear();
-        task.getTags().addAll(tags);
-    }
-
-    public TaskResponse patchStatus(Long id, com.example.todo.model.TaskStatus newStatus) {
-        User me = currentUser.requireCurrent();
-        Task task = findOwnedTask(id, me);
-        task.setStatus(newStatus);
-        taskRepository.save(task);
-        return toResponse(task);
+        task.getTags().addAll(managed);
     }
 
     public void deleteTask(Long id) {

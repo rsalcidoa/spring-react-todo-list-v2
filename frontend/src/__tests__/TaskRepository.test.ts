@@ -1,72 +1,25 @@
-import { describe, it, expect } from 'vitest';
-import { HttpTaskRepository, InMemoryTaskRepository, TaskRepository } from '../data/TaskRepository';
-import type { ApiClient } from '../data/TaskRepository';
-import { TaskInput, Task, Tag, Priority, TaskStatus } from '../services/types/task';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import {
+  HttpTaskRepository,
+  InMemoryTaskRepository,
+  RepositoryError,
+  mapApiError,
+  toDisplayMessage,
+  type TaskRepository,
+} from '../data/TaskRepository';
+import { TaskInput, Priority, TaskStatus } from '../services/types/task';
+import * as ApiService from '../services/ApiService';
 
-interface RecordedRequest {
-  method: string;
-  url: string;
-  body?: unknown;
-}
-
-function makeRecordingClient(): { client: ApiClient; requests: RecordedRequest[] } {
-  const requests: RecordedRequest[] = [];
-  const tasks: Task[] = [];
-  const tags: Tag[] = [];
-  let nextId = 1;
-
-  const client: ApiClient = {
-    async getTasks() {
-      requests.push({ method: 'GET', url: '/tasks' });
-      return { data: [...tasks] };
-    },
-    async createTask(body) {
-      requests.push({ method: 'POST', url: '/tasks', body });
-      const task: Task = {
-        id: nextId++,
-        title: body.title,
-        description: body.description,
-        priority: body.priority,
-        status: (body.status as TaskStatus) ?? TaskStatus.PENDING,
-        dueDate: body.dueDate,
-        tags: (body.tagNames ?? []).map((name, i) => ({ id: i + 1, name })),
-      };
-      tasks.push(task);
-      return { data: task };
-    },
-    async updateTask(id, body) {
-      requests.push({ method: 'PUT', url: `/tasks/${id}`, body });
-      const idx = tasks.findIndex(t => t.id === id);
-      if (idx !== -1) {
-        tasks[idx] = {
-          ...tasks[idx],
-          title: body.title,
-          description: body.description,
-          priority: body.priority,
-          status: (body.status as TaskStatus) ?? tasks[idx].status,
-          dueDate: body.dueDate,
-          tags: (body.tagNames ?? []).map((name, i) => ({ id: i + 1, name })),
-        };
-      }
-    },
-    async deleteTask(id) {
-      requests.push({ method: 'DELETE', url: `/tasks/${id}` });
-      const idx = tasks.findIndex(t => t.id === id);
-      if (idx !== -1) tasks.splice(idx, 1);
-    },
-    async patchStatus(id, status) {
-      requests.push({ method: 'PATCH', url: `/tasks/${id}/status`, body: { status } });
-      const task = tasks.find(t => t.id === id);
-      if (task) task.status = status as TaskStatus;
-    },
-    async getTags() {
-      requests.push({ method: 'GET', url: '/tags' });
-      return { data: [...tags] };
-    },
-  };
-
-  return { client, requests };
-}
+vi.mock('../services/ApiService', () => ({
+  getTasks: vi.fn(),
+  createTask: vi.fn(),
+  updateTask: vi.fn(),
+  deleteTask: vi.fn(),
+  patchStatus: vi.fn(),
+  getTags: vi.fn(),
+  createTag: vi.fn(),
+  deleteTag: vi.fn(),
+}));
 
 function makeInput(overrides?: Partial<TaskInput>): TaskInput {
   return {
@@ -78,172 +31,163 @@ function makeInput(overrides?: Partial<TaskInput>): TaskInput {
   };
 }
 
-function runSharedSuite(name: string, factory: () => TaskRepository) {
-  describe(name, () => {
-    it('create() with tagNames produces wire request with exact tagNames', async () => {
-      const repo = factory();
-      if (repo instanceof HttpTaskRepository) {
-        const { client, requests } = makeRecordingClient();
-        const httpRepo = new HttpTaskRepository(client);
-        await httpRepo.create(makeInput({ title: 'Tagged', tagNames: ['Work', 'Personal'] }));
-        const createReq = requests.find(r => r.method === 'POST' && r.url === '/tasks');
-        expect(createReq).toBeDefined();
-        expect(createReq!.body).toMatchObject({ tagNames: ['Work', 'Personal'] });
-      } else {
-        const inMem = repo as InMemoryTaskRepository;
-        await inMem.create(makeInput({ title: 'Tagged', tagNames: ['Work', 'Personal'] }));
-        const tasks = await inMem.fetchAll();
-        expect(tasks).toHaveLength(1);
-        expect(tasks[0].tags.map(t => t.name)).toEqual(['Work', 'Personal']);
-      }
-    });
+describe('TaskRepository interface semantics (InMemory)', () => {
+  let repo: TaskRepository;
 
-    it('create() with empty dueDate omits dueDate from wire body', async () => {
-      const repo = factory();
-      if (repo instanceof HttpTaskRepository) {
-        const { client, requests } = makeRecordingClient();
-        const httpRepo = new HttpTaskRepository(client);
-        await httpRepo.create(makeInput({ dueDate: '' }));
-        const createReq = requests.find(r => r.method === 'POST' && r.url === '/tasks');
-        expect(createReq).toBeDefined();
-        expect(createReq!.body).not.toHaveProperty('dueDate');
-      } else {
-        const inMem = repo as InMemoryTaskRepository;
-        await inMem.create(makeInput({ dueDate: '' }));
-        const tasks = await inMem.fetchAll();
-        expect(tasks[0].dueDate ?? null).toBeFalsy();
-      }
-    });
-
-    it('fetchAll() maps wire responses to domain Task with tags array', async () => {
-      const repo = factory();
-      if (repo instanceof HttpTaskRepository) {
-        const { client, requests } = makeRecordingClient();
-        const httpRepo = new HttpTaskRepository(client);
-        await httpRepo.create(makeInput({ title: 'Wire Task', tagNames: ['A', 'B'] }));
-        const all = await httpRepo.fetchAll();
-        expect(all).toHaveLength(1);
-        expect(Array.isArray(all[0].tags)).toBe(true);
-        expect(all[0].tags).toHaveLength(2);
-      } else {
-        const inMem = repo as InMemoryTaskRepository;
-        await inMem.create(makeInput({ title: 'Wire Task', tagNames: ['A', 'B'] }));
-        const all = await inMem.fetchAll();
-        expect(all).toHaveLength(1);
-        expect(Array.isArray(all[0].tags)).toBe(true);
-        expect(all[0].tags.map(t => t.name)).toEqual(['A', 'B']);
-      }
-    });
-
-    it('move() transitions task status', async () => {
-      const repo = factory();
-      if (repo instanceof HttpTaskRepository) {
-        const { client, requests } = makeRecordingClient();
-        const httpRepo = new HttpTaskRepository(client);
-        await httpRepo.create(makeInput({ title: 'Move Me' }));
-        await httpRepo.move(1, TaskStatus.COMPLETED);
-        const patchReq = requests.find(r => r.method === 'PATCH');
-        expect(patchReq).toBeDefined();
-        expect(patchReq!.url).toBe('/tasks/1/status');
-        expect(patchReq!.body).toEqual({ status: 'COMPLETED' });
-      } else {
-        const inMem = repo as InMemoryTaskRepository;
-        await inMem.create(makeInput({ title: 'Move Me' }));
-        await inMem.move(1, TaskStatus.COMPLETED);
-        const tasks = await inMem.fetchAll();
-        expect(tasks[0].status).toBe(TaskStatus.COMPLETED);
-      }
-    });
-
-    it('remove() deletes a task', async () => {
-      const repo = factory();
-      if (repo instanceof HttpTaskRepository) {
-        const { client, requests } = makeRecordingClient();
-        const httpRepo = new HttpTaskRepository(client);
-        await httpRepo.create(makeInput({ title: 'Delete Me' }));
-        await httpRepo.remove(1);
-        const delReq = requests.find(r => r.method === 'DELETE');
-        expect(delReq).toBeDefined();
-        expect(delReq!.url).toBe('/tasks/1');
-      } else {
-        const inMem = repo as InMemoryTaskRepository;
-        await inMem.create(makeInput({ title: 'Delete Me' }));
-        await inMem.remove(1);
-        const tasks = await inMem.fetchAll();
-        expect(tasks).toHaveLength(0);
-      }
-    });
-
-    it('listTags() returns registered tags', async () => {
-      const repo = factory();
-      if (repo instanceof HttpTaskRepository) {
-        const { client, requests } = makeRecordingClient();
-        const httpRepo = new HttpTaskRepository(client);
-        await httpRepo.create(makeInput({ tagNames: ['X'] }));
-        const tags = await httpRepo.listTags();
-        expect(Array.isArray(tags)).toBe(true);
-      } else {
-        const inMem = repo as InMemoryTaskRepository;
-        await inMem.create(makeInput({ tagNames: ['X', 'Y'] }));
-        const tags = await inMem.listTags();
-        expect(tags.map(t => t.name).sort()).toEqual(['X', 'Y']);
-      }
-    });
-
-    it('full board flow: fetchAll, create, update, move, remove, listTags', async () => {
-      const repo = factory();
-      const created = await repo.create(makeInput({ title: 'Full Flow', priority: Priority.HIGH, tagNames: ['Flow'] }));
-      expect(created.id).toBeDefined();
-
-      await repo.update(created.id, makeInput({ title: 'Updated Flow', priority: Priority.MEDIUM, status: TaskStatus.ACTIVE, tagNames: ['Flow', 'Extra'] }));
-
-      const afterUpdate = await repo.fetchAll();
-      expect(afterUpdate).toHaveLength(1);
-      expect(afterUpdate[0].title).toBe('Updated Flow');
-      expect(afterUpdate[0].priority).toBe(Priority.MEDIUM);
-      expect(afterUpdate[0].status).toBe(TaskStatus.ACTIVE);
-
-      await repo.move(created.id, TaskStatus.COMPLETED);
-      const afterMove = await repo.fetchAll();
-      expect(afterMove[0].status).toBe(TaskStatus.COMPLETED);
-
-      await repo.remove(created.id);
-      const final = await repo.fetchAll();
-      expect(final).toHaveLength(0);
-    });
+  beforeEach(() => {
+    repo = new InMemoryTaskRepository();
   });
-}
 
-runSharedSuite('InMemoryTaskRepository', () => new InMemoryTaskRepository());
-runSharedSuite('HttpTaskRepository (with recording client)', () => {
-  const { client } = makeRecordingClient();
-  return new HttpTaskRepository(client);
+  it('create() stores tags with canonical first-creation case', async () => {
+    const created = await repo.create(makeInput({ title: 'Tagged', tagNames: ['Work', 'Personal'] }));
+    expect(created.tags.map(t => t.name)).toEqual(['Work', 'Personal']);
+    expect(created.tags.every(t => typeof t.id === 'number')).toBe(true);
+  });
+
+  it('create() normalizes case-variants to the existing tag', async () => {
+    await repo.create(makeInput({ title: 'T1', tagNames: ['Work'] }));
+    const second = await repo.create(makeInput({ title: 'T2', tagNames: [' work '] }));
+    expect(second.tags.map(t => t.name)).toEqual(['Work']);
+    expect(await repo.listTags()).toHaveLength(1);
+  });
+
+  it('create() rejects blank and oversized tag names', async () => {
+    await expect(repo.create(makeInput({ tagNames: [''] }))).rejects.toMatchObject({ code: 'validation' });
+    await expect(repo.create(makeInput({ tagNames: ['x'.repeat(51)] }))).rejects.toMatchObject({ code: 'validation' });
+    expect(await repo.fetchAll()).toHaveLength(0);
+  });
+
+  it('update() returns the updated task', async () => {
+    const created = await repo.create(makeInput({ title: 'T', tagNames: ['A'] }));
+    const updated = await repo.update(created.id, makeInput({ title: 'T2', status: TaskStatus.ACTIVE, tagNames: ['B'] }));
+    expect(updated.title).toBe('T2');
+    expect(updated.status).toBe(TaskStatus.ACTIVE);
+    expect(updated.tags.map(t => t.name)).toEqual(['B']);
+  });
+
+  it('update() on missing id rejects as not-found', async () => {
+    await expect(repo.update(999, makeInput())).rejects.toMatchObject({ code: 'not-found' });
+  });
+
+  it('move() transitions status and rejects on missing id', async () => {
+    const created = await repo.create(makeInput({ title: 'M' }));
+    await repo.move(created.id, TaskStatus.COMPLETED);
+    expect((await repo.fetchAll())[0].status).toBe(TaskStatus.COMPLETED);
+    await expect(repo.move(999, TaskStatus.ACTIVE)).rejects.toMatchObject({ code: 'not-found' });
+  });
+
+  it('remove() deletes and rejects on missing id', async () => {
+    const created = await repo.create(makeInput({ title: 'D' }));
+    await repo.remove(created.id);
+    expect(await repo.fetchAll()).toHaveLength(0);
+    await expect(repo.remove(created.id)).rejects.toMatchObject({ code: 'not-found' });
+  });
+
+  it('createTag() returns the real id and rejects duplicates normalized', async () => {
+    const tag = await repo.createTag('Work');
+    expect(typeof tag.id).toBe('number');
+    await expect(repo.createTag(' work ')).rejects.toMatchObject({ code: 'conflict' });
+    await expect(repo.createTag('   ')).rejects.toMatchObject({ code: 'validation' });
+    expect(await repo.listTags()).toHaveLength(1);
+  });
+
+  it('deleteTag() unassigns from tasks and rejects on missing id', async () => {
+    const tag = await repo.createTag('Work');
+    await repo.create(makeInput({ title: 'T', tagNames: ['Work'] }));
+    await repo.deleteTag(tag.id);
+    expect(await repo.listTags()).toHaveLength(0);
+    expect((await repo.fetchAll())[0].tags).toHaveLength(0);
+    await expect(repo.deleteTag(tag.id)).rejects.toMatchObject({ code: 'not-found' });
+  });
+
+  it('full board flow without network', async () => {
+    const created = await repo.create(makeInput({ title: 'Full', priority: Priority.HIGH, tagNames: ['Flow'] }));
+    const updated = await repo.update(created.id, makeInput({ title: 'Upd', priority: Priority.MEDIUM, status: TaskStatus.ACTIVE, tagNames: ['Flow', 'Extra'] }));
+    expect(updated.title).toBe('Upd');
+    await repo.move(created.id, TaskStatus.COMPLETED);
+    expect((await repo.fetchAll())[0].status).toBe(TaskStatus.COMPLETED);
+    await repo.remove(created.id);
+    expect(await repo.fetchAll()).toHaveLength(0);
+  });
 });
 
-describe('toWire / fromWire helpers', () => {
-  it('toWire omits empty description and dueDate', async () => {
-    const { toWire } = await import('../data/TaskRepository');
-    const wire = toWire(makeInput({ title: 'T', description: '', dueDate: '' }));
-    expect(wire).not.toHaveProperty('description');
-    expect(wire).not.toHaveProperty('dueDate');
+describe('HttpTaskRepository wire mapping', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  it('toWire preserves non-empty description and dueDate', async () => {
-    const { toWire } = await import('../data/TaskRepository');
-    const wire = toWire(makeInput({ title: 'T', description: 'desc', dueDate: '2026-01-01' }));
-    expect(wire.description).toBe('desc');
-    expect(wire.dueDate).toBe('2026-01-01');
+  it('create() sends exact tagNames on the wire and maps the response', async () => {
+    vi.mocked(ApiService.createTask).mockResolvedValueOnce({
+      data: { id: 1, title: 'Tagged', priority: 'LOW', status: 'PENDING', tags: [{ id: 1, name: 'Work' }, { id: 2, name: 'Personal' }] },
+    } as never);
+    const repo = new HttpTaskRepository();
+    const created = await repo.create(makeInput({ title: 'Tagged', tagNames: ['Work', 'Personal'] }));
+    expect(ApiService.createTask).toHaveBeenCalledWith(expect.objectContaining({ tagNames: ['Work', 'Personal'] }));
+    expect(created.tags.map(t => t.name)).toEqual(['Work', 'Personal']);
   });
 
-  it('fromWire defaults tags to empty array', async () => {
-    const { fromWire } = await import('../data/TaskRepository');
-    const task = fromWire({ id: 1, title: 'T' });
-    expect(task.tags).toEqual([]);
+  it('create() omits empty description and dueDate', async () => {
+    vi.mocked(ApiService.createTask).mockResolvedValueOnce({ data: { id: 1, title: 'T' } } as never);
+    const repo = new HttpTaskRepository();
+    await repo.create(makeInput({ description: '', dueDate: '' }));
+    const body = vi.mocked(ApiService.createTask).mock.calls[0][0] as unknown as Record<string, unknown>;
+    expect(body).not.toHaveProperty('description');
+    expect(body).not.toHaveProperty('dueDate');
   });
 
-  it('fromWire defaults status to PENDING', async () => {
-    const { fromWire } = await import('../data/TaskRepository');
-    const task = fromWire({ id: 1, title: 'T' });
-    expect(task.status).toBe(TaskStatus.PENDING);
+  it('update() returns the mapped task', async () => {
+    vi.mocked(ApiService.updateTask).mockResolvedValueOnce({
+      data: { id: 7, title: 'Upd', priority: 'MEDIUM', status: 'ACTIVE', tags: [] },
+    } as never);
+    const repo = new HttpTaskRepository();
+    const updated = await repo.update(7, makeInput({ title: 'Upd' }));
+    expect(updated.id).toBe(7);
+    expect(updated.title).toBe('Upd');
+  });
+
+  it('move() PATCHes the status endpoint', async () => {
+    vi.mocked(ApiService.patchStatus).mockResolvedValueOnce({} as never);
+    const repo = new HttpTaskRepository();
+    await repo.move(1, TaskStatus.COMPLETED);
+    expect(ApiService.patchStatus).toHaveBeenCalledWith(1, 'COMPLETED');
+  });
+
+  it('remove() DELETEs the task endpoint', async () => {
+    vi.mocked(ApiService.deleteTask).mockResolvedValueOnce({} as never);
+    const repo = new HttpTaskRepository();
+    await repo.remove(1);
+    expect(ApiService.deleteTask).toHaveBeenCalledWith(1);
+  });
+
+  it('createTag() returns the backend tag', async () => {
+    vi.mocked(ApiService.createTag).mockResolvedValueOnce({ data: { id: 42, name: 'Work' } } as never);
+    const repo = new HttpTaskRepository();
+    const tag = await repo.createTag('Work');
+    expect(ApiService.createTag).toHaveBeenCalledWith('Work');
+    expect(tag).toEqual({ id: 42, name: 'Work' });
+  });
+
+  it('failures surface as RepositoryError', async () => {
+    vi.mocked(ApiService.createTag).mockRejectedValueOnce({ response: { status: 409, data: {} } });
+    const repo = new HttpTaskRepository();
+    const err = await repo.createTag('Work').catch(e => e);
+    expect(err).toBeInstanceOf(RepositoryError);
+    expect((err as RepositoryError).code).toBe('conflict');
+  });
+});
+
+describe('mapApiError / toDisplayMessage', () => {
+  it('maps 409/400/404 to codes and keeps the detail', () => {
+    expect(mapApiError({ response: { status: 409, data: { error: 'Tag already exists' } } }).code).toBe('conflict');
+    expect(mapApiError({ response: { status: 400, data: {} } }).code).toBe('validation');
+    expect(mapApiError({ response: { status: 404, data: {} } }).code).toBe('not-found');
+    expect(mapApiError(new Error('boom')).code).toBe('unknown');
+  });
+
+  it('toDisplayMessage prefers fallbacks, then detail', () => {
+    const conflict = { response: { status: 409, data: { error: 'Tag already exists' } } };
+    expect(toDisplayMessage(conflict, { conflict: 'This tag already exists' })).toBe('This tag already exists');
+    expect(toDisplayMessage(conflict)).toBe('Tag already exists');
+    expect(toDisplayMessage(new Error('Network down'))).toBe('Network down');
   });
 });

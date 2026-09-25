@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { HttpTaskRepository } from '../data/TaskRepository';
+import { HttpTaskRepository, toDisplayMessage, type TaskRepository } from '../data/TaskRepository';
 import { Task, Tag, TaskInput, TaskStatus } from '../services/types/task';
 import KanbanColumn from '../components/KanbanColumn';
 import AddTaskModal from '../components/AddTaskModal';
+import ErrorBanner from '../components/ErrorBanner';
 import styles from './TodoListPage.module.css';
 
 const COLUMN_CONFIG: Record<string, { label: string; status: string }> = {
@@ -13,68 +14,88 @@ const COLUMN_CONFIG: Record<string, { label: string; status: string }> = {
   COMPLETED: { label: 'Done', status: 'COMPLETED' },
 };
 
-export default function TodoListPage() {
+export default function TodoListPage({ repository: repositoryProp }: { repository?: TaskRepository } = {}) {
   const { logout } = useAuth();
   const navigate = useNavigate();
-  const repository = new HttpTaskRepository();
+  const repository = useMemo(() => repositoryProp ?? new HttpTaskRepository(), [repositoryProp]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<{ message: string; id: number } | null>(null);
 
   useEffect(() => { loadTasks(); loadTags(); }, []);
+
+  const showError = (message: string) => {
+    setError({ message, id: Date.now() });
+  };
+
+  const dismissError = () => {
+    setError(null);
+  };
+
+  const showTransientError = (message: string) => {
+    showError(message);
+    window.setTimeout(() => {
+      setError(prev => (prev && prev.message === message ? null : prev));
+    }, 5000);
+  };
+
+  const errorMessage = (e: unknown) => toDisplayMessage(e);
 
   const loadTasks = async () => {
     try {
       const data = await repository.fetchAll();
       setTasks(data);
-    } catch (e) { console.error(e); }
+    } catch (e) { showTransientError(errorMessage(e)); }
     finally { setLoading(false); }
   };
 
-  const loadTags = async () => {
+  const loadTags = async (): Promise<Tag[] | null> => {
     try {
       const data = await repository.listTags();
       setTags(data);
-      console.log('[TodoListPage] Tags loaded:', data.length);
-    } catch (e) { 
-      const err = e as { response?: { status: number }; message: string };
-      console.error('loadTags failed:', err.response?.status || err.message); 
+      return data;
+    } catch (e) {
+      showTransientError(errorMessage(e));
+      return null;
     }
   };
 
   const handleCardClick = (task: Task) => {
-    setEditingTask(task);
+    const validTags = task.tags.filter(t => tags.some(x => x.id === t.id));
+    setEditingTask({ ...task, tags: [...validTags] });
     setModalOpen(true);
   };
 
   const handleStatusChange = async (taskId: number, newStatus: string) => {
+    const previous = tasks.find(t => t.id === taskId)?.status;
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus as Task['status'] } : t));
     try {
       await repository.move(taskId, newStatus as TaskStatus);
-      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus as Task['status'] } : t));
-    } catch (e) { 
-      const err = e as { response?: { status: number }; message: string; config?: { baseURL?: string; url?: string } };
-      console.error('handleStatusChange failed:', err.response?.status, err.config?.url || String(err)); 
+    } catch (e) {
+      if (previous !== undefined) {
+        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: previous } : t));
+      }
+      showTransientError(errorMessage(e));
     }
   };
 
   const handleSave = async (data: TaskInput) => {
     if (editingTask) {
       try {
-        await repository.update(editingTask.id, data);
-        setTasks(prev => prev.map(t => t.id === editingTask.id
-          ? { ...t, title: data.title, description: data.description, priority: data.priority, status: data.status, dueDate: data.dueDate }
-          : t));
+        const saved = await repository.update(editingTask.id, data);
+        setTasks(prev => prev.map(t => t.id === editingTask.id ? saved : t));
         setEditingTask(null);
         await loadTags();
-      } catch (e) { console.error(e); }
+      } catch (e) { showTransientError(errorMessage(e)); }
     } else {
       try {
         const created = await repository.create(data);
         setTasks(prev => [...prev, created]);
         await loadTags();
-      } catch (e) { console.error(e); }
+      } catch (e) { showTransientError(errorMessage(e)); }
     }
   };
 
@@ -83,7 +104,7 @@ export default function TodoListPage() {
     try {
       await repository.remove(id);
       setTasks(prev => prev.filter(t => t.id !== id));
-    } catch (e) { console.error(e); }
+    } catch (e) { showTransientError(errorMessage(e)); }
   };
 
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>, status: string) => {
@@ -115,6 +136,7 @@ export default function TodoListPage() {
 
   return (
     <div className={styles.page}>
+      {error && <ErrorBanner key={error.id} message={error.message} onDismiss={dismissError} />}
       <header className={styles.header}>
         <h1>Task Board</h1>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -141,8 +163,14 @@ export default function TodoListPage() {
         isOpen={modalOpen}
         onClose={() => { setModalOpen(false); setEditingTask(null); }}
         onSave={handleSave}
+        repository={repository}
         existingTags={tags}
         editingTask={editingTask}
+        onTagCreated={(tag) => setTags(prev => [...prev, tag])}
+        onTagDeleted={(id) => {
+          setTags(prev => prev.filter(t => t.id !== id));
+          setTasks(prev => prev.map(t => ({ ...t, tags: t.tags.filter(tag => tag.id !== id) })));
+        }}
       />
     </div>
   );

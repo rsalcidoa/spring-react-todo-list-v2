@@ -6,7 +6,12 @@ Provides Kanban board task lifecycle management with status field and drag-and-d
 ## Requirements
 
 ### Requirement: Task Status Field
-The system SHALL store and expose a `status` field on each task with exactly three allowed values: `PENDING`, `ACTIVE`, or `COMPLETED`. When creating a task without an explicit status value, the system MUST default to `PENDING`.
+The system SHALL store and expose a `status` field on each task with exactly three allowed values: `PENDING`, `ACTIVE`, or `COMPLETED`. When creating a task without an explicit status value, the system MUST default to `PENDING`. An invalid status value on any task mutation request is rejected with 400 Bad Request with field-level details.
+
+**ID**: REQ-STATUS-001
+**Affected files**:
+- `com.example.todo.service.TaskService` — parses status input into the `TaskStatus` enum inside the module; invalid value → typed failure
+- `com.example.todo.exception.GlobalExceptionHandler` — maps the typed failure to structured 400 with field-level details
 
 #### Scenario: Default status is PENDING on creation
 - **WHEN** user sends POST request to `/v1/tasks` without a `status` field in the request body
@@ -20,7 +25,7 @@ The system SHALL store and expose a `status` field on each task with exactly thr
 
 #### Scenario: Invalid status value rejected
 - **WHEN** user sends POST or PUT request to `/v1/tasks` with `"status": "INVALID"` in the request body
-- **THEN** system rejects the request and returns 400 Bad Request
+- **THEN** system rejects the request and returns 400 Bad Request with field-level details `{"error":"Validation failed","errors":{"status":["Status must be PENDING, ACTIVE or COMPLETED"]}}`
 
 ### Requirement: Status Values
 The system SHALL enforce exactly three valid task status values: `PENDING`, `ACTIVE`, and `COMPLETED`. No other status enum values are permitted.
@@ -30,7 +35,12 @@ The system SHALL enforce exactly three valid task status values: `PENDING`, `ACT
 - **THEN** system returns 400 Bad Request with a validation error
 
 ### Requirement: Column Filtering by Status
-The system SHALL allow clients to filter task lists by status via an optional `status` query parameter on the GET `/v1/tasks` endpoint.
+The system SHALL allow clients to filter task lists by status via an optional `status` query parameter on the GET `/v1/tasks` endpoint. An invalid value SHALL be rejected with 400 Bad Request carrying the structured field-level body produced by the Task module's status operation (same contract as invalid status in POST/PUT/PATCH bodies), not a generic conversion error.
+
+**Affected files**:
+- `com.example.todo.controller.TaskController.getAllTasks()` — receives `status` as `String` and delegates parsing to the Task module
+- `com.example.todo.service.TaskService.getAllTasksByStatus(String)` — parses via the single status operation; invalid value raises the typed failure
+- `com.example.todo.exception.GlobalExceptionHandler` — existing structured 400 mapping (unchanged)
 
 #### Scenario: Filter tasks by PENDING status
 - **WHEN** user sends GET request to `/v1/tasks?status=PENDING`
@@ -48,8 +58,17 @@ The system SHALL allow clients to filter task lists by status via an optional `s
 - **WHEN** user sends GET request to `/v1/tasks` without a `status` query parameter
 - **THEN** system returns 200 OK with all task statuses (backward compatible)
 
+#### Scenario: Invalid status filter rejected with field-level details
+- **WHEN** user sends GET request to `/v1/tasks?status=INVALID`
+- **THEN** system returns 400 Bad Request with field-level details `{"error":"Validation failed","errors":{"status":["Status must be PENDING, ACTIVE or COMPLETED"]}}`
+
 ### Requirement: Task Update Includes Status
-The system SHALL accept an optional `status` field in PUT requests to `/v1/tasks/{id}` and update the task's status accordingly. The status MUST transition atomically — only one status value may be stored per request.
+The system SHALL accept an optional `status` field in PUT requests to `/v1/tasks/{id}` and update the task's status accordingly. The status MUST transition atomically — only one status value may be stored per request. Both the full update (PUT) and the status-only update (PATCH) SHALL apply the status through the single status operation of the Task module (`applyStatus`), so both entry points share the same parsing and the same failure behavior. No second status operation exists on the module.
+
+**ID**: REQ-STATUS-002
+**Affected files**:
+- `com.example.todo.service.TaskService.applyStatus(Long id, String status)` — single status operation; both entry points delegate to it
+- `com.example.todo.controller.TaskController.updateTask()` / `patchStatus()` — thin delegates, no manual enum parsing
 
 #### Scenario: Transition PENDING to ACTIVE
 - **WHEN** user sends PUT request to `/v1/tasks/123` with `"status": "ACTIVE"` in the body
@@ -65,13 +84,19 @@ The system SHALL accept an optional `status` field in PUT requests to `/v1/tasks
 - **WHEN** user sends any request that returns a task object (GET, POST, PUT)
 - **THEN** the returned JSON includes `"status": "<value>"` in every response
 
+#### Scenario: PUT with invalid status rejected with field-level details
+- **WHEN** user sends PUT request to `/v1/tasks/123` with `"status": "INVALID"` in the body
+- **THEN** system returns 400 Bad Request with field-level details `{"error":"Validation failed","errors":{"status":["Status must be PENDING, ACTIVE or COMPLETED"]}}`
+- **AND** the task is not modified
+
 ### Requirement: PATCH Status Update Endpoint
-The system SHALL accept PATCH requests to `/v1/tasks/{id}/status` with a `{"status": "VALUE"}` body. The status field MUST be validated with `@NotBlank` and must match one of the three allowed enum values (`PENDING`, `ACTIVE`, `COMPLETED`).
+The system SHALL accept PATCH requests to `/v1/tasks/{id}/status` with a `{"status": "VALUE"}` body. The status field MUST be validated with `@NotBlank` and must match one of the three allowed enum values (`PENDING`, `ACTIVE`, `COMPLETED`). An invalid value is rejected with 400 Bad Request with field-level details produced by the Task module's status operation, not by the controller.
 
 **ID**: REQ-STATUS-004
-**Affected files**: 
-- `com.example.todo.controller.TaskController.patchStatus()` — parameter `@Valid @RequestBody StatusUpdateRequest request` (added `@Valid`)
-- `com.example.todo.dto.StatusUpdateRequest.java` — `@NotBlank(message = "Status must not be blank")` already present
+**Affected files**:
+- `com.example.todo.controller.TaskController.patchStatus()` — delegates to `TaskService.applyStatus`
+- `com.example.todo.service.TaskService.applyStatus(Long id, String status)` — typed parsing + atomic set
+- `com.example.todo.exception.GlobalExceptionHandler` — structured 400 mapping
 
 #### Scenario: Valid PATCH status update succeeds
 - **WHEN** authenticated user sends PATCH request to `/v1/tasks/{id}/status` with `{"status": "ACTIVE"}` for a valid task they own
@@ -83,4 +108,4 @@ The system SHALL accept PATCH requests to `/v1/tasks/{id}/status` with a `{"stat
 
 #### Scenario: PATCH invalid status value rejected
 - **WHEN** user sends PATCH request to `/v1/tasks/{id}/status` with `{"status": "INVALID"}` (not a valid enum)
-- **THEN** system returns 400 Bad Request with field-level details
+- **THEN** system returns 400 Bad Request with field-level details `{"error":"Validation failed","errors":{"status":["Status must be PENDING, ACTIVE or COMPLETED"]}}`

@@ -24,14 +24,14 @@ The system SHALL allow new users to register with email and password, then autom
 
 #### Scenario: Registration With Duplicate Email Fails Gracefully
 - **WHEN** user sends POST request to /v1/auth/register with an email that already exists in the database
-- **THEN** system returns 409 Conflict with JSON body `{"error": "Este email ya está registrado"}`
+- **THEN** system returns 409 Conflict with JSON body `{"error": "Este email ya está registrado"}` (intentionally Spanish for the UI)
 - **AND** frontend displays the error message from the response body
 
 ### Requirement: User Login
-The system SHALL allow registered users to login and receive a JWT token, enforcing input validation on both email format and password length. Empty or malformed inputs shall be rejected with 400 Bad Request before authentication processing.
+The system SHALL allow registered users to login and receive a JWT token. Login validates that email is non-blank with valid format and password is non-blank. Login does NOT enforce the registration minimum password length: a short but non-blank password proceeds to authentication and fails with 401 Unauthorized on bad credentials, not 400.
 
 **Affected files**: 
-- `com.example.todo.dto.LoginRequest.java` — add `@NotBlank(message = "Email must not be blank") @Email(message = "Invalid email format")` to email field; add `@NotBlank(message = "Password must not be blank")` to password field
+- `com.example.todo.dto.LoginRequest.java` — `@NotBlank(message = "Email must not be blank") @Email(message = "Must be a valid email address")` on email; `@NotBlank(message = "Password must not be blank")` on password (no `@Size`)
 - `com.example.todo.controller.AuthController.login()` — accept request body annotated with `@Valid`
 
 #### Scenario: Successful User Login
@@ -42,9 +42,10 @@ The system SHALL allow registered users to login and receive a JWT token, enforc
 - **WHEN** user sends POST request to /v1/auth/login with empty or missing email
 - **THEN** Bean Validation fails on `@NotBlank` constraint for email field and system returns 400 Bad Request
 
-#### Scenario: Login Rejects Short Password
-- **WHEN** user sends POST request to /v1/auth/login with password shorter than 6 characters
-- **THEN** Bean Validation fails or backend validates before BCrypt comparison, system returns 400 Bad Request
+#### Scenario: Login With Short Password Goes To Authentication
+- **WHEN** user sends POST request to /v1/auth/login with a short but non-blank password
+- **THEN** Bean Validation passes (no length rule on login)
+- **AND** authentication fails with 401 Unauthorized when credentials are wrong
 
 ### Requirement: Task Ownership
 **ID**: REQ-TO-001
@@ -84,3 +85,12 @@ The system SHALL only allow users to view, update, or delete their own tasks. A 
 #### Scenario: Request for a non-existent task returns 404
 - **WHEN** user sends GET, PUT, DELETE or PATCH /v1/tasks/{id}/status for an id that does not exist
 - **THEN** system returns 404 Not Found
+
+### Requirement: Password Reset Flow (reference)
+Password recovery SHALL behave as specified canonically in `password-reset` (REQ-PR-001..005). Verification (`POST /v1/auth/reset-verify`) is read-only and returns `{"verified": true}`; the token is invalidated only by `PUT /v1/auth/reset-change`.
+
+**ID**: REQ-UA-002
+
+#### Scenario: Canonical reset flow applies
+- **WHEN** a user performs password recovery
+- **THEN** the system behaves per `password-reset` REQ-PR-001..005

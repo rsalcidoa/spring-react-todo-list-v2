@@ -2,7 +2,10 @@ package com.example.todo.controller;
 
 import com.example.todo.dto.LoginRequest;
 import jakarta.validation.Valid;
+import com.example.todo.dto.PasswordChangeDto;
 import com.example.todo.dto.RegisterRequest;
+import com.example.todo.dto.ResetRequestDto;
+import com.example.todo.dto.ResetVerifyDto;
 import com.example.todo.service.UserService;
 import com.example.todo.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,6 +46,25 @@ public class AuthController {
         return new LoginResponse(token);
     }
 
+    @PostMapping("/reset-request")
+    public ResetRequestResponse resetRequest(@Valid @RequestBody ResetRequestDto request) {
+        String token = userService.requestReset(request.getEmail());
+        return new ResetRequestResponse(token);
+    }
+
+    @PostMapping("/reset-verify")
+    public VerifyResponse resetVerify(@Valid @RequestBody ResetVerifyDto request) {
+        userService.verifyResetToken(request.getToken());
+        return new VerifyResponse(true);
+    }
+
+    @PutMapping("/reset-change")
+    public void resetChange(@Valid @RequestBody PasswordChangeDto request) {
+        userService.changePasswordViaReset(request.getToken(), request.getNewPassword(), request.getConfirmPassword());
+    }
+
     // Simple response DTOs
     public record LoginResponse(String token) {}
+    public record ResetRequestResponse(String token) {}
+    public record VerifyResponse(boolean verified) {}
 }

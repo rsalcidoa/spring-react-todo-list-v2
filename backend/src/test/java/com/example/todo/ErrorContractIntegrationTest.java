@@ -14,6 +14,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -59,7 +60,7 @@ class ErrorContractIntegrationTest {
                 .content(userJson))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Validation failed"))
-                .andExpect(jsonPath("$.errors.password[0]").value("Password must be at least 6 characters long"));
+                .andExpect(jsonPath("$.errors.password[0]").value("Password must be at least 6 characters"));
     }
 
     @Test
@@ -83,7 +84,7 @@ class ErrorContractIntegrationTest {
                 .content(userJson))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Validation failed"))
-                .andExpect(jsonPath("$.errors.email[0]").value("must not be blank"));
+                .andExpect(jsonPath("$.errors.email[0]").value("Email must not be blank"));
     }
 
     @Test
@@ -229,5 +230,30 @@ class ErrorContractIntegrationTest {
                 .getContentAsString();
 
         return mapper.readTree(response).path("id").asText();
+    }
+
+    @Test
+    void invalidStatusQueryReturnsStructured400() throws Exception {
+        String uuid = UUID.randomUUID().toString();
+        String email = uuid + "@example.com";
+        String userJson = String.format("{\"email\": \"%s\", \"password\": \"secret123\"}", email);
+
+        mockMvc.perform(post("/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(userJson))
+                .andExpect(status().isCreated());
+
+        String loginResp = mockMvc.perform(post("/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(userJson))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String token = mapper.readTree(loginResp).path("token").asText();
+
+        mockMvc.perform(get("/v1/tasks?status=INVALID")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation failed"))
+                .andExpect(jsonPath("$.errors.status[0]").value("Status must be PENDING, ACTIVE or COMPLETED"));
     }
 }

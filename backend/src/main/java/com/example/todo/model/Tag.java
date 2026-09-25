@@ -4,7 +4,9 @@ import jakarta.persistence.*;
 import java.util.Set;
 
 @Entity
-@Table(name = "tags", uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "name"}))
+@Table(name = "tags")
+// Normalized identity (user_id, lower(name)) enforced by DB migration
+// V4__tag_identity_ci (functional unique index; not expressible here).
 public class Tag {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
