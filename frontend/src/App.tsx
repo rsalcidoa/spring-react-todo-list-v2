@@ -8,10 +8,12 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 
 function App() {
   return (
     <AuthProvider>
+      <ThemeProvider>
       <Router>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
@@ -29,6 +31,7 @@ function App() {
           <Route path="/*" element={<Navigate to="/tasks" replace />} />
         </Routes>
       </Router>
+      </ThemeProvider>
     </AuthProvider>
   );
 }

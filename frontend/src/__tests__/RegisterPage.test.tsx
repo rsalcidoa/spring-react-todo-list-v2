@@ -39,7 +39,7 @@ describe('RegisterPage', () => {
     const inputs = document.querySelectorAll('input');
     fireEvent.change(inputs[0], { target: { value: 'user@example.com' } });
     fireEvent.change(inputs[1], { target: { value: 'secret123' } });
-    fireEvent.click(screen.getByRole('button', { name: /register/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Registrarse/i }));
   };
 
   it('shows backend message on 409 conflict', async () => {

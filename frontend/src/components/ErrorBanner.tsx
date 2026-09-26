@@ -27,7 +27,7 @@ const ErrorBanner: React.FC<ErrorBannerProps> = ({ message, onDismiss }) => {
   return (
     <div className={styles.banner} role="alert" data-banner-id={idRef.current}>
       <span className={styles.message}>{message}</span>
-      <button className={styles.closeBtn} onClick={dismiss} aria-label="Close">×</button>
+      <button className={styles.closeBtn} onClick={dismiss} aria-label="Cerrar">×</button>
     </div>
   );
 };

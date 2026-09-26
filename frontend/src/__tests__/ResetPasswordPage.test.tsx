@@ -34,10 +34,10 @@ describe('ResetPasswordPage', () => {
   it('renders with new password and confirm inputs plus submit button', () => {
     renderAt('/reset/ABC123');
 
-    expect(screen.getByRole('heading', { name: /Reset Password/i })).toBeTruthy();
-    expect(screen.getByLabelText(/New password:/i)).toBeTruthy();
-    expect(screen.getByLabelText(/Confirm password:/i)).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Reset password/i })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: /Restablecer contraseña/i })).toBeTruthy();
+    expect(screen.getByLabelText(/Nueva contraseña:/i)).toBeTruthy();
+    expect(screen.getByLabelText(/Confirmar contraseña:/i)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Restablecer/i })).toBeTruthy();
   });
 
   it('verifies token then changes password and navigates to login on success', async () => {
@@ -45,11 +45,11 @@ describe('ResetPasswordPage', () => {
     mockChange.mockResolvedValue({});
     renderAt('/reset/ABC123');
 
-    const newPass = screen.getByLabelText(/New password:/i);
-    const confirmPass = screen.getByLabelText(/Confirm password:/i);
+    const newPass = screen.getByLabelText(/Nueva contraseña:/i);
+    const confirmPass = screen.getByLabelText(/Confirmar contraseña:/i);
     fireEvent.change(newPass, { target: { value: 'newpass9' } });
     fireEvent.change(confirmPass, { target: { value: 'newpass9' } });
-    fireEvent.click(screen.getByRole('button', { name: /Reset password/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Restablecer/i }));
 
     await waitFor(() => expect(mockVerify).toHaveBeenCalledWith('ABC123'));
     await waitFor(() => expect(mockChange).toHaveBeenCalledWith('ABC123', 'newpass9'));
@@ -58,13 +58,13 @@ describe('ResetPasswordPage', () => {
   it('shows error when passwords do not match and does not call API', async () => {
     renderAt('/reset/ABC123');
 
-    const newPass = screen.getByLabelText(/New password:/i);
-    const confirmPass = screen.getByLabelText(/Confirm password:/i);
+    const newPass = screen.getByLabelText(/Nueva contraseña:/i);
+    const confirmPass = screen.getByLabelText(/Confirmar contraseña:/i);
     fireEvent.change(newPass, { target: { value: 'newpass9' } });
     fireEvent.change(confirmPass, { target: { value: 'different' } });
-    fireEvent.click(screen.getByRole('button', { name: /Reset password/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Restablecer/i }));
 
-    await waitFor(() => expect(screen.getByText(/Passwords do not match/i)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/Las contraseñas no coinciden/i)).toBeTruthy());
     expect(mockVerify).not.toHaveBeenCalled();
     expect(mockChange).not.toHaveBeenCalled();
   });
@@ -73,18 +73,18 @@ describe('ResetPasswordPage', () => {
     mockVerify.mockRejectedValue({ response: { data: { error: 'Reset token has expired' } } });
     renderAt('/reset/ABC123');
 
-    const newPass = screen.getByLabelText(/New password:/i);
-    const confirmPass = screen.getByLabelText(/Confirm password:/i);
+    const newPass = screen.getByLabelText(/Nueva contraseña:/i);
+    const confirmPass = screen.getByLabelText(/Confirmar contraseña:/i);
     fireEvent.change(newPass, { target: { value: 'newpass9' } });
     fireEvent.change(confirmPass, { target: { value: 'newpass9' } });
-    fireEvent.click(screen.getByRole('button', { name: /Reset password/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Restablecer/i }));
 
-    await waitFor(() => expect(screen.getByText(/expired/i)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/expiró|Pide uno nuevo/i)).toBeTruthy());
   });
 
   it('links back to forgot-password page', () => {
     renderAt('/reset/ABC123');
-    const link = screen.getByRole('link', { name: /Request a new code/i });
+    const link = screen.getByRole('link', { name: /Pedir otro código/i });
     expect(link).toBeTruthy();
   });
 });

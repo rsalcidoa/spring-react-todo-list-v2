@@ -20,7 +20,7 @@ export default function RegisterPage() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateEmail(email)) {
-      showError('Invalid email format');
+      showError('Formato de email inválido');
       return;
     }
     try {
@@ -40,17 +40,17 @@ export default function RegisterPage() {
     <div className={styles.container}>
       {error && <ErrorBanner key={error.id} message={error.message} onDismiss={() => setError(null)} />}
       <form onSubmit={onSubmit} className={styles.form}>
-        <h2 className={styles.title}>Register</h2>
+        <h2 className={styles.title}>Registrarse</h2>
         <div className={styles.field}>
-          <label>Email</label>
+          <label>Correo electrónico</label>
           <input value={email} onChange={e => setEmail(e.target.value)} required />
         </div>
         <div className={styles.field}>
-          <label>Password</label>
+          <label>Contraseña</label>
           <input type="password" value={password} onChange={e => setPassword(e.target.value)} required />
         </div>
-        <button type="submit" className={styles.submitBtn}>Register</button>
-        <p className={styles.link}><Link to="/login">Already have an account? Login</Link></p>
+        <button type="submit" className={styles.submitBtn}>Registrarse</button>
+        <p className={styles.link}><Link to="/login">¿Ya tienes cuenta? Inicia sesión</Link></p>
       </form>
     </div>
   );

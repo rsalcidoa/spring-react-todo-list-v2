@@ -8,6 +8,7 @@ import { validateEmail } from '../services/validateEmail';
 const ForgotPasswordPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [token, setToken] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const [error, setError] = useState<{ message: string; id: number } | null>(null);
 
   const showError = (message: string) => {
@@ -17,7 +18,7 @@ const ForgotPasswordPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateEmail(email)) {
-      showError('Invalid email format');
+      showError('Formato de email inválido');
       return;
     }
     try {
@@ -26,33 +27,54 @@ const ForgotPasswordPage: React.FC = () => {
       if (returnedToken && returnedToken.length > 0) {
         setToken(returnedToken);
       } else {
-        showError('If the email is registered, a reset code has been generated');
+        showError('Si el email está registrado, se ha generado un código');
       }
     } catch {
-      showError('Failed to request password reset');
+      showError('No se pudo solicitar el restablecimiento. Reintenta');
     }
+  };
+
+  const handleCopy = async () => {
+    if (!token) return;
+    try {
+      await navigator.clipboard.writeText(token);
+    } catch {
+      const el = document.getElementById('reset-token-value');
+      if (el) {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        const sel = window.getSelection();
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+      }
+    }
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
   };
 
   return (
     <div className={styles.container}>
       {error && <ErrorBanner key={error.id} message={error.message} onDismiss={() => setError(null)} />}
       <form className={styles.form} onSubmit={handleSubmit}>
-        <h2 className={styles.title}>Forgot Password</h2>
+        <h2 className={styles.title}>Recuperar contraseña</h2>
         <div className={styles.field}>
-          <label htmlFor="email">Email:</label>
+          <label htmlFor="email">Correo electrónico:</label>
           <input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
         </div>
-        <button type="submit" className={styles.submitBtn}>Send reset code</button>
+        <button type="submit" className={styles.submitBtn}>Enviar código</button>
 
         {token && (
           <div className={styles.tokenBox}>
-            <p className={styles.tokenLabel}>Your reset code:</p>
-            <p className={styles.tokenValue}>{token}</p>
-            <Link to={`/reset/${token}`}>Continue to reset</Link>
+            <p className={styles.tokenLabel}>Tu código:</p>
+            <p className={styles.tokenValue} id="reset-token-value">{token}</p>
+            <button type="button" onClick={handleCopy}>
+              {copied ? '¡Copiado!' : 'Copiar'}
+            </button>
+            <Link to={`/reset/${token}`}>Continuar</Link>
           </div>
         )}
 
-        <p className={styles.link}><Link to="/login">Back to login</Link></p>
+        <p className={styles.link}><Link to="/login">Volver</Link></p>
       </form>
     </div>
   );

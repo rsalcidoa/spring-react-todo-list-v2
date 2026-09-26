@@ -23,9 +23,9 @@ describe('ForgotPasswordPage', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText(/Forgot Password/i)).toBeTruthy();
-    expect(screen.getByLabelText(/email/i)).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Send reset code/i })).toBeTruthy();
+    expect(screen.getByText(/Recuperar contraseña/i)).toBeTruthy();
+    expect(screen.getByLabelText(/Correo electrónico/i)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Enviar código/i })).toBeTruthy();
   });
 
   it('submits form and calls requestReset with email', async () => {
@@ -36,9 +36,9 @@ describe('ForgotPasswordPage', () => {
       </MemoryRouter>,
     );
 
-    const emailInput = screen.getByLabelText(/email/i);
+    const emailInput = screen.getByLabelText(/Correo electrónico/i);
     fireEvent.change(emailInput, { target: { value: 'test@test.com' } });
-    fireEvent.click(screen.getByRole('button', { name: /Send reset code/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Enviar código/i }));
 
     await waitFor(() => expect(mockRequestReset).toHaveBeenCalledWith('test@test.com'));
   });
@@ -51,12 +51,12 @@ describe('ForgotPasswordPage', () => {
       </MemoryRouter>,
     );
 
-    const emailInput = screen.getByLabelText(/email/i);
+    const emailInput = screen.getByLabelText(/Correo electrónico/i);
     fireEvent.change(emailInput, { target: { value: 'test@test.com' } });
-    fireEvent.click(screen.getByRole('button', { name: /Send reset code/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Enviar código/i }));
 
     await waitFor(() => expect(screen.getByText('ABC123')).toBeTruthy());
-    const link = screen.getByRole('link', { name: /Continue to reset/i });
+    const link = screen.getByRole('link', { name: /Continuar/i });
     expect(link).toBeTruthy();
   });
 
@@ -68,10 +68,44 @@ describe('ForgotPasswordPage', () => {
       </MemoryRouter>,
     );
 
-    const emailInput = screen.getByLabelText(/email/i);
+    const emailInput = screen.getByLabelText(/Correo electrónico/i);
     fireEvent.change(emailInput, { target: { value: 'test@test.com' } });
-    fireEvent.click(screen.getByRole('button', { name: /Send reset code/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Enviar código/i }));
 
     await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+  });
+
+  it('copies the token to the clipboard with confirmation', async () => {
+    mockRequestReset.mockResolvedValue({ data: { token: 'ABC123' } });
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    render(
+      <MemoryRouter>
+        <ForgotPasswordPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByLabelText(/Correo electrónico/i), { target: { value: 'test@test.com' } });
+    fireEvent.click(screen.getByRole('button', { name: /Enviar código/i }));
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /Copiar/i })).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: /Copiar/i }));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('ABC123'));
+    await waitFor(() => expect(screen.getByRole('button', { name: /¡Copiado!/i })).toBeTruthy());
+  });
+
+  it('names the retry action when the request fails', async () => {
+    mockRequestReset.mockRejectedValue(new Error('network'));
+    render(
+      <MemoryRouter>
+        <ForgotPasswordPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByLabelText(/Correo electrónico/i), { target: { value: 'test@test.com' } });
+    fireEvent.click(screen.getByRole('button', { name: /Enviar código/i }));
+
+    await waitFor(() => expect(screen.getByText(/Reintenta/i)).toBeTruthy());
   });
 });

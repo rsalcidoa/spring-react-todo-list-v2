@@ -1,0 +1,46 @@
+/* Ink Pipeline (default dark theme): ink background, per-state hues,
+   tabular counts, amber primary actions. */
+
+[data-theme="ink"] {
+  color-scheme: dark;
+  --color-bg: #10141b;
+  --color-surface: #171c26;
+  --color-primary: #f0a832;
+  --color-primary-hover: #d18f1f;
+  --color-text: #e8eaf0;
+  --color-text-muted: #9aa1b2;
+  --color-border: rgba(255, 255, 255, 0.08);
+
+  --color-priority-high: #e5484d;
+  --color-priority-medium: #f0a832;
+  --color-priority-low: #3d4454;
+
+  --color-status-pending: #8b93a3;
+  --color-status-active: #f0a832;
+  --color-status-completed: #34c77b;
+
+  --color-tag-bg: rgba(240, 168, 50, 0.12);
+  --color-tag-text: #f0a832;
+  --color-danger: #e5484d;
+  --color-danger-hover: #ff6369;
+  --color-danger-soft: rgba(229, 72, 77, 0.12);
+  --color-success: #34c77b;
+
+  --color-on-accent: #ffffff;
+  --color-on-primary: #1a1405;
+  --color-on-accent-soft: rgba(255, 255, 255, 0.14);
+  --color-focus-ring: rgba(240, 168, 50, 0.35);
+  --color-accent-soft: rgba(240, 168, 50, 0.08);
+  --color-overlay: rgba(0, 0, 0, 0.65);
+  --due-over: #ff8585;
+  --due-today: #f0a832;
+
+  --font-meta: inherit;
+  --glow-text: none;
+  --frost-blur: none;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+}

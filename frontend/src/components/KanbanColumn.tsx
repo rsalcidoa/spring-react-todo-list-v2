@@ -12,6 +12,12 @@ interface KanbanColumnProps {
   onDelete?: (task: Task) => void;
 }
 
+const STATUS_DOT_VAR: Record<string, string> = {
+  PENDING: 'var(--color-status-pending)',
+  ACTIVE: 'var(--color-status-active)',
+  COMPLETED: 'var(--color-status-completed)',
+};
+
 const KanbanColumn: React.FC<KanbanColumnProps> = ({status, label, tasks, onCardClick, onDrop, onDelete}) => {
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -25,11 +31,15 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({status, label, tasks, onCard
 
   return (
     <div className={styles.column}>
-      <h3 className={styles.header}>{label}</h3>
+      <h3 className={styles.header}>
+        <span className={styles.dot} style={{ backgroundColor: STATUS_DOT_VAR[status] ?? 'var(--color-text-muted)' }} />
+        {label} <span className={styles.count}>{tasks.length}</span>
+      </h3>
       <div className={`${styles.body}`}
            onDragOver={handleDragOver}
            onDragLeave={handleDragLeave}
            onDrop={onDrop}>
+        {tasks.length === 0 && <p className={styles.empty}>Sin tareas</p>}
         {tasks.map(t => (
           <KanbanCard key={t.id} task={t} onClick={() => onCardClick?.(t)} onDelete={() => onDelete?.(t)} />
         ))}

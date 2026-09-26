@@ -22,7 +22,7 @@ describe('App Routing', () => {
       </MemoryRouter>,
     );
 
-    const heading = screen.getByText(/Login/i);
+    const heading = screen.getByText(/Iniciar sesión/i);
     expect(heading).toBeTruthy();
   });
 
@@ -35,9 +35,9 @@ describe('App Routing', () => {
       </MemoryRouter>,
     );
 
-    const email = screen.getByLabelText(/email/i);
+    const email = screen.getByLabelText(/Correo electrónico/i);
     expect(email).toBeTruthy();
-    const password = screen.getByLabelText(/password/i);
+    const password = screen.getByLabelText(/Contraseña/i);
     expect(password).toBeTruthy();
   });
 });

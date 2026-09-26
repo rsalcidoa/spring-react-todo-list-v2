@@ -29,23 +29,23 @@ function renderModal(props: Partial<React.ComponentProps<typeof AddTaskModal>> =
 describe('AddTaskModal', () => {
   it('renders the modal when isOpen is true', () => {
     renderModal();
-    expect(screen.getByText(/Add Task/i)).toBeTruthy();
+    expect(screen.getByText(/Nueva tarea/i)).toBeTruthy();
   });
 
   it('does not render when isOpen is false', () => {
     renderModal({ isOpen: false });
-    expect(screen.queryByText(/Add Task/i)).toBeNull();
+    expect(screen.queryByText(/Nueva tarea/i)).toBeNull();
   });
 
   it('calls onSave with a TaskInput containing tagNames as string[]', () => {
     const onSave = vi.fn();
     renderModal({ onSave });
 
-    fireEvent.change(screen.getByPlaceholderText(/Enter task title/), {
+    fireEvent.change(screen.getByPlaceholderText(/Título de la tarea/), {
       target: { value: 'My Task' },
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /Save/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/i }));
 
     expect(onSave).toHaveBeenCalledTimes(1);
     const input = onSave.mock.calls[0][0] as TaskInput;
@@ -55,15 +55,52 @@ describe('AddTaskModal', () => {
     expect(input.status).toBe(TaskStatus.PENDING);
   });
 
+  it('blocks save with an inline message when the title is empty', () => {
+    const onSave = vi.fn();
+    renderModal({ onSave });
+
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/i }));
+
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByText('El título es obligatorio')).toBeTruthy();
+  });
+
+  it('asks for confirmation naming the impact when deleting a used tag', async () => {
+    const onTagDeleted = vi.fn();
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const { repository } = renderModal({ onTagDeleted, countTagTasks: () => 2 });
+    await repository.createTag('Work');
+
+    fireEvent.click(screen.getByRole('button', { name: /Borrar etiqueta Work/i }));
+
+    expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('2'));
+    expect(onTagDeleted).not.toHaveBeenCalled();
+    expect(await repository.listTags()).toHaveLength(1);
+    confirmSpy.mockRestore();
+  });
+
+  it('deletes without confirmation when the tag is unused', async () => {
+    const onTagDeleted = vi.fn();
+    const confirmSpy = vi.spyOn(window, 'confirm');
+    const { repository } = renderModal({ onTagDeleted, countTagTasks: () => 0 });
+    const created = await repository.createTag('Work');
+
+    fireEvent.click(screen.getByRole('button', { name: /Borrar etiqueta Work/i }));
+
+    await waitFor(() => expect(onTagDeleted).toHaveBeenCalledWith(created.id));
+    expect(confirmSpy).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
   it('calls onClose after onSave', () => {
     const onClose = vi.fn();
     const onSave = vi.fn();
     renderModal({ onClose, onSave });
 
-    fireEvent.change(screen.getByPlaceholderText(/Enter task title/), {
+    fireEvent.change(screen.getByPlaceholderText(/Título de la tarea/), {
       target: { value: 'Close Test' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /Save/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/i }));
 
     expect(onSave).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
@@ -79,10 +116,10 @@ describe('AddTaskModal', () => {
     const personalPill = screen.getByText('Personal');
     fireEvent.click(personalPill);
 
-    fireEvent.change(screen.getByPlaceholderText(/Enter task title/), {
+    fireEvent.change(screen.getByPlaceholderText(/Título de la tarea/), {
       target: { value: 'Tagged' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /Save/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/i }));
 
     const input = onSave.mock.calls[0][0] as TaskInput;
     expect(input.tagNames).toEqual(['Work', 'Personal']);
@@ -96,10 +133,10 @@ describe('AddTaskModal', () => {
     fireEvent.click(workPill);
     fireEvent.click(workPill);
 
-    fireEvent.change(screen.getByPlaceholderText(/Enter task title/), {
+    fireEvent.change(screen.getByPlaceholderText(/Título de la tarea/), {
       target: { value: 'No Tags' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /Save/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/i }));
 
     const input = onSave.mock.calls[0][0] as TaskInput;
     expect(input.tagNames).toEqual([]);
@@ -115,7 +152,7 @@ describe('AddTaskModal', () => {
         tags: [{ id: 1, name: 'Work' }],
       },
     });
-    expect(screen.getByText(/Edit Task/i)).toBeTruthy();
+    expect(screen.getByText(/Editar tarea/i)).toBeTruthy();
   });
 
   it('pre-fills form fields from editingTask', () => {
@@ -130,7 +167,7 @@ describe('AddTaskModal', () => {
       },
     });
 
-    const titleInput = screen.getByPlaceholderText(/Enter task title/) as HTMLInputElement;
+    const titleInput = screen.getByPlaceholderText(/Título de la tarea/) as HTMLInputElement;
     expect(titleInput.value).toBe('Existing Title');
   });
 
@@ -162,8 +199,8 @@ describe('AddTaskModal', () => {
     const onTagCreated = vi.fn();
     const { repository } = renderModal({ onTagCreated });
 
-    fireEvent.change(screen.getByPlaceholderText(/New tag name/), { target: { value: 'NewTag' } });
-    fireEvent.click(screen.getByRole('button', { name: /Create/i }));
+    fireEvent.change(screen.getByPlaceholderText(/Nueva etiqueta/), { target: { value: 'NewTag' } });
+    fireEvent.click(screen.getByRole('button', { name: /Crear/i }));
 
     await waitFor(() => expect(onTagCreated).toHaveBeenCalledTimes(1));
     const call = onTagCreated.mock.calls[0][0] as Tag;
@@ -177,8 +214,8 @@ describe('AddTaskModal', () => {
     const { repository } = renderModal();
     const spy = vi.spyOn(repository, 'createTag');
 
-    fireEvent.change(screen.getByPlaceholderText(/New tag name/), { target: { value: '   ' } });
-    fireEvent.click(screen.getByRole('button', { name: /Create/i }));
+    fireEvent.change(screen.getByPlaceholderText(/Nueva etiqueta/), { target: { value: '   ' } });
+    fireEvent.click(screen.getByRole('button', { name: /Crear/i }));
 
     await new Promise(r => setTimeout(r, 50));
     expect(spy).not.toHaveBeenCalled();
@@ -189,10 +226,10 @@ describe('AddTaskModal', () => {
     const { repository } = renderModal();
     await repository.createTag('Work');
 
-    fireEvent.change(screen.getByPlaceholderText(/New tag name/), { target: { value: 'Work' } });
-    fireEvent.click(screen.getByRole('button', { name: /Create/i }));
+    fireEvent.change(screen.getByPlaceholderText(/Nueva etiqueta/), { target: { value: 'Work' } });
+    fireEvent.click(screen.getByRole('button', { name: /Crear/i }));
 
-    await waitFor(() => expect(screen.getByText('This tag already exists')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Esta etiqueta ya existe')).toBeTruthy());
   });
 
   it('deletes a tag through the repository', async () => {
@@ -200,7 +237,7 @@ describe('AddTaskModal', () => {
     const { repository } = renderModal({ onTagDeleted });
     const created = await repository.createTag('Work');
 
-    fireEvent.click(screen.getByRole('button', { name: /Delete tag Work/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Borrar etiqueta Work/i }));
 
     await waitFor(() => expect(onTagDeleted).toHaveBeenCalledWith(created.id));
     expect(await repository.listTags()).toHaveLength(0);
@@ -221,12 +258,12 @@ describe('AddTaskModal', () => {
     await repository.createTag('Work');
     await repository.createTag('Personal');
 
-    fireEvent.click(screen.getByRole('button', { name: /Delete tag Work/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Borrar etiqueta Work/i }));
     await waitFor(async () => expect(await repository.listTags()).toHaveLength(1));
 
-    const titleInput = screen.getByPlaceholderText(/Enter task title/) as HTMLInputElement;
+    const titleInput = screen.getByPlaceholderText(/Título de la tarea/) as HTMLInputElement;
     fireEvent.change(titleInput, { target: { value: 'Updated' } });
-    fireEvent.click(screen.getByRole('button', { name: /Save/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/i }));
 
     const input = onSave.mock.calls[0][0] as TaskInput;
     expect(input.tagNames).toEqual(['Personal']);
@@ -236,9 +273,9 @@ describe('AddTaskModal', () => {
     // Repository is empty while existingTags still lists Work: deleteTag rejects as not-found.
     renderModal();
 
-    fireEvent.click(screen.getByRole('button', { name: /Delete tag Work/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Borrar etiqueta Work/i }));
 
-    await waitFor(() => expect(screen.getByText('This tag no longer exists')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('La etiqueta ya no existe')).toBeTruthy());
   });
 
   it('saves the selected tags when editing a task', () => {
@@ -255,8 +292,8 @@ describe('AddTaskModal', () => {
     });
 
     fireEvent.click(screen.getByText('Personal'));
-    fireEvent.change(screen.getByPlaceholderText(/Enter task title/), { target: { value: 'Updated' } });
-    fireEvent.click(screen.getByRole('button', { name: /Save/i }));
+    fireEvent.change(screen.getByPlaceholderText(/Título de la tarea/), { target: { value: 'Updated' } });
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/i }));
 
     const input = onSave.mock.calls[0][0] as TaskInput;
     expect(input.tagNames).toEqual(['Work', 'Personal']);

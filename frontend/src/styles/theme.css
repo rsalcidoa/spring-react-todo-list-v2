@@ -1,6 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
+  color-scheme: light;
   /* Colors */
   --color-bg: #f8f9fa;
   --color-surface: #ffffff;
@@ -24,7 +25,24 @@
   --color-tag-bg: #e3f2fd;
   --color-tag-text: #1976d2;
   --color-danger: #dc3545;
+  --color-danger-hover: #e74c3c;
+  --color-danger-soft: rgba(231, 76, 60, 0.1);
   --color-success: #28a745;
+
+  /* Derived surfaces (no literals outside this contract) */
+  --color-on-accent: #fff;
+  --color-on-primary: #fff;
+  --color-on-accent-soft: rgba(255, 255, 255, 0.3);
+  --color-focus-ring: rgba(0, 175, 169, 0.2);
+  --color-accent-soft: rgba(0, 175, 169, 0.08);
+  --color-overlay: rgba(0, 0, 0, 0.5);
+  --due-over: #dc3545;
+  --due-today: #9a6a00;
+
+  /* Theme-extension hooks (defaults = current rendering) */
+  --font-meta: inherit;
+  --glow-text: none;
+  --frost-blur: none;
 
   /* Typography */
   --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -49,4 +67,13 @@ body {
 
 h2, h3 {
   font-weight: 600;
+}
+
+input, textarea, select {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--color-text-muted);
 }

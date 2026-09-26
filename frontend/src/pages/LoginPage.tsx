@@ -19,13 +19,13 @@ const LoginPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateEmail(email)) {
-      showError('Invalid email format');
+      showError('Formato de email inválido');
       return;
     }
     try {
       await login(email, password, () => navigate('/tasks'));
     } catch {
-      showError('Invalid email or password');
+      showError('Email o contraseña inválidos');
     }
   };
 
@@ -33,18 +33,18 @@ const LoginPage: React.FC = () => {
     <div className={styles.container}>
       {error && <ErrorBanner key={error.id} message={error.message} onDismiss={() => setError(null)} />}
       <form className={styles.form} onSubmit={handleSubmit}>
-        <h2 className={styles.title}>Login</h2>
+        <h2 className={styles.title}>Iniciar sesión</h2>
         <div className={styles.field}>
-          <label htmlFor="email">Email:</label>
+          <label htmlFor="email">Correo electrónico:</label>
           <input id="email" type="email" value={email} onChange={e=>setEmail(e.target.value)} required />
         </div>
         <div className={styles.field}>
-          <label htmlFor="password">Password:</label>
+          <label htmlFor="password">Contraseña:</label>
           <input id="password" type="password" value={password} onChange={e=>setPassword(e.target.value)} required />
         </div>
         <button type="submit" className={styles.submitBtn}>Entrar</button>
-        <p className={styles.link}><Link to="/forgot-password">Forgot password?</Link></p>
-        <p className={styles.link}><Link to="/register">Don't have an account? Register</Link></p>
+        <p className={styles.link}><Link to="/forgot-password">¿Olvidaste tu contraseña?</Link></p>
+        <p className={styles.link}><Link to="/register">¿No tienes cuenta? Regístrate</Link></p>
       </form>
     </div>
   );

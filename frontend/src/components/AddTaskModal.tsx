@@ -13,15 +13,16 @@ interface AddTaskModalProps {
   editingTask?: Task | null;
   onTagCreated?: (tag: Tag) => void;
   onTagDeleted?: (id: number) => void;
+  countTagTasks?: (id: number) => number;
 }
 
 const TAG_ERROR_FALLBACKS = {
-  conflict: 'This tag already exists',
-  badRequest: 'Tag name is invalid',
-  notFound: 'This tag no longer exists',
+  conflict: 'Esta etiqueta ya existe',
+  badRequest: 'Nombre de etiqueta inválido',
+  notFound: 'La etiqueta ya no existe',
 };
 
-const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, repository, existingTags=[], editingTask=null, onTagCreated, onTagDeleted}) => {
+const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, repository, existingTags=[], editingTask=null, onTagCreated, onTagDeleted, countTagTasks}) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState(Priority.LOW);
@@ -30,6 +31,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
   const [dueDate, setDueDate] = useState('');
   const [newTagName, setNewTagName] = useState('');
   const [tagError, setTagError] = useState<{ message: string; id: number } | null>(null);
+  const [titleError, setTitleError] = useState<string | null>(null);
 
   const showTagError = (message: string) => {
     setTagError({ message, id: Date.now() });
@@ -37,7 +39,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
 
   const friendlyTagError = (e: unknown) => {
     const message = toDisplayMessage(e, TAG_ERROR_FALLBACKS);
-    return message === 'Error' ? 'Something went wrong' : message;
+    return message === 'Error' ? 'Algo salió mal' : message;
   };
 
   const handleCreateTag = async () => {
@@ -56,6 +58,8 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
   const handleDeleteTag = async (id: number) => {
     const deletedName = existingTags.find(t => t.id === id)?.name;
     if (!deletedName) return;
+    const usage = countTagTasks?.(id) ?? 0;
+    if (usage > 0 && !window.confirm(`"${deletedName}" está en ${usage} tarea(s). ¿Borrarla?`)) return;
     const wasSelected = tags.includes(deletedName);
     if (wasSelected) {
       setTags(prev => prev.filter(name => name !== deletedName));
@@ -91,12 +95,18 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
       setStatus(TaskStatus.PENDING);
       setTags([]);
       setDueDate('');
+      setTitleError(null);
     }
   }, [isOpen, editingTask]);
 
   if (!isOpen) return null;
 
   const handleSubmit = () => {
+    if (!title.trim()) {
+      setTitleError('El título es obligatorio');
+      return;
+    }
+    setTitleError(null);
     onSave({ title, description, priority, status, tagNames: tags, dueDate });
     onClose();
   };
@@ -107,56 +117,57 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
 
   return (
     <div className={styles.overlay} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className={styles.modal}>
-        <h2 className={styles.header}>{editingTask ? 'Edit Task' : 'Add Task'}</h2>
+      <div className={styles.modal} role="dialog" aria-modal="true" aria-label={editingTask ? 'Editar tarea' : 'Nueva tarea'}>
+        <h2 className={styles.header}>{editingTask ? 'Editar tarea' : 'Nueva tarea'}</h2>
         <div className={styles.formGroup}>
-          <label className={styles.formLabel}>Title *</label>
-          <input className={styles.input} placeholder="Enter task title" value={title} onChange={e=>setTitle(e.target.value)} />
+          <label className={styles.formLabel}>Título *</label>
+          <input className={styles.input} placeholder="Título de la tarea" value={title} onChange={e=>setTitle(e.target.value)} />
+          {titleError && <span className={styles.requiredMsg} role="alert">{titleError}</span>}
         </div>
         <div className={styles.formGroup}>
-          <label className={styles.formLabel}>Description</label>
-          <textarea className={styles.textarea} placeholder="Description" value={description} onChange={e=>setDescription(e.target.value)} />
+          <label className={styles.formLabel}>Descripción</label>
+          <textarea className={styles.textarea} placeholder="Descripción" value={description} onChange={e=>setDescription(e.target.value)} />
         </div>
         <div className={`${styles.row}`}>
           <div className={styles.formGroupFlex}>
-            <label className={styles.formLabel}>Priority</label>
+            <label className={styles.formLabel}>Prioridad</label>
             <select className={styles.select} value={priority} onChange={e=>setPriority(e.target.value as Priority)}>
-              {['LOW','MEDIUM','HIGH'].map(p => (<option key={p} value={p}>{p}</option>))}
+              {[{v:'LOW',l:'Baja'},{v:'MEDIUM',l:'Media'},{v:'HIGH',l:'Alta'}].map(o => (<option key={o.v} value={o.v}>{o.l}</option>))}
             </select>
           </div>
           <div className={styles.formGroupFlex}>
-            <label className={styles.formLabel}>Status</label>
+            <label className={styles.formLabel}>Estado</label>
             <select className={styles.select} value={status} disabled={editingTask === null} onChange={e=>setStatus(e.target.value as TaskStatus)}>
-              {['PENDING','ACTIVE','COMPLETED'].map(s => (<option key={s} value={s}>{s}</option>))}
+              {[{v:'PENDING',l:'Pendiente'},{v:'ACTIVE',l:'En progreso'},{v:'COMPLETED',l:'Completada'}].map(o => (<option key={o.v} value={o.v}>{o.l}</option>))}
             </select>
           </div>
         </div>
         <div className={styles.formGroup}>
-          <label className={styles.formLabel}>Due Date</label>
+          <label className={styles.formLabel}>Vencimiento</label>
           <input type="date" className={styles.input} value={dueDate} onChange={e=>setDueDate(e.target.value)} />
         </div>
         <div className={styles.tagSection}>
-          <span className={styles.sectionLabel}>Tags:</span>
+          <span className={styles.sectionLabel}>Etiquetas:</span>
           <div className={styles.existingTags}>
             {existingTags.map((tag) => (
               <span key={tag.id}
                 className={`${styles.tagPill} ${tags.includes(tag.name) ? styles.selected : ''}`}>
                 <button type="button" onClick={()=>toggleTag(tag.name)}>{tag.name}</button>
-                <button type="button" className={styles.tagDeleteBtn} aria-label={`Delete tag ${tag.name}`}
+                <button type="button" className={styles.tagDeleteBtn} aria-label={`Borrar etiqueta ${tag.name}`}
                   onClick={()=>handleDeleteTag(tag.id)}>×</button>
               </span>
             ))}
           </div>
           <div className={styles.newTagRow}>
-            <input className={styles.tagInput} placeholder="New tag name" value={newTagName}
+            <input className={styles.tagInput} placeholder="Nueva etiqueta" value={newTagName}
               onChange={e=>setNewTagName(e.target.value)} maxLength={50} />
-            <button type="button" className={styles.tagCreateBtn} onClick={handleCreateTag}>Create</button>
+            <button type="button" className={styles.tagCreateBtn} onClick={handleCreateTag}>Crear</button>
           </div>
         </div>
         {tagError && <ErrorBanner key={tagError.id} message={tagError.message} onDismiss={() => setTagError(null)} />}
         <div className={styles.actions}>
-          <button className={styles.cancelBtn} onClick={onClose}>Cancel</button>
-          <button className={styles.saveBtn} onClick={handleSubmit}>Save</button>
+          <button className={styles.cancelBtn} onClick={onClose}>Cancelar</button>
+          <button className={styles.saveBtn} onClick={handleSubmit}>Guardar</button>
         </div>
       </div>
     </div>

@@ -25,10 +25,10 @@ describe('LoginPage', () => {
       </MemoryRouter>,
     );
     
-    expect(screen.getByText(/Login/i)).toBeTruthy();
-    const emailInput = screen.getByLabelText(/email/i);
+    expect(screen.getByText(/Iniciar sesión/i)).toBeTruthy();
+    const emailInput = screen.getByLabelText(/Correo electrónico/i);
     expect(emailInput).toBeTruthy();
-    expect(screen.getByLabelText(/password/i)).toBeTruthy();
+    expect(screen.getByLabelText(/Contraseña/i)).toBeTruthy();
     expect(screen.getByRole('button', { name: /Entrar/i })).toBeTruthy();
   });
 
@@ -39,8 +39,8 @@ describe('LoginPage', () => {
       </MemoryRouter>,
     );
 
-    const emailInput = screen.getByLabelText(/email/i);
-    const passwordInput = screen.getByLabelText(/password/i);
+    const emailInput = screen.getByLabelText(/Correo electrónico/i);
+    const passwordInput = screen.getByLabelText(/Contraseña/i);
     const submitBtn = screen.getByRole('button', { name: /Entrar/i });
 
     fireEvent.change(emailInput, { target: { value: 'test@test.com' } });

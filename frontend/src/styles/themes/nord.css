@@ -1,0 +1,45 @@
+/* Nord Frost: pale arctic light, frosted panels, muted thereby calm. */
+
+[data-theme="nord"] {
+  color-scheme: light;
+  --color-bg: #e8edf3;
+  --color-surface: rgba(255, 255, 255, 0.72);
+  --color-primary: #5e81ac;
+  --color-primary-hover: #4c6a8f;
+  --color-text: #2e3440;
+  --color-text-muted: #6b7689;
+  --color-border: #d8dee9;
+
+  --color-priority-high: #bf616a;
+  --color-priority-medium: #d08770;
+  --color-priority-low: #a9b4c4;
+
+  --color-status-pending: #7b88a0;
+  --color-status-active: #5e81ac;
+  --color-status-completed: #3fa08a;
+
+  --color-tag-bg: rgba(136, 192, 208, 0.22);
+  --color-tag-text: #3f6d8e;
+  --color-danger: #bf616a;
+  --color-danger-hover: #a84e57;
+  --color-danger-soft: rgba(191, 97, 106, 0.12);
+  --color-success: #3fa08a;
+
+  --color-on-accent: #ffffff;
+  --color-on-primary: #ffffff;
+  --color-on-accent-soft: rgba(255, 255, 255, 0.5);
+  --color-focus-ring: rgba(94, 129, 172, 0.3);
+  --color-accent-soft: rgba(136, 192, 208, 0.16);
+  --color-overlay: rgba(46, 52, 64, 0.45);
+  --due-over: #bf616a;
+  --due-today: #b56a32;
+
+  --font-meta: inherit;
+  --glow-text: none;
+  --frost-blur: blur(10px);
+
+  --radius: 12px;
+  --radius-sm: 8px;
+  --shadow-sm: 0 2px 8px rgba(136, 192, 208, 0.25);
+  --shadow-md: 0 8px 28px rgba(136, 192, 208, 0.3);
+}

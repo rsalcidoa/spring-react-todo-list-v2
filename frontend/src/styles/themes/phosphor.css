@@ -1,0 +1,46 @@
+/* Phosphor Terminal: near-black green, phosphor glow contained to cards,
+   monospace only for metadata and counts. */
+
+[data-theme="phosphor"] {
+  color-scheme: dark;
+  --color-bg: #04140a;
+  --color-surface: #071b0e;
+  --color-primary: #37d67a;
+  --color-primary-hover: #2bb866;
+  --color-text: #c9f5d6;
+  --color-text-muted: #7dd79a;
+  --color-border: #1e5c34;
+
+  --color-priority-high: #ff6b6b;
+  --color-priority-medium: #ffd43b;
+  --color-priority-low: #2c7a45;
+
+  --color-status-pending: #7dd79a;
+  --color-status-active: #37d67a;
+  --color-status-completed: #a9e34b;
+
+  --color-tag-bg: rgba(55, 214, 122, 0.12);
+  --color-tag-text: #69db7c;
+  --color-danger: #ff6b6b;
+  --color-danger-hover: #ffa8a8;
+  --color-danger-soft: rgba(255, 107, 107, 0.12);
+  --color-success: #69db7c;
+
+  --color-on-accent: #04140a;
+  --color-on-primary: #04140a;
+  --color-on-accent-soft: rgba(55, 214, 122, 0.18);
+  --color-focus-ring: rgba(55, 214, 122, 0.35);
+  --color-accent-soft: rgba(55, 214, 122, 0.08);
+  --color-overlay: rgba(0, 0, 0, 0.7);
+  --due-over: #ff6b6b;
+  --due-today: #ffd43b;
+
+  --font-meta: ui-monospace, 'Cascadia Mono', Menlo, Consolas, monospace;
+  --glow-text: 0 0 8px rgba(80, 255, 140, 0.35);
+  --frost-blur: none;
+
+  --radius: 6px;
+  --radius-sm: 3px;
+  --shadow-sm: none;
+  --shadow-md: 0 0 24px rgba(55, 214, 122, 0.12);
+}

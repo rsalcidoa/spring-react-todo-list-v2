@@ -27,7 +27,7 @@ describe('ErrorBanner', () => {
 
   it('hides immediately when close button is clicked', () => {
     render(<ErrorBanner message="Dismissible" />);
-    fireEvent.click(screen.getByRole('button', { name: /Close/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Cerrar/i }));
     expect(screen.queryByRole('alert')).toBeNull();
   });
 

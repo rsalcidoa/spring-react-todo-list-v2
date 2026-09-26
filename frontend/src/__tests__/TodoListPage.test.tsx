@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, cleanup, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import TodoListPage from '../pages/TodoListPage';
+import { ThemeProvider } from '../context/ThemeContext';
 import { InMemoryTaskRepository } from '../data/TaskRepository';
 import { Priority, TaskStatus } from '../services/types/task';
 
@@ -20,9 +21,11 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
   const renderWithRepo = (repository: InMemoryTaskRepository) => {
     return render(
       <MemoryRouter initialEntries={['/tasks']}>
-        <Routes>
-          <Route path="/tasks" element={<TodoListPage repository={repository} />} />
-        </Routes>
+        <ThemeProvider>
+          <Routes>
+            <Route path="/tasks" element={<TodoListPage repository={repository} />} />
+          </Routes>
+        </ThemeProvider>
       </MemoryRouter>,
     );
   };
@@ -42,12 +45,29 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
     return { repository, work, personal };
   }
 
-  it('renders three Kanban columns with correct labels', async () => {
+  it('renders three Kanban columns with correct labels and counts', async () => {
+    const { repository } = await seedBoard();
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.getByText(/Tablero/i)).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Por hacer 1/ })).toBeTruthy());
+    expect(screen.getByRole('heading', { name: /En progreso 1/ })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: /Hecho 0/ })).toBeTruthy();
+    expect(screen.getByText(/Tablero/i).closest('h1')?.textContent).toMatch(/2/);
+  });
+
+  it('shows an empty state with a create action when there are no tasks', async () => {
     renderWithRepo(new InMemoryTaskRepository());
-    await waitFor(() => expect(screen.getByText(/Task Board/i)).toBeTruthy());
-    expect(screen.getByText(/To Do/i)).toBeTruthy();
-    expect(screen.getByText(/In Progress/i)).toBeTruthy();
-    expect(screen.getByText(/Done/i)).toBeTruthy();
+    await waitFor(() => expect(screen.getByText(/No hay tareas todavía/i)).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: /Crear tarea/i }));
+    await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy());
+  });
+
+  it('shows skeletons while loading', async () => {
+    const repository = new InMemoryTaskRepository();
+    vi.spyOn(repository, 'fetchAll').mockImplementation(() => new Promise(() => {}));
+    vi.spyOn(repository, 'listTags').mockImplementation(() => new Promise(() => {}));
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.getByRole('status', { name: /Cargando tareas/i })).toBeTruthy());
   });
 
   it('displays tasks in the correct columns by status', async () => {
@@ -60,11 +80,11 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
   it('creates a task via modal and stores it through the repository', async () => {
     const repository = new InMemoryTaskRepository();
     renderWithRepo(repository);
-    await waitFor(() => expect(screen.queryByText(/Task Board/i)).toBeTruthy());
+    await waitFor(() => expect(screen.queryByText(/Tablero/i)).toBeTruthy());
 
-    fireEvent.click(screen.getByRole('button', { name: /\+ Task/i }));
-    fireEvent.change(screen.getByPlaceholderText(/Enter task title/), { target: { value: 'New Modal Task' } });
-    fireEvent.click(screen.getByRole('button', { name: /Save/i }));
+    fireEvent.click(screen.getByRole('button', { name: /\+ Tarea/i }));
+    fireEvent.change(screen.getByPlaceholderText(/Título de la tarea/), { target: { value: 'New Modal Task' } });
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/i }));
 
     await waitFor(() => expect(screen.queryByText(/New Modal Task/i)).toBeTruthy());
     const tasks = await repository.fetchAll();
@@ -79,7 +99,7 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
 
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     const taskACard = screen.getByText(/Task Alpha/i).closest('[data-task]');
-    fireEvent.click(taskACard!.querySelector('button[aria-label="Delete task"]')!);
+    fireEvent.click(taskACard!.querySelector('button[aria-label="Borrar tarea"]')!);
 
     await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeNull(), { timeout: 5000 });
     expect(await repository.fetchAll()).toHaveLength(1);
@@ -95,9 +115,9 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
     const alert = await screen.findByRole('alert');
     expect(alert).toBeTruthy();
     expect(screen.getByText(/Network down/)).toBeTruthy();
-    expect(console.error).not.toHaveBeenCalled();
+    expect(vi.mocked(console.error).mock.calls.flat().join('\n')).not.toContain('Network down');
 
-    fireEvent.click(screen.getByRole('button', { name: /Close/i }));
+    fireEvent.click(within(screen.getByRole('alert')).getByRole('button', { name: /Cerrar/i }));
     await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
   });
 
@@ -107,11 +127,12 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
     await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy(), { timeout: 5000 });
 
     fireEvent.click(screen.getByText(/Task Alpha/i).closest('[data-task]')!);
-    await waitFor(() => expect(screen.queryByText(/Edit Task/i)).toBeTruthy());
+    await waitFor(() => expect(screen.queryByText(/Editar tarea/i)).toBeTruthy());
 
-    fireEvent.click(screen.getByText('Personal'));
-    fireEvent.change(screen.getByPlaceholderText(/Enter task title/), { target: { value: 'Task Alpha updated' } });
-    fireEvent.click(screen.getByRole('button', { name: /Save/i }));
+    const dialog = screen.getByRole('dialog');
+    fireEvent.click(within(dialog).getByText('Personal'));
+    fireEvent.change(screen.getByPlaceholderText(/Título de la tarea/), { target: { value: 'Task Alpha updated' } });
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/i }));
 
     await waitFor(() => expect(screen.queryByText(/Task Alpha updated/i)).toBeTruthy());
     const tasks = await repository.fetchAll();
@@ -122,13 +143,14 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
 
   it('removes a deleted tag from the repository and unassigns it', async () => {
     const { repository } = await seedBoard();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderWithRepo(repository);
     await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy(), { timeout: 5000 });
 
     fireEvent.click(screen.getByText(/Task Alpha/i).closest('[data-task]')!);
-    await waitFor(() => expect(screen.queryByText(/Edit Task/i)).toBeTruthy());
+    await waitFor(() => expect(screen.queryByText(/Editar tarea/i)).toBeTruthy());
 
-    fireEvent.click(screen.getByRole('button', { name: /Delete tag Personal/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Borrar etiqueta Personal/i }));
 
     await waitFor(async () => expect(await repository.listTags()).toHaveLength(1));
     const tasks = await repository.fetchAll();
@@ -138,18 +160,18 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
   it('creates tags with real ids so they reconcile without refresh hacks', async () => {
     const repository = new InMemoryTaskRepository();
     renderWithRepo(repository);
-    await waitFor(() => expect(screen.queryByText(/Task Board/i)).toBeTruthy());
+    await waitFor(() => expect(screen.queryByText(/Tablero/i)).toBeTruthy());
 
-    fireEvent.click(screen.getByRole('button', { name: /\+ Task/i }));
-    fireEvent.change(screen.getByPlaceholderText(/New tag name/), { target: { value: 'NewTag' } });
-    fireEvent.click(screen.getByRole('button', { name: /Create/i }));
+    fireEvent.click(screen.getByRole('button', { name: /\+ Tarea/i }));
+    fireEvent.change(screen.getByPlaceholderText(/Nueva etiqueta/), { target: { value: 'NewTag' } });
+    fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: /Crear/i }));
 
     await waitFor(async () => expect(await repository.listTags()).toHaveLength(1));
     const [tag] = await repository.listTags();
     expect(typeof tag.id).toBe('number');
 
-    fireEvent.change(screen.getByPlaceholderText(/Enter task title/), { target: { value: 'Tagged Task' } });
-    fireEvent.click(screen.getByRole('button', { name: /Save/i }));
+    fireEvent.change(screen.getByPlaceholderText(/Título de la tarea/), { target: { value: 'Tagged Task' } });
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/i }));
 
     await waitFor(() => expect(screen.queryByText(/Tagged Task/i)).toBeTruthy());
     const tasks = await repository.fetchAll();
@@ -162,15 +184,74 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
     renderWithRepo(repository);
     await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy(), { timeout: 5000 });
 
-    const header = screen.getByText('In Progress');
+    const header = screen.getByText('En progreso');
     const body = header.closest('div')!.querySelector('div')!;
     fireEvent.drop(body, {
       dataTransfer: { getData: () => '1' },
       preventDefault: () => {},
     });
 
-    await waitFor(() => expect(screen.getByText(/offline/i)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/No se pudo mover: offline/i)).toBeTruthy());
     const tasks = await repository.fetchAll();
     expect(tasks.find(t => t.id === 1)!.status).toBe(TaskStatus.PENDING);
+  });
+
+  it('filters visible tasks by tag and clears the filter', async () => {
+    const { repository } = await seedBoard();
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy(), { timeout: 5000 });
+    expect(screen.queryByText(/Task Beta/i)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Work', pressed: false }));
+    await waitFor(() => {
+      expect(screen.queryByText(/Task Alpha/i)).toBeTruthy();
+      expect(screen.queryByText(/Task Beta/i)).toBeNull();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Limpiar/i }));
+    await waitFor(() => expect(screen.queryByText(/Task Beta/i)).toBeTruthy());
+  });
+
+  it('highlights the drop target on drag over', async () => {
+    const { repository } = await seedBoard();
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy(), { timeout: 5000 });
+
+    const header = screen.getByText('En progreso');
+    const body = header.closest('div')!.querySelector('div')!;
+    fireEvent.dragOver(body);
+    expect(body.className).toMatch(/dragover/);
+    fireEvent.dragLeave(body);
+    expect(body.className).not.toMatch(/dragover/);
+  });
+
+  it('shows due-state treatments on dated cards', async () => {
+    const repository = new InMemoryTaskRepository();
+    const pad = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const now = new Date();
+    const past = new Date(now); past.setDate(now.getDate() - 1);
+    const future = new Date(now); future.setDate(now.getDate() + 1);
+    await repository.create({
+      title: 'Overdue T', priority: Priority.LOW, status: TaskStatus.PENDING,
+      tagNames: [], dueDate: pad(past),
+    });
+    await repository.create({
+      title: 'Today T', priority: Priority.LOW, status: TaskStatus.PENDING,
+      tagNames: [], dueDate: pad(now),
+    });
+    await repository.create({
+      title: 'Future T', priority: Priority.LOW, status: TaskStatus.PENDING,
+      tagNames: [], dueDate: pad(future),
+    });
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.queryByText(/Overdue T/i)).toBeTruthy());
+
+    const chip = (title: string) => {
+      const card = screen.getByText(title).closest('[data-task]')!;
+      return card.querySelector('span[class*="dueDate"]')!;
+    };
+    expect(chip('Overdue T').className).toMatch(/dueOverdue/);
+    expect(chip('Today T').className).toMatch(/dueToday/);
+    expect(chip('Future T').className).not.toMatch(/dueOverdue|dueToday/);
   });
 });

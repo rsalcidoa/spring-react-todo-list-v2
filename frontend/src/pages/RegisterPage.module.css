@@ -44,14 +44,14 @@
 .field input:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px rgba(0, 175, 169, 0.2);
+  box-shadow: 0 0 0 2px var(--color-focus-ring);
 }
 
 .submitBtn {
   width: 100%;
   padding: 0.6rem;
   background-color: var(--color-primary);
-  color: #fff;
+  color: var(--color-on-primary);
   border: none;
   border-radius: var(--radius-sm);
   cursor: pointer;

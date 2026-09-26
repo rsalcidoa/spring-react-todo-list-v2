@@ -6,18 +6,42 @@ Provides React frontend integration with the REST API for task management.
 ## Requirements
 
 ### Requirement: Task List View
-The system SHALL display all tasks in a list format showing title, priority, and due date.
+The system SHALL display all tasks grouped by status with per-column counts (tabular numerals) and a board total. Each task SHALL show its due-state derived from `dueDate` against the local date: `overdue` (past), `today`, `future`, or `none` (no date). A tag filter in the board header SHALL narrow visible tasks to those carrying any selected tag. Loading SHALL show skeletons; empty columns and empty boards SHALL show actionable empty states (with a create CTA). Failed moves SHALL surface a visible confirmation/rollback notice beyond the transient banner.
 
 #### Scenario: User Views Task List
 - **WHEN** user navigates to /tasks page
 - **THEN** system displays all user's tasks in a scrollable list
 
+#### Scenario: User sees counts and due-states at a glance
+- **WHEN** user opens `/tasks` with tasks across statuses and dates
+- **THEN** each column shows its count, the header shows the total, overdue tasks carry the `overdue` treatment, today's the `today` treatment, and dateless tasks show no due chip
+
+#### Scenario: User filters by tag
+- **WHEN** user selects one or more tags in the header filter
+- **THEN** only tasks carrying any selected tag are shown; clearing restores all
+
+#### Scenario: Drop target is visible and failure is explained
+- **WHEN** user drags a task over a column
+- **THEN** the column highlights as a valid target; on failed `move` the task visibly rolls back with an explanatory notice
+
+#### Scenario: Loading and empty states guide
+- **WHEN** tasks/tags are loading
+- **THEN** skeletons occupy the board; WHEN the board or a column is empty THEN an empty state with a create CTA is shown
+
 ### Requirement: Create Task Form
-The system SHALL provide a form to create new tasks with title, description, priority, and due date.
+The system SHALL provide a form to create new tasks with title, description, priority, and due date. The form SHALL validate inline: empty title blocks submit with a field-level message (no round-trip). Creating a tag SHALL assign it in the same step. Deleting a tag assigned to N tasks SHALL ask for confirmation naming the impact.
 
 #### Scenario: User Creates New Task
 - **WHEN** user fills form and clicks "Create"
 - **THEN** system adds task to list and shows success message
+
+#### Scenario: Empty title is blocked inline
+- **WHEN** user submits with an empty title
+- **THEN** submit is prevented with a field-level message and no request is sent
+
+#### Scenario: Tag create-and-assign in one step
+- **WHEN** user types a new tag name and confirms
+- **THEN** the tag is created, selected, and saved with the task without extra clicks
 
 ### Requirement: Edit Task Functionality
 The system SHALL allow users to edit existing tasks.
@@ -83,7 +107,7 @@ The frontend task data layer SHALL expose board operations through the `TaskRepo
 - **THEN** the caller receives the contract message through one shared mapping used by page and modal alike
 
 ### Requirement: API Integration
-The system SHALL communicate with the backend REST API, automatically including `Authorization: Bearer <token>` header on every authenticated request via an Axios interceptor. Session storage and the 401 policy SHALL live in exactly one place: the session module (`getToken`, `saveSession`, `clearSession`, `handleUnauthorized`). The interceptor SHALL delegate header injection and 401 handling to it; the auth context SHALL delegate persistence to it. Every ApiService function must use a shared axios instance created via `axios.create({ baseURL: '/v1' })` that includes both auth interceptor and response error handler for 401 redirects. **All authentication calls must also use this shared instance.**
+The system SHALL communicate with the backend REST API, automatically including `Authorization: Bearer <token>` header on every authenticated request via an Axios interceptor. Session storage and the 401 policy SHALL live in exactly one place: the session module (`getToken`, `saveSession`, `clearSession`, `handleUnauthorized`). All styles SHALL consume the design token contract in `frontend/src/styles/theme.css` (no literal colors outside it). Every ApiService function must use a shared axios instance created via `axios.create({ baseURL: '/v1' })` that includes both auth interceptor and response error handler for 401 redirects. **All authentication calls must also use this shared instance.**
 
 **Affected files**: 
 - `frontend/src/services/session.ts` — new module owning keys and 401 policy
@@ -108,6 +132,10 @@ The system SHALL communicate with the backend REST API, automatically including 
 #### Scenario: Session policy is unit-testable without network
 - **WHEN** a `401` arrives for a non-login request
 - **THEN** the session is cleared and navigation to `/login` happens through the module (covered without HTTP mocks)
+
+#### Scenario: Token refactor has zero visual change
+- **WHEN** the token migration is applied
+- **THEN** board, modal, auth pages and banners render pixel-identical to the pre-migration screenshot baseline
 
 ### Requirement: Registration Page Route
 The system SHALL expose a `/register` route that displays the registration form, accepts email and password, calls `POST /v1/auth/register` directly, auto-login after successful registration, and navigates to /tasks.
@@ -283,3 +311,11 @@ The system SHALL expose two new routes: `/forgot-password` for requesting a rese
 - **WHEN** user navigates to `/reset/:token` with a valid token
 - **THEN** system displays a form with new password and confirm password inputs
 - **AND** upon successful submission, navigates the user to `/login`
+
+#### Scenario: User copies the reset token
+- **WHEN** the token is displayed
+- **THEN** a copy action places it on the clipboard and confirms
+
+#### Scenario: Reset errors direct action
+- **WHEN** reset fails for an expired token or a request error
+- **THEN** the message names the fix (request a new code / retry) instead of only describing the failure

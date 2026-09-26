@@ -4,22 +4,53 @@
   display: flex;
   flex-direction: column;
   min-height: 100px;
+  backdrop-filter: var(--frost-blur);
 }
 
 .header {
   padding-bottom: 0.5rem;
-  border-bottom: 2px solid var(--color-primary);
   font-size: 1rem;
   color: var(--color-text);
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  display: inline-block;
+  flex: none;
+}
+
+.count {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  font-weight: 500;
+  font-family: var(--font-meta);
 }
 
 .body {
   flex: 1;
   min-height: 60px;
+  padding: 0.6rem 0.55rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
 }
 
 .dragover {
-  background-color: rgba(0, 175, 169, 0.08);
+  background-color: var(--color-accent-soft);
   border-radius: var(--radius);
+  outline: 2px dashed var(--color-primary);
+  outline-offset: -2px;
+}
+
+.empty {
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  padding: 0.75rem 0.25rem;
 }

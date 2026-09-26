@@ -1,6 +1,13 @@
 import React from 'react';
-import { Task } from '../services/types/task';
+import { Task, Priority } from '../services/types/task';
+import { getDueState } from '../services/dueState';
 import styles from './KanbanCard.module.css';
+
+const PRIORITY_LABELS: Record<Priority, string> = {
+  [Priority.LOW]: 'Baja',
+  [Priority.MEDIUM]: 'Media',
+  [Priority.HIGH]: 'Alta',
+};
 
 interface KanbanCardProps {
   task: Task;
@@ -8,8 +15,15 @@ interface KanbanCardProps {
   onDelete?: () => void;
 }
 
-const KanbanCard: React.FC<KanbanCardProps> = ({task, onClick, onDelete}) => (
-  <div className={`${styles.card} ${task.priority ? styles[`priority-${task.priority.toLowerCase()}`] : ''}`}
+const KanbanCard: React.FC<KanbanCardProps> = ({task, onClick, onDelete}) => {
+  const dueState = getDueState(task.dueDate);
+  const dueClass = dueState === 'overdue' ? styles.dueOverdue : dueState === 'today' ? styles.dueToday : '';
+  const dueLabel =
+    dueState === 'overdue' ? `Vencida: ${task.dueDate}` :
+    dueState === 'today' ? `Hoy: ${task.dueDate}` :
+    task.dueDate;
+  return (
+  <div className={`${styles.card} ${task.priority ? styles[`edge-${task.priority.toLowerCase()}`] : ''}`}
        data-task={String(task.id)}
        onClick={(e) => { if ((e.target as HTMLElement).dataset.dragging !== 'true') onClick?.(); }}
        onDragStart={(e: React.DragEvent<HTMLDivElement>) => { (e.dataTransfer as DataTransfer).setData('text/plain', String(task.id)); }}
@@ -18,14 +32,14 @@ const KanbanCard: React.FC<KanbanCardProps> = ({task, onClick, onDelete}) => (
       <span className={styles.title}>{task.title}</span>
       {task.priority && (
         <span className={`${styles.badge} ${styles[`priority-${task.priority.toLowerCase()}`]}`}>
-          {task.priority}
+          {PRIORITY_LABELS[task.priority] ?? task.priority}
         </span>
       )}
       {onDelete && (
         <button
           className={styles.deleteBtn}
           onClick={(e) => { e.stopPropagation(); onDelete(); }}
-          aria-label="Delete task"
+          aria-label="Borrar tarea"
         >
           ✕
         </button>
@@ -33,7 +47,7 @@ const KanbanCard: React.FC<KanbanCardProps> = ({task, onClick, onDelete}) => (
     </div>
     {task.description && <p className={styles.description}>{task.description}</p>}
     {task.dueDate && (
-      <span className={styles.meta}><span className={styles.dueDate}>{task.dueDate}</span></span>
+      <span className={styles.meta}><span className={`${styles.dueDate} ${dueClass}`}>{dueLabel}</span></span>
     )}
     <div className={styles.tagList}>
       {task.tags?.map(tag => (
@@ -41,6 +55,7 @@ const KanbanCard: React.FC<KanbanCardProps> = ({task, onClick, onDelete}) => (
       ))}
     </div>
   </div>
-);
+  );
+};
 
 export default KanbanCard;
