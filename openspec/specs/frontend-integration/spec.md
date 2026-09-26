@@ -6,7 +6,7 @@ Provides React frontend integration with the REST API for task management.
 ## Requirements
 
 ### Requirement: Task List View
-The system SHALL display all tasks grouped by status with per-column counts (tabular numerals) and a board total. Each task SHALL show its due-state derived from `dueDate` against the local date: `overdue` (past), `today`, `future`, or `none` (no date). A tag filter in the board header SHALL narrow visible tasks to those carrying any selected tag. Loading SHALL show skeletons; empty columns and empty boards SHALL show actionable empty states (with a create CTA). Failed moves SHALL surface a visible confirmation/rollback notice beyond the transient banner.
+The system SHALL display all tasks grouped by status with per-column counts (tabular numerals) and a board total. Each task SHALL show its due-state derived from `dueDate` against the local date: `overdue` (past), `today`, `future`, or `none` (no date). A tag filter in the board header SHALL narrow visible tasks to those carrying any selected tag. Loading SHALL show skeletons; an empty board SHALL show an actionable empty state (with a create CTA) while empty columns show a plain "Sin tareas" text. Failed moves SHALL roll back visibly and surface the failure through the transient error banner.
 
 #### Scenario: User Views Task List
 - **WHEN** user navigates to /tasks page
@@ -22,11 +22,11 @@ The system SHALL display all tasks grouped by status with per-column counts (tab
 
 #### Scenario: Drop target is visible and failure is explained
 - **WHEN** user drags a task over a column
-- **THEN** the column highlights as a valid target; on failed `move` the task visibly rolls back with an explanatory notice
+- **THEN** the column highlights as a valid target; on failed `move` the task visibly rolls back and the transient error banner names the failure
 
 #### Scenario: Loading and empty states guide
 - **WHEN** tasks/tags are loading
-- **THEN** skeletons occupy the board; WHEN the board or a column is empty THEN an empty state with a create CTA is shown
+- **THEN** skeletons occupy the board; WHEN the board is empty THEN an empty state with a create CTA is shown, and WHEN a column is empty it shows a plain "Sin tareas" text
 
 ### Requirement: Create Task Form
 The system SHALL provide a form to create new tasks with title, description, priority, and due date. The form SHALL validate inline: empty title blocks submit with a field-level message (no round-trip). Creating a tag SHALL assign it in the same step. Deleting a tag assigned to N tasks SHALL ask for confirmation naming the impact.
@@ -143,10 +143,10 @@ The system SHALL expose a `/register` route that displays the registration form,
 **Affected files**: 
 - `frontend/src/App.tsx` — add `<Route path="/register" element={<RegisterPage />} />` before catch-all route
 - `frontend/src/pages/RegisterPage.tsx` — call `api.post('/auth/register', …)`; on success auto-login then navigate to /tasks
-- `frontend/src/pages/LoginPage.tsx` — add Link component "¿No tienes cuenta? Registrarse" pointing to `/register`
+- `frontend/src/pages/LoginPage.tsx` — add Link component "¿No tienes cuenta? Regístrate" pointing to `/register`
 
 #### Scenario: User Navigates to Register Route
-- **WHEN** user visits URL `/register` or clicks "Registrarse" link from login page
+- **WHEN** user visits URL `/register` or clicks "Regístrate" link from login page
 - **THEN** system displays the registration form with email and password fields
 
 #### Scenario: Successful Registration Triggers Auto-login Redirect
@@ -157,15 +157,15 @@ The system SHALL expose a `/register` route that displays the registration form,
 
 #### Scenario: Registration Form Has Navigation Link to Login
 - **WHEN** user is on the registration page and already has an account
-- **THEN** system displays a link "¿Ya tienes cuenta? Iniciar sesión" pointing to /login
+- **THEN** system displays a link "¿Ya tienes cuenta? Inicia sesión" pointing to /login
 
 ### Requirement: Tag List Refresh
 The system SHALL refresh the available tags list in the task board after a successful task creation or update that may have introduced new tags, so the user sees the new tags immediately without a page reload.
 
 **ID**: REQ-FE-008
 **Affected files**: 
-- `frontend/src/pages/TodoListPage.tsx` — after `createTask` or `updateTask` success, call `repository.refreshTags()` to update tags state
-- `frontend/src/data/TaskRepository.ts` — `refreshTags()` method (fetch tags via ApiService + update internal state)
+- `frontend/src/pages/TodoListPage.tsx` — after `createTask` or `updateTask` success, call `loadTags()` (`repository.listTags()` + `setTags`) to update tags state
+- `frontend/src/data/TaskRepository.ts` — `listTags()` read used for refresh (no dedicated `refreshTags()` method)
 - `frontend/src/components/AddTaskModal.tsx` — receives updated `existingTags` prop
 
 #### Scenario: New tag appears after task creation without reload
@@ -186,7 +186,7 @@ The system SHALL validate email format on the frontend before submitting login o
 
 #### Scenario: Invalid email blocked before submission
 - **WHEN** user enters `mail@mail` or `notanemail` in the email field
-- **THEN** the frontend validation fails and an ErrorBanner is displayed with message "Invalid email format"
+- **THEN** the frontend validation fails and an ErrorBanner is displayed with message "Formato de email inválido"
 - **AND** the form does not submit to the backend
 
 #### Scenario: Empty email blocked by HTML5 required
@@ -194,7 +194,7 @@ The system SHALL validate email format on the frontend before submitting login o
 - **THEN** the HTML5 `required` attribute blocks submission
 
 ### Requirement: ErrorBanner Toast Component
-The system SHALL provide a shared `ErrorBanner` component that displays error messages as a floating toast in the upper-right corner of the viewport. The banner SHALL auto-hide after 5 seconds, stack vertically when multiple errors occur simultaneously, and use CSS custom property `--color-danger` for text color.
+The system SHALL provide a shared `ErrorBanner` component that displays error messages as a floating toast in the upper-right corner of the viewport. The banner SHALL auto-hide after 5 seconds and use CSS custom property `--color-danger` for text color. Only one banner is shown at a time: a new error replaces the previous one (single `error` state per page).
 
 **ID**: REQ-FE-011
 **Affected files**:
@@ -209,9 +209,9 @@ The system SHALL provide a shared `ErrorBanner` component that displays error me
 - **THEN** ErrorBanner is rendered in the upper-right corner with the error message
 - **AND** the banner auto-hides after 5 seconds
 
-#### Scenario: Multiple errors stack vertically
+#### Scenario: ErrorBanner replaces the previous error
 - **WHEN** two errors occur within 5 seconds of each other
-- **THEN** both banners are visible, stacked vertically
+- **THEN** the newest message replaces the previous one (single banner visible)
 
 #### Scenario: ErrorBanner replaces alert() dialogs
 - **WHEN** registration fails with 409 Conflict
@@ -313,8 +313,8 @@ The system SHALL expose two new routes: `/forgot-password` for requesting a rese
 - **AND** upon successful submission, navigates the user to `/login`
 
 #### Scenario: User copies the reset token
-- **WHEN** the token is displayed
-- **THEN** a copy action places it on the clipboard and confirms
+- **WHEN** the token is displayed on the forgot-password page
+- **THEN** a copy action places it on the clipboard and confirms (the reset page itself reads the token from the `/reset/:token` URL and does not display it)
 
 #### Scenario: Reset errors direct action
 - **WHEN** reset fails for an expired token or a request error

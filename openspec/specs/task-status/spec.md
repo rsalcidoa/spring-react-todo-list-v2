@@ -63,11 +63,11 @@ The system SHALL allow clients to filter task lists by status via an optional `s
 - **THEN** system returns 400 Bad Request with field-level details `{"error":"Validation failed","errors":{"status":["Status must be PENDING, ACTIVE or COMPLETED"]}}`
 
 ### Requirement: Task Update Includes Status
-The system SHALL accept an optional `status` field in PUT requests to `/v1/tasks/{id}` and update the task's status accordingly. The status MUST transition atomically — only one status value may be stored per request. Both the full update (PUT) and the status-only update (PATCH) SHALL apply the status through the single status operation of the Task module (`applyStatus`), so both entry points share the same parsing and the same failure behavior. No second status operation exists on the module.
+The system SHALL accept an optional `status` field in PUT requests to `/v1/tasks/{id}` and update the task's status accordingly. The status MUST transition atomically — only one status value may be stored per request. Both the full update (PUT) and the status-only update (PATCH) SHALL share the same strict parsing (`parseStatus`) and the same failure behavior: the PATCH entry point delegates to the single status operation of the Task module (`applyStatus`), while PUT parses inline during field application. No second status operation exists on the module.
 
 **ID**: REQ-STATUS-002
 **Affected files**:
-- `com.example.todo.service.TaskService.applyStatus(Long id, String status)` — single status operation; both entry points delegate to it
+- `com.example.todo.service.TaskService.applyStatus(Long id, String status)` — status operation used by the PATCH entry point; PUT shares its parsing via `parseStatus`
 - `com.example.todo.controller.TaskController.updateTask()` / `patchStatus()` — thin delegates, no manual enum parsing
 
 #### Scenario: Transition PENDING to ACTIVE

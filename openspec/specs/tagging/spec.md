@@ -66,8 +66,8 @@ The system SHALL accept an optional `tagNames[]` array in POST requests to `/v1/
 The system SHALL accept an optional `tagNames[]` array in PUT requests to `/v1/tasks/{id}`. The request replaces all tags currently assigned to the task with the specified set; each tag name is resolved from or created into the user's tag scope. Tag names are normalized (trimmed and case-insensitive) before resolution. The update of the task and its tags MUST be persisted atomically: if the task cannot be saved, no tag change is committed.
 
 **Affected files**:
-- `com.example.todo.service.TagService.resolve(User, List<String>)` — same normalized `resolve` as create
-- `com.example.todo.repository.TagRepository.findByUserId(Long userId)` — batch lookup
+- `com.example.todo.service.TagService.resolve(User, List<String>)` — same normalized per-name `resolve` as create (case-insensitive DB lookup, no full-list scan)
+- `com.example.todo.repository.TagRepository.findByUserIdAndNameIgnoreCase` — per-name lookup backing the module
 - `com.example.todo.service.TaskService.updateTask()` — delegates `resolve` to the tag module and persists task + tags in one transaction
 
 #### Scenario: Replace task tags via update
@@ -125,7 +125,7 @@ The system SHALL allow authenticated users to create a new tag for their own acc
 
 **ID**: REQ-TAG-005
 **Affected files**:
-- `com.example.todo.dto.TagRequest` — new DTO, `name` with `@NotBlank` + `@Size(min=1, max=50)`
+- `com.example.todo.dto.TagRequest` — DTO, `name` with `@NotBlank(message = "Name must not be blank")` + `@Size(min=1, max=50)` (default size message)
 - `com.example.todo.controller.TagController.createTag()` — delegates to `TagService.create`
 - `com.example.todo.service.TagService.create(User, String)` — normalization + race-safe create-or-reuse
 - `com.example.todo.exception.GlobalExceptionHandler` — maps invalid-name failure to 400 field-level and duplicate to 409
@@ -170,7 +170,7 @@ The system SHALL allow authenticated users to delete their own tags via DELETE r
 
 ### Requirement: Tag Ownership Enforcement
 **ID**: REQ-TOE-001
-The system SHALL only allow the owning user to create, list, update, or delete tags. Every tag operation must verify that the authenticated user is the tag owner before processing. The ownership verification is centralized in the same current-user seam used by tasks, so tag and task ownership decisions cannot drift apart.
+The system SHALL only allow the owning user to create, list, or delete tags (there is no tag update endpoint; renaming is delete + create). Every tag operation must verify that the authenticated user is the tag owner before processing. The ownership verification is centralized in the same current-user seam used by tasks, so tag and task ownership decisions cannot drift apart.
 
 **Affected files**: `com.example.todo.security.CurrentUserProvider` — nuevo; `com.example.todo.controller.TagController` — usa la seam para la verificación de ownership.
 

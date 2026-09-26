@@ -79,7 +79,7 @@ The system SHALL allow verified users to change their password by providing the 
 
 #### Scenario: Password change with short new password is rejected
 - **WHEN** user sends PUT `/v1/auth/reset-change` with new password shorter than 6 characters
-- **THEN** system returns 400 Bad Request with error message "Password must be at least 6 characters"
+- **THEN** Bean Validation fails on `@Size(min=6)` and the system returns 400 Bad Request with field-level details `{"error":"Validation failed","errors":{"newPassword":["Password must be at least 6 characters"]}}`
 
 ### Requirement: Frontend Forgot Password Page
 The system SHALL expose a `/forgot-password` route that displays a form for the user to enter their email address. Upon successful request, the system SHALL display the generated 6-character token to the user and provide a link to the reset page using that token.
