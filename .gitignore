@@ -39,6 +39,7 @@ target/.mvn
 # Local environment
 .env
 .env.*
+!.env.example
 
 # OpenSpec generated reports
 compliance-report.html
