@@ -300,4 +300,22 @@ class TaskServiceTest {
         // both attempts re-resolved (rollback of attempt 1 included the tag saves)
         verify(tagService, times(2)).resolve(eq(me), any(List.class));
     }
+
+    @Test
+    void failedTaskSaveAfterTagResolutionRollsBackAndDoesNotRetry() {
+        when(currentUser.requireCurrent()).thenReturn(me);
+        when(tagService.resolve(eq(me), any(List.class)))
+                .thenReturn(List.of(new TagResponse(1L, "Work")));
+        when(tagRepository.findAllById(List.of(1L))).thenReturn(List.of(new Tag("Work", me)));
+        org.mockito.Mockito.doThrow(new RuntimeException("save failed"))
+                .when(taskRepository).save(any(Task.class));
+        TaskRequest request = new TaskRequest("T", "d", Priority.LOW, null);
+        request.setTagNames(java.util.Set.of("Work"));
+
+        assertThrows(RuntimeException.class, () -> service.createTask(request));
+
+        // A non-contention failure is not retried and the surrounding transaction is rolled back.
+        verify(transactionManager, org.mockito.Mockito.atLeastOnce()).rollback(any());
+        verify(tagService, times(1)).resolve(eq(me), any(List.class));
+    }
 }

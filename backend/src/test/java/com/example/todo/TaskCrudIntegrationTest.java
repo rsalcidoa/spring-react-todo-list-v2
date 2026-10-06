@@ -9,12 +9,14 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -113,6 +115,119 @@ class TaskCrudIntegrationTest {
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
         assertEquals(2, mapper.readTree(all).size());
+    }
+
+    @Test
+    void createWithoutStatusDefaultsToPendingAndExplicitStatusIsEchoed() throws Exception {
+        String token = newUserToken();
+
+        String defaultBody = mockMvc.perform(post("/v1/tasks")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\": \"No status\", \"priority\": \"LOW\"}"))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        assertEquals("PENDING", mapper.readTree(defaultBody).path("status").asText());
+
+        String explicitBody = mockMvc.perform(post("/v1/tasks")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\": \"Explicit\", \"priority\": \"LOW\", \"status\": \"ACTIVE\"}"))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        assertEquals("ACTIVE", mapper.readTree(explicitBody).path("status").asText());
+    }
+
+    @Test
+    void filtersByActiveAndCompletedStatus() throws Exception {
+        String token = newUserToken();
+        createTask(token, "{\"title\": \"Active one\", \"priority\": \"LOW\", \"status\": \"ACTIVE\"}");
+        createTask(token, "{\"title\": \"Done one\", \"priority\": \"LOW\", \"status\": \"COMPLETED\"}");
+        createTask(token, "{\"title\": \"Pending one\", \"priority\": \"LOW\"}");
+
+        String active = mockMvc.perform(get("/v1/tasks?status=ACTIVE")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertEquals(1, mapper.readTree(active).size());
+        assertEquals("Active one", mapper.readTree(active).get(0).path("title").asText());
+
+        String completed = mockMvc.perform(get("/v1/tasks?status=COMPLETED")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertEquals(1, mapper.readTree(completed).size());
+        assertEquals("Done one", mapper.readTree(completed).get(0).path("title").asText());
+    }
+
+    @Test
+    void updateStatusTransitionsAndOmittingStatusLeavesItUnchanged() throws Exception {
+        String token = newUserToken();
+        String id = createTask(token, "{\"title\": \"T\", \"priority\": \"LOW\"}");
+
+        String toActive = mockMvc.perform(put("/v1/tasks/" + id)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\": \"T\", \"priority\": \"LOW\", \"status\": \"ACTIVE\"}"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertEquals("ACTIVE", mapper.readTree(toActive).path("status").asText());
+
+        String toCompleted = mockMvc.perform(put("/v1/tasks/" + id)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\": \"T\", \"priority\": \"LOW\", \"status\": \"COMPLETED\"}"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertEquals("COMPLETED", mapper.readTree(toCompleted).path("status").asText());
+
+        String withoutStatus = mockMvc.perform(put("/v1/tasks/" + id)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\": \"T\", \"priority\": \"LOW\"}"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertEquals("COMPLETED", mapper.readTree(withoutStatus).path("status").asText());
+    }
+
+    @Test
+    void highPriorityIsStoredAndReturned() throws Exception {
+        String token = newUserToken();
+
+        String body = mockMvc.perform(post("/v1/tasks")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\": \"Urgent\", \"priority\": \"HIGH\"}"))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        assertEquals("HIGH", mapper.readTree(body).path("priority").asText());
+    }
+
+    private String newUserToken() throws Exception {
+        String uuid = UUID.randomUUID().toString();
+        String userJson = String.format("{\"email\": \"%s\", \"password\": \"secret123\"}", uuid + "@example.com");
+
+        mockMvc.perform(post("/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(userJson))
+                .andExpect(status().isCreated());
+
+        String loginResp = mockMvc.perform(post("/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(userJson))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return mapper.readTree(loginResp).path("token").asText();
+    }
+
+    private String createTask(String token, String json) throws Exception {
+        MvcResult result = mockMvc.perform(post("/v1/tasks")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return mapper.readTree(result.getResponse().getContentAsString()).path("id").asText();
     }
 }
 

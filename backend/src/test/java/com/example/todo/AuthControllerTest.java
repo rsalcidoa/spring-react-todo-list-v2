@@ -183,4 +183,20 @@ class AuthControllerTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error").value("Invalid reset token"));
     }
+
+    @Test
+    void loginWithShortNonBlankPasswordReachesAuthenticationAndReturns401() throws Exception {
+        String uuid = UUID.randomUUID().toString();
+        String email = uuid + "@example.com";
+        registerUser(email, "secret123");
+
+        // Login carries no @Size minimum: a short but non-blank password passes
+        // validation and fails later as an authentication error (401, not 400).
+        String shortLogin = String.format("{\"email\": \"%s\", \"password\": \"abc\"}", email);
+        mockMvc.perform(post("/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(shortLogin))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("Invalid email or password"));
+    }
 }

@@ -68,7 +68,9 @@ public class TagService {
         for (String rawName : names) {
             String trimmed = rawName.trim();
             if (trimmed.isEmpty()) {
-                throw new IllegalArgumentException("Tag name must not be blank");
+                // Internal invariant: the request DTO already rejects blank tag
+                // names, so reaching this is a programming error, not a client 400.
+                throw new IllegalStateException("Tag name must not be blank");
             }
             String key = trimmed.toLowerCase();
             if (seen.containsKey(key)) {

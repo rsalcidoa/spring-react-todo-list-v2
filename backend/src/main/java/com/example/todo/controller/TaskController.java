@@ -3,6 +3,7 @@ package com.example.todo.controller;
 import com.example.todo.dto.StatusUpdateRequest;
 import com.example.todo.dto.TaskRequest;
 import com.example.todo.dto.TaskResponse;
+import com.example.todo.exception.InvalidStatusValueException;
 import com.example.todo.service.TaskService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -76,7 +77,10 @@ public class TaskController {
      * Update only the status of a task (used by Kanban drag-and-drop).
      */
     @PatchMapping("/{id}/status")
-    public ResponseEntity<TaskResponse> patchStatus(@PathVariable Long id, @Valid @RequestBody StatusUpdateRequest request) {
+    public ResponseEntity<TaskResponse> patchStatus(@PathVariable Long id, @Valid @RequestBody(required = false) StatusUpdateRequest request) {
+        if (request == null) {
+            throw new InvalidStatusValueException("status", "Status must not be blank");
+        }
         return ResponseEntity.ok(taskService.applyStatus(id, request.getStatus()));
     }
 }

@@ -239,4 +239,31 @@ class TagResolutionIntegrationTest {
                 .andExpect(jsonPath("$.error").value("Validation failed"))
                 .andExpect(jsonPath("$.errors.tagNames[0]").exists());
     }
+
+    @Test
+    void getSingleTaskReturnsStatusAndTagObjects() throws Exception {
+        String uuid = UUID.randomUUID().toString();
+        String token = registerAndLogin(uuid);
+
+        String taskJson = "{\"title\": \"Tagged\", \"description\": \"d\", \"priority\": \"LOW\", \"status\": \"ACTIVE\", \"tagNames\": [\"Work\", \"Urgent\"]}";
+        MvcResult created = mockMvc.perform(post("/v1/tasks")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(taskJson))
+                .andExpect(status().isCreated())
+                .andReturn();
+        long taskId = mapper.readTree(created.getResponse().getContentAsString()).path("id").asLong();
+
+        MvcResult fetched = mockMvc.perform(get("/v1/tasks/" + taskId)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn();
+        var body = mapper.readTree(fetched.getResponse().getContentAsString());
+        assertEquals("ACTIVE", body.path("status").asText());
+        assertEquals(2, body.path("tags").size(), "Both tags should be returned");
+        for (var tag : body.path("tags")) {
+            assertTrue(tag.path("id").isNumber(), "Tag must expose a numeric id");
+            assertTrue(tag.path("name").isTextual(), "Tag must expose a name");
+        }
+    }
 }

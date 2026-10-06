@@ -161,6 +161,6 @@ class TagServiceTest {
 
     @Test
     void resolveBlankNameFailsFast() {
-        assertThrows(IllegalArgumentException.class, () -> service.resolve(me, List.of("   ")));
+        assertThrows(IllegalStateException.class, () -> service.resolve(me, List.of("   ")));
     }
 }

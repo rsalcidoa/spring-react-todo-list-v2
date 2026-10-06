@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -175,5 +176,76 @@ class TagApiIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Validation failed"))
                 .andExpect(jsonPath("$.errors.name[0]").exists());
+    }
+
+    @Test
+    void createTagWithOversizedNameReturns400WithFieldError() throws Exception {
+        String longName = "x".repeat(51);
+        mockMvc.perform(post("/v1/tags")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\": \"" + longName + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation failed"))
+                .andExpect(jsonPath("$.errors.name[0]").exists());
+    }
+
+    @Test
+    void deleteTagReturns204AndUnassignsFromTasks() throws Exception {
+        String tagResp = mockMvc.perform(post("/v1/tags")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\": \"Work\"}"))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        long tagId = mapper.readTree(tagResp).path("id").asLong();
+
+        String taskResp = mockMvc.perform(post("/v1/tasks")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\": \"Tagged\", \"priority\": \"LOW\", \"tagNames\": [\"Work\"]}"))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        long taskId = mapper.readTree(taskResp).path("id").asLong();
+        assertEquals(1, mapper.readTree(taskResp).path("tags").size());
+
+        mockMvc.perform(delete("/v1/tags/" + tagId)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isNoContent());
+
+        String taskAfter = mockMvc.perform(get("/v1/tasks/" + taskId)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertEquals(0, mapper.readTree(taskAfter).path("tags").size(), "Tag must be unassigned from the task");
+        assertEquals("Tagged", mapper.readTree(taskAfter).path("title").asText(), "Task must remain");
+    }
+
+    @Test
+    void listTagsIsScopedToTheAuthenticatedUser() throws Exception {
+        mockMvc.perform(post("/v1/tags")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\": \"OnlyMine\"}"))
+                .andExpect(status().isCreated());
+
+        String otherUuid = UUID.randomUUID().toString();
+        String otherJson = String.format("{\"email\": \"%s\", \"password\": \"secret123\"}", otherUuid + "@example.com");
+        mockMvc.perform(post("/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(otherJson))
+                .andExpect(status().isCreated());
+        String otherLogin = mockMvc.perform(post("/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(otherJson))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        String otherToken = mapper.readTree(otherLogin).path("token").asText();
+
+        String otherTags = mockMvc.perform(get("/v1/tags")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + otherToken))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertEquals(0, mapper.readTree(otherTags).size(), "User B must not see user A's tags");
     }
 }

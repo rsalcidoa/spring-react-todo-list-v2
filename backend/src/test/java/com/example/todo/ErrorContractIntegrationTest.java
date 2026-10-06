@@ -176,7 +176,9 @@ class ErrorContractIntegrationTest {
 
         mockMvc.perform(patch("/v1/tasks/{id}/status", taskId)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation failed"))
+                .andExpect(jsonPath("$.errors.status[0]").value("Status must not be blank"));
     }
 
     @Test
@@ -287,5 +289,54 @@ class ErrorContractIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Validation failed"))
                 .andExpect(jsonPath("$.errors.status[0]").value("Status must be PENDING, ACTIVE or COMPLETED"));
+    }
+
+    @Test
+    void registerWithEmptyEmailReturns400WithFieldError() throws Exception {
+        mockMvc.perform(post("/v1/auth/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\": \"\", \"password\": \"secret123\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation failed"))
+                .andExpect(jsonPath("$.errors.email[0]").value("Email must not be blank"));
+    }
+
+    @Test
+    void createTaskWithBlankTitleReturns400AndCreatesNothing() throws Exception {
+        createTaskAndId();
+
+        mockMvc.perform(post("/v1/tasks")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\": \"   \", \"priority\": \"LOW\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation failed"))
+                .andExpect(jsonPath("$.errors.title[0]").value("Title must not be blank"));
+
+        String listBody = mockMvc.perform(get("/v1/tasks")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertEquals(1, mapper.readTree(listBody).size(), "No task may be created on validation failure");
+    }
+
+    @Test
+    void updateTaskWithNullTitleReturns400AndDoesNotModify() throws Exception {
+        String taskId = createTaskAndId();
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/v1/tasks/{id}", taskId)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\": null, \"priority\": \"LOW\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation failed"))
+                .andExpect(jsonPath("$.errors.title[0]").value("Title must not be blank"));
+
+        String taskBody = mockMvc.perform(get("/v1/tasks/{id}", taskId)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertEquals("Patch status task", mapper.readTree(taskBody).path("title").asText(),
+                "Task title must be unchanged after a rejected update");
     }
 }
