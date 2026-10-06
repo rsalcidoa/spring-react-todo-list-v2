@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import styles from './AddTaskModal.module.css';
-import { TaskStatus, Priority, Task, Tag, TaskInput } from '../services/types/task';
+import { TaskStatus, Priority, Task, Tag, TaskInput, Recurrence } from '../services/types/task';
 import { toDisplayMessage, type TaskRepository } from '../data/TaskRepository';
 import ErrorBanner from './ErrorBanner';
 
@@ -30,6 +30,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
   const [tags, setTags] = useState<string[]>([]);
   const [dueDate, setDueDate] = useState('');
   const [reminderAt, setReminderAt] = useState('');
+  const [recurrence, setRecurrence] = useState<Recurrence>('NONE');
   const [newTagName, setNewTagName] = useState('');
   const [tagError, setTagError] = useState<{ message: string; id: number } | null>(null);
   const [titleError, setTitleError] = useState<string | null>(null);
@@ -103,6 +104,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
       setTags(editingTask.tags?.map(t => t.name) || []);
       setDueDate(editingTask.dueDate || '');
       setReminderAt(editingTask.reminderAt ? editingTask.reminderAt.slice(0, 16) : '');
+      setRecurrence((editingTask.recurrence as Recurrence) || 'NONE');
     } else if (isOpen && !editingTask) {
       setTitle('');
       setDescription('');
@@ -111,6 +113,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
       setTags([]);
       setDueDate('');
       setReminderAt('');
+      setRecurrence('NONE');
       setTitleError(null);
     }
   }, [isOpen, editingTask]);
@@ -123,7 +126,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
       return;
     }
     setTitleError(null);
-    onSave({ title, description, priority, status, tagNames: tags, dueDate, reminderAt: reminderAt || undefined });
+    onSave({ title, description, priority, status, tagNames: tags, dueDate, reminderAt: reminderAt || undefined, recurrence: recurrence === 'NONE' ? undefined : recurrence });
     onClose();
   };
 
@@ -165,6 +168,15 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
         <div className={styles.formGroup}>
           <label className={styles.formLabel}>Recordatorio</label>
           <input type="datetime-local" className={styles.input} aria-label="Recordatorio" value={reminderAt} onChange={e=>setReminderAt(e.target.value)} />
+        </div>
+        <div className={styles.formGroup}>
+          <label className={styles.formLabel}>Recurrencia</label>
+          <select className={styles.select} aria-label="Recurrencia" value={recurrence} onChange={e=>setRecurrence(e.target.value as Recurrence)}>
+            <option value="NONE">No se repite</option>
+            <option value="DAILY">Diario</option>
+            <option value="WEEKLY">Semanal</option>
+            <option value="MONTHLY">Mensual</option>
+          </select>
         </div>
         <div className={styles.tagSection}>
           <span className={styles.sectionLabel}>Etiquetas:</span>

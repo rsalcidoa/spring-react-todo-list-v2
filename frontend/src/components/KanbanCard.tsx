@@ -64,6 +64,9 @@ const KanbanCard: React.FC<KanbanCardProps> = ({task, onClick, onDelete, onMove}
         </button>
       )}
     </div>
+    {task.recurrence && task.recurrence !== 'NONE' && (
+      <span className={styles.recurrence}>Se repite</span>
+    )}
     {task.description && <p className={styles.description}>{task.description}</p>}
     {task.dueDate && (
       <span className={styles.meta}><span className={`${styles.dueDate} ${dueClass}`}>{dueLabel}</span></span>

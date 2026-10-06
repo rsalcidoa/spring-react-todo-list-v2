@@ -60,6 +60,18 @@ describe('AddTaskModal', () => {
     expect(input.reminderAt).toBe('2026-07-01T09:00');
   });
 
+  it('includes recurrence in the saved input', () => {
+    const onSave = vi.fn();
+    renderModal({ onSave });
+
+    fireEvent.change(screen.getByPlaceholderText(/Título de la tarea/i), { target: { value: 'Weekly' } });
+    fireEvent.change(screen.getByLabelText(/Recurrencia/i), { target: { value: 'WEEKLY' } });
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/i }));
+
+    const input = onSave.mock.calls[0][0] as TaskInput;
+    expect(input.recurrence).toBe('WEEKLY');
+  });
+
   it('does not render when isOpen is false', () => {
     renderModal({ isOpen: false });
     expect(screen.queryByText(/Nueva tarea/i)).toBeNull();

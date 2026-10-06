@@ -17,6 +17,8 @@ export enum Priority {
 
 export type ColumnName = 'PENDING' | 'ACTIVE' | 'COMPLETED';
 
+export type Recurrence = 'NONE' | 'DAILY' | 'WEEKLY' | 'MONTHLY';
+
 export interface Task {
   id: number;
   title: string;
@@ -28,6 +30,7 @@ export interface Task {
   createdAt?: string;
   updatedAt?: string;
   reminderAt?: string;
+  recurrence?: Recurrence;
 }
 
 export interface TaskInput {
@@ -38,6 +41,7 @@ export interface TaskInput {
   dueDate?: string;
   tagNames: string[];
   reminderAt?: string;
+  recurrence?: Recurrence;
 }
 
 export type TaskSort = 'createdAt' | 'dueDate' | 'priority' | 'title';

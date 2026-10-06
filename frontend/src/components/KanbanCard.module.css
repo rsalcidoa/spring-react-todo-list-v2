@@ -140,3 +140,10 @@
   color: var(--color-danger-hover);
   background-color: var(--color-danger-soft);
 }
+
+.recurrence {
+  display: inline-block;
+  margin-top: 0.25rem;
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+}

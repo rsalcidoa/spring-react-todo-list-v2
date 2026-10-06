@@ -14,6 +14,8 @@ import com.example.todo.model.Task;
 import com.example.todo.model.User;
 import com.example.todo.model.Tag;
 import com.example.todo.model.Priority;
+import com.example.todo.model.Recurrence;
+import com.example.todo.model.TaskStatus;
 import com.example.todo.repository.TaskRepository;
 import com.example.todo.repository.TagRepository;
 import com.example.todo.security.CurrentUserProvider;
@@ -140,6 +142,7 @@ public class TaskService {
         User me = currentUser.requireCurrent();
         Task task = new Task();
         applyFields(task, request);
+        validateRecurrence(task);
         task.setUser(me);
         Set<String> tagNames = request.getTagNames();
         return withTagRetry(() -> {
@@ -155,12 +158,14 @@ public class TaskService {
         User me = currentUser.requireCurrent();
         Task task = findOwnedTask(id, me);
         applyFields(task, request);
+        validateRecurrence(task);
         Set<String> tagNames = request.getTagNames();
         return withTagRetry(() -> {
             if (tagNames != null) {
                 assignTags(task, me, tagNames);
             }
             taskRepository.save(task);
+            generateNextOccurrence(task, me);
             return toResponse(task);
         });
     }
@@ -185,9 +190,55 @@ public class TaskService {
         task.setDueDate(request.getDueDate());
         task.setReminderAt(parseReminderAt(request.getReminderAt()));
         task.setReminderNotifiedAt(null);
+        task.setRecurrence(parseRecurrence(request.getRecurrence()));
         if (request.getStatus() != null) {
             task.setStatus(parseStatus(request.getStatus()));
         }
+    }
+
+    private Recurrence parseRecurrence(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return Recurrence.NONE;
+        }
+        try {
+            return Recurrence.valueOf(raw.trim());
+        } catch (IllegalArgumentException e) {
+            throw new InvalidQueryValueException("recurrence", "Recurrence must be NONE, DAILY, WEEKLY or MONTHLY");
+        }
+    }
+
+    private void validateRecurrence(Task task) {
+        if (task.getRecurrence() != null && task.getRecurrence() != Recurrence.NONE && task.getDueDate() == null) {
+            throw new InvalidQueryValueException("recurrence", "Recurrence requires a due date");
+        }
+    }
+
+    private void generateNextOccurrence(Task completed, User me) {
+        if (completed.getStatus() != TaskStatus.COMPLETED) {
+            return;
+        }
+        Recurrence rule = completed.getRecurrence();
+        if (rule == null || rule == Recurrence.NONE || completed.getDueDate() == null) {
+            return;
+        }
+        if (taskRepository.existsByRecurrenceSourceId(completed.getId())) {
+            return;
+        }
+        Task next = new Task();
+        next.setTitle(completed.getTitle());
+        next.setDescription(completed.getDescription());
+        next.setPriority(completed.getPriority());
+        next.setStatus(TaskStatus.PENDING);
+        next.setDueDate(RecurrenceRule.nextDueDate(completed.getDueDate(), rule));
+        next.setRecurrence(rule);
+        next.setUser(me);
+        next.setTags(new java.util.HashSet<>(completed.getTags()));
+        if (completed.getReminderAt() != null) {
+            long days = java.time.temporal.ChronoUnit.DAYS.between(completed.getDueDate(), next.getDueDate());
+            next.setReminderAt(completed.getReminderAt().plusDays(days));
+        }
+        next.setRecurrenceSourceId(completed.getId());
+        taskRepository.save(next);
     }
 
     private LocalDateTime parseReminderAt(String raw) {
@@ -206,6 +257,7 @@ public class TaskService {
         Task task = findOwnedTask(id, me);
         task.setStatus(parseStatus(rawStatus));
         taskRepository.save(task);
+        generateNextOccurrence(task, me);
         return toResponse(task);
     }
 

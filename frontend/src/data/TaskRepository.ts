@@ -111,6 +111,7 @@ interface WireTaskBody {
   status: TaskStatus;
   dueDate?: string;
   reminderAt?: string;
+  recurrence?: string;
   tagNames: string[];
 }
 
@@ -130,6 +131,9 @@ function toWire(input: TaskInput): WireTaskBody {
   if (input.reminderAt) {
     wire.reminderAt = input.reminderAt;
   }
+  if (input.recurrence) {
+    wire.recurrence = input.recurrence;
+  }
   return wire;
 }
 
@@ -145,6 +149,7 @@ function fromWire(wire: Partial<Task> & { id?: number }): Task {
     createdAt: wire.createdAt,
     updatedAt: wire.updatedAt,
     reminderAt: wire.reminderAt,
+    recurrence: wire.recurrence,
   };
 }
 
@@ -255,6 +260,8 @@ export class InMemoryTaskRepository implements TaskRepository {
       priority: input.priority,
       status: input.status,
       dueDate: input.dueDate,
+      reminderAt: input.reminderAt,
+      recurrence: input.recurrence,
       tags: [...tags],
     };
     this.tasks.push(task);
@@ -272,6 +279,8 @@ export class InMemoryTaskRepository implements TaskRepository {
       priority: input.priority,
       status: input.status,
       dueDate: input.dueDate,
+      reminderAt: input.reminderAt,
+      recurrence: input.recurrence,
       tags: [...tags],
     };
     return { ...this.tasks[index], tags: [...this.tasks[index].tags] };

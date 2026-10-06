@@ -59,6 +59,13 @@ public class Task {
     @Column(name = "reminder_notified_at")
     private LocalDateTime reminderNotifiedAt;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Recurrence recurrence = Recurrence.NONE;
+
+    @Column(name = "recurrence_source_id")
+    private Long recurrenceSourceId;
+
     public Task() {
         this.status = TaskStatus.PENDING;
         this.createdAt = LocalDateTime.now();
@@ -90,4 +97,8 @@ public class Task {
     public void setReminderAt(LocalDateTime reminderAt) { this.reminderAt = reminderAt; }
     public LocalDateTime getReminderNotifiedAt() { return reminderNotifiedAt; }
     public void setReminderNotifiedAt(LocalDateTime reminderNotifiedAt) { this.reminderNotifiedAt = reminderNotifiedAt; }
+    public Recurrence getRecurrence() { return recurrence; }
+    public void setRecurrence(Recurrence recurrence) { this.recurrence = recurrence; }
+    public Long getRecurrenceSourceId() { return recurrenceSourceId; }
+    public void setRecurrenceSourceId(Long recurrenceSourceId) { this.recurrenceSourceId = recurrenceSourceId; }
 }

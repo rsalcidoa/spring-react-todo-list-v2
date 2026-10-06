@@ -22,6 +22,8 @@ public class TaskRequest {
     private LocalDate dueDate;
     // Optional reminder timestamp (ISO-8601); parsed strictly by the module.
     private String reminderAt;
+    // Optional recurrence rule (NONE|DAILY|WEEKLY|MONTHLY); parsed by the module.
+    private String recurrence;
 
     public TaskRequest() {}
 
@@ -47,4 +49,6 @@ public class TaskRequest {
     public void setDueDate(LocalDate dueDate) { this.dueDate = dueDate; }
     public String getReminderAt() { return reminderAt; }
     public void setReminderAt(String reminderAt) { this.reminderAt = reminderAt; }
+    public String getRecurrence() { return recurrence; }
+    public void setRecurrence(String recurrence) { this.recurrence = recurrence; }
 }

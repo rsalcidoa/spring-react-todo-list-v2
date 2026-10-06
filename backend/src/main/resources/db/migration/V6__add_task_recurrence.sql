@@ -1,0 +1,2 @@
+ALTER TABLE tasks ADD COLUMN recurrence VARCHAR(10) NOT NULL DEFAULT 'NONE';
+ALTER TABLE tasks ADD COLUMN recurrence_source_id BIGINT NULL REFERENCES tasks(id);

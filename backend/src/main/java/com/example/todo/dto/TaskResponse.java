@@ -19,12 +19,13 @@ public class TaskResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private LocalDateTime reminderAt;
+    private com.example.todo.model.Recurrence recurrence;
 
     public TaskResponse() {}
 
     public TaskResponse(Long id, String title, String description, Priority priority, LocalDate dueDate,
                         TaskStatus status, java.util.List<TagResponse> tags, LocalDateTime createdAt, LocalDateTime updatedAt,
-                        LocalDateTime reminderAt) {
+                        LocalDateTime reminderAt, com.example.todo.model.Recurrence recurrence) {
         this.id = id;
         this.title = title;
         this.description = description;
@@ -35,6 +36,7 @@ public class TaskResponse {
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
         this.reminderAt = reminderAt;
+        this.recurrence = recurrence;
     }
 
     /** Maps a task entity to its response, exposing only tag values and no entity internals. */
@@ -53,7 +55,8 @@ public class TaskResponse {
                 tags,
                 task.getCreatedAt(),
                 task.getUpdatedAt(),
-                task.getReminderAt());
+                task.getReminderAt(),
+                task.getRecurrence());
     }
 
     // getters and setters
@@ -78,4 +81,6 @@ public class TaskResponse {
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
     public LocalDateTime getReminderAt() { return reminderAt; }
     public void setReminderAt(LocalDateTime reminderAt) { this.reminderAt = reminderAt; }
+    public com.example.todo.model.Recurrence getRecurrence() { return recurrence; }
+    public void setRecurrence(com.example.todo.model.Recurrence recurrence) { this.recurrence = recurrence; }
 }

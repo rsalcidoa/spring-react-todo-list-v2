@@ -386,4 +386,15 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
 
     await waitFor(() => expect(screen.queryByText(/Editar tarea/i)).toBeTruthy());
   });
+
+  it('shows a recurrence indicator on recurring cards', async () => {
+    const repository = new InMemoryTaskRepository();
+    await repository.create({
+      title: 'Weekly', priority: Priority.LOW, status: TaskStatus.PENDING,
+      tagNames: [], dueDate: '2026-01-01', recurrence: 'WEEKLY',
+    });
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.queryByText(/Weekly/i)).toBeTruthy());
+    expect(screen.getByText('Se repite')).toBeTruthy();
+  });
 });
