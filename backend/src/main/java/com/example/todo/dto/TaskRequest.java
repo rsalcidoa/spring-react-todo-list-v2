@@ -26,6 +26,8 @@ public class TaskRequest {
     private String recurrence;
     // Optional owning project id.
     private Long projectId;
+    // Optional parent task id (subtask); one level only.
+    private Long parentId;
 
     public TaskRequest() {}
 
@@ -55,4 +57,6 @@ public class TaskRequest {
     public void setRecurrence(String recurrence) { this.recurrence = recurrence; }
     public Long getProjectId() { return projectId; }
     public void setProjectId(Long projectId) { this.projectId = projectId; }
+    public Long getParentId() { return parentId; }
+    public void setParentId(Long parentId) { this.parentId = parentId; }
 }

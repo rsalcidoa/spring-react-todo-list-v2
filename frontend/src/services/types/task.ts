@@ -38,6 +38,8 @@ export interface Task {
   recurrence?: Recurrence;
   projectId?: number;
   projectName?: string;
+  parentId?: number;
+  subtaskProgress?: { done: number; total: number };
 }
 
 export interface TaskInput {
@@ -50,6 +52,7 @@ export interface TaskInput {
   reminderAt?: string;
   recurrence?: Recurrence;
   projectId?: number;
+  parentId?: number;
 }
 
 export type TaskSort = 'createdAt' | 'dueDate' | 'priority' | 'title';

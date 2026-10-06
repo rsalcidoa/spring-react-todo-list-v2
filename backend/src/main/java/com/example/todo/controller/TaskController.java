@@ -60,6 +60,14 @@ public class TaskController {
     }
 
     /**
+     * Subtasks of an owned parent task.
+     */
+    @GetMapping("/{id}/subtasks")
+    public ResponseEntity<List<TaskResponse>> getSubtasks(@PathVariable Long id) {
+        return ResponseEntity.ok(taskService.getSubtasks(id));
+    }
+
+    /**
      * Mark a task's reminder as delivered (idempotent).
      */
     @PostMapping("/{id}/reminder-ack")

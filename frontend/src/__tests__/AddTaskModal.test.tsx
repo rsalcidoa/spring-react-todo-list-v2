@@ -72,6 +72,20 @@ describe('AddTaskModal', () => {
     expect(input.recurrence).toBe('WEEKLY');
   });
 
+  it('lists and adds subtasks when editing a task', async () => {
+    const repository = new InMemoryTaskRepository();
+    const parent = await repository.create({
+      title: 'Parent', priority: Priority.LOW, status: TaskStatus.PENDING, tagNames: [],
+    });
+    renderModal({ repository, editingTask: { ...parent } });
+
+    await waitFor(() => expect(screen.getByLabelText(/Nueva subtarea/i)).toBeTruthy());
+    fireEvent.change(screen.getByLabelText(/Nueva subtarea/i), { target: { value: 'Child' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Añadir$/i }));
+
+    await waitFor(() => expect(screen.getByText('Child')).toBeTruthy());
+  });
+
   it('does not render when isOpen is false', () => {
     renderModal({ isOpen: false });
     expect(screen.queryByText(/Nueva tarea/i)).toBeNull();

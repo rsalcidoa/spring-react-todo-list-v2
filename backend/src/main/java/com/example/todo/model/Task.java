@@ -51,6 +51,13 @@ public class Task {
     @JoinColumn(name = "project_id")
     private Project project;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_id")
+    private Task parent;
+
+    @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private Set<Task> children = new HashSet<>();
+
     @Column(name = "created_at", nullable=false)
     private LocalDateTime createdAt;
 
@@ -107,4 +114,8 @@ public class Task {
     public void setRecurrenceSourceId(Long recurrenceSourceId) { this.recurrenceSourceId = recurrenceSourceId; }
     public Project getProject() { return project; }
     public void setProject(Project project) { this.project = project; }
+    public Task getParent() { return parent; }
+    public void setParent(Task parent) { this.parent = parent; }
+    public Set<Task> getChildren() { return children; }
+    public void setChildren(Set<Task> children) { this.children = children; }
 }

@@ -231,3 +231,16 @@ describe('project operations (InMemory)', () => {
     expect(await repo.listProjects()).toHaveLength(0);
   });
 });
+
+describe('subtask operations (InMemory)', () => {
+  it('lists, creates one level only, and removes subtasks', async () => {
+    const repo = new InMemoryTaskRepository();
+    const parent = await repo.create(makeInput({ title: 'Parent' }));
+    const child = await repo.createSubtask(parent.id, 'Child');
+    expect(child.parentId).toBe(parent.id);
+    expect(await repo.listSubtasks(parent.id)).toHaveLength(1);
+    await expect(repo.createSubtask(child.id, 'Grand')).rejects.toMatchObject({ code: 'validation' });
+    await repo.removeSubtask(child.id);
+    expect(await repo.listSubtasks(parent.id)).toHaveLength(0);
+  });
+});

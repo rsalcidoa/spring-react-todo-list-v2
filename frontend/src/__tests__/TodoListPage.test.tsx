@@ -397,4 +397,13 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
     await waitFor(() => expect(screen.queryByText(/Weekly/i)).toBeTruthy());
     expect(screen.getByText('Se repite')).toBeTruthy();
   });
+
+  it('shows subtask progress on the parent card', async () => {
+    const repository = new InMemoryTaskRepository();
+    const parent = await repository.create({ title: 'Parent', priority: Priority.LOW, status: TaskStatus.PENDING, tagNames: [] });
+    await repository.createSubtask(parent.id, 'Child');
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.queryByText(/Parent/i)).toBeTruthy());
+    expect(screen.getByText('0/1')).toBeTruthy();
+  });
 });

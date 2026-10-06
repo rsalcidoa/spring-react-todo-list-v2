@@ -36,6 +36,8 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
   const [newTagName, setNewTagName] = useState('');
   const [tagError, setTagError] = useState<{ message: string; id: number } | null>(null);
   const [titleError, setTitleError] = useState<string | null>(null);
+  const [subtasks, setSubtasks] = useState<Task[]>([]);
+  const [newSubtask, setNewSubtask] = useState('');
   const titleRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -50,6 +52,50 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
   useEffect(() => {
     if (isOpen) titleRef.current?.focus();
   }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen && editingTask) {
+      let active = true;
+      repository.listSubtasks(editingTask.id)
+        .then(list => { if (active) setSubtasks(list); })
+        .catch(() => { if (active) setSubtasks([]); });
+      return () => { active = false; };
+    }
+    setSubtasks([]);
+    return undefined;
+  }, [isOpen, editingTask, repository]);
+
+  const handleAddSubtask = async () => {
+    if (!editingTask) return;
+    const title = newSubtask.trim();
+    if (!title) return;
+    try {
+      const created = await repository.createSubtask(editingTask.id, title);
+      setSubtasks(prev => [...prev, created]);
+      setNewSubtask('');
+    } catch (e) {
+      showTagError(friendlyTagError(e));
+    }
+  };
+
+  const handleDeleteSubtask = async (id: number) => {
+    try {
+      await repository.removeSubtask(id);
+      setSubtasks(prev => prev.filter(s => s.id !== id));
+    } catch (e) {
+      showTagError(friendlyTagError(e));
+    }
+  };
+
+  const toggleSubtask = async (subtask: Task) => {
+    const target = subtask.status === TaskStatus.COMPLETED ? TaskStatus.PENDING : TaskStatus.COMPLETED;
+    try {
+      await repository.move(subtask.id, target);
+      setSubtasks(prev => prev.map(s => s.id === subtask.id ? { ...s, status: target } : s));
+    } catch (e) {
+      showTagError(friendlyTagError(e));
+    }
+  };
 
   const showTagError = (message: string) => {
     setTagError({ message, id: Date.now() });
@@ -207,6 +253,26 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
             <button type="button" className={styles.tagCreateBtn} onClick={handleCreateTag}>Crear</button>
           </div>
         </div>
+        {editingTask && (
+          <div className={styles.tagSection}>
+            <span className={styles.sectionLabel}>Subtareas:</span>
+            <ul className={styles.subtaskList}>
+              {subtasks.map(s => (
+                <li key={s.id} className={styles.subtaskItem}>
+                  <button type="button" onClick={() => toggleSubtask(s)} aria-label={`Alternar ${s.title}`}>
+                    {s.status === TaskStatus.COMPLETED ? '[x]' : '[ ]'}
+                  </button>
+                  <span>{s.title}</span>
+                  <button type="button" aria-label={`Borrar subtarea ${s.title}`} onClick={() => handleDeleteSubtask(s.id)}>×</button>
+                </li>
+              ))}
+            </ul>
+            <div className={styles.newTagRow}>
+              <input className={styles.tagInput} aria-label="Nueva subtarea" placeholder="Nueva subtarea" value={newSubtask} onChange={e => setNewSubtask(e.target.value)} />
+              <button type="button" className={styles.tagCreateBtn} onClick={handleAddSubtask}>Añadir</button>
+            </div>
+          </div>
+        )}
         {tagError && <ErrorBanner key={tagError.id} message={tagError.message} onDismiss={() => setTagError(null)} />}
         <div className={styles.actions}>
           <button className={styles.cancelBtn} onClick={onClose}>Cancelar</button>

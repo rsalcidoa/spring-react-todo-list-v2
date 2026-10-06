@@ -22,13 +22,17 @@ public class TaskResponse {
     private com.example.todo.model.Recurrence recurrence;
     private Long projectId;
     private String projectName;
+    private Long parentId;
+    private Progress subtaskProgress;
+
+    public record Progress(int done, int total) {}
 
     public TaskResponse() {}
 
     public TaskResponse(Long id, String title, String description, Priority priority, LocalDate dueDate,
                         TaskStatus status, java.util.List<TagResponse> tags, LocalDateTime createdAt, LocalDateTime updatedAt,
                         LocalDateTime reminderAt, com.example.todo.model.Recurrence recurrence,
-                        Long projectId, String projectName) {
+                        Long projectId, String projectName, Long parentId, Progress subtaskProgress) {
         this.id = id;
         this.title = title;
         this.description = description;
@@ -42,6 +46,8 @@ public class TaskResponse {
         this.recurrence = recurrence;
         this.projectId = projectId;
         this.projectName = projectName;
+        this.parentId = parentId;
+        this.subtaskProgress = subtaskProgress;
     }
 
     /** Maps a task entity to its response, exposing only tag values and no entity internals. */
@@ -51,6 +57,12 @@ public class TaskResponse {
                 .sorted(java.util.Comparator.comparing(TagResponse::getName))
                 .collect(java.util.stream.Collectors.toList());
         com.example.todo.model.Project project = task.getProject();
+        com.example.todo.model.Task parent = task.getParent();
+        java.util.Set<com.example.todo.model.Task> children = task.getChildren();
+        int total = children == null ? 0 : children.size();
+        int done = children == null ? 0 : (int) children.stream()
+                .filter(c -> c.getStatus() == TaskStatus.COMPLETED)
+                .count();
         return new TaskResponse(
                 task.getId(),
                 task.getTitle(),
@@ -64,7 +76,9 @@ public class TaskResponse {
                 task.getReminderAt(),
                 task.getRecurrence(),
                 project != null ? project.getId() : null,
-                project != null ? project.getName() : null);
+                project != null ? project.getName() : null,
+                parent != null ? parent.getId() : null,
+                new Progress(done, total));
     }
 
     // getters and setters
@@ -95,4 +109,8 @@ public class TaskResponse {
     public void setProjectId(Long projectId) { this.projectId = projectId; }
     public String getProjectName() { return projectName; }
     public void setProjectName(String projectName) { this.projectName = projectName; }
+    public Long getParentId() { return parentId; }
+    public void setParentId(Long parentId) { this.parentId = parentId; }
+    public Progress getSubtaskProgress() { return subtaskProgress; }
+    public void setSubtaskProgress(Progress subtaskProgress) { this.subtaskProgress = subtaskProgress; }
 }

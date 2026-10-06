@@ -29,6 +29,7 @@ export const patchStatus = (id: number, status: string) => api.patch(`/tasks/${i
 export const deleteTask = (id: number) => api.delete(`/tasks/${id}`);
 export const getDueReminders = () => api.get('/tasks/reminders');
 export const ackReminder = (id: number) => api.post(`/tasks/${id}/reminder-ack`);
+export const getSubtasks = (parentId: number) => api.get(`/tasks/${parentId}/subtasks`);
 
 // Tag endpoints
 export const getTags = () => api.get('/tags');

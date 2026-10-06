@@ -1,5 +1,5 @@
 import { Task, Tag, Project, TaskInput, TaskQuery, TaskStatus, Priority } from '../services/types/task';
-import { getTasks, createTask, updateTask, deleteTask, patchStatus, getTags, createTag as apiCreateTag, deleteTag as apiDeleteTag, getProjects, createProject as apiCreateProject, renameProject as apiRenameProject, deleteProject as apiDeleteProject } from '../services/ApiService';
+import { getTasks, createTask, updateTask, deleteTask, patchStatus, getTags, createTag as apiCreateTag, deleteTag as apiDeleteTag, getProjects, createProject as apiCreateProject, renameProject as apiRenameProject, deleteProject as apiDeleteProject, getSubtasks } from '../services/ApiService';
 
 export interface TaskRepository {
   fetchAll(query?: TaskQuery): Promise<Task[]>;
@@ -14,6 +14,9 @@ export interface TaskRepository {
   createProject(name: string): Promise<Project>;
   renameProject(id: number, name: string): Promise<Project>;
   deleteProject(id: number): Promise<void>;
+  listSubtasks(parentId: number): Promise<Task[]>;
+  createSubtask(parentId: number, title: string): Promise<Task>;
+  removeSubtask(id: number): Promise<void>;
 }
 
 export type RepositoryErrorCode = 'conflict' | 'not-found' | 'validation' | 'unknown';
@@ -117,6 +120,7 @@ interface WireTaskBody {
   reminderAt?: string;
   recurrence?: string;
   projectId?: number;
+  parentId?: number;
   tagNames: string[];
 }
 
@@ -142,6 +146,9 @@ function toWire(input: TaskInput): WireTaskBody {
   if (input.projectId != null) {
     wire.projectId = input.projectId;
   }
+  if (input.parentId != null) {
+    wire.parentId = input.parentId;
+  }
   return wire;
 }
 
@@ -160,6 +167,8 @@ function fromWire(wire: Partial<Task> & { id?: number }): Task {
     recurrence: wire.recurrence,
     projectId: wire.projectId,
     projectName: wire.projectName,
+    parentId: wire.parentId,
+    subtaskProgress: wire.subtaskProgress,
   };
 }
 
@@ -267,6 +276,23 @@ export class HttpTaskRepository implements TaskRepository {
       throw mapApiError(e);
     }
   }
+
+  async listSubtasks(parentId: number): Promise<Task[]> {
+    try {
+      const r = await getSubtasks(parentId);
+      return (r.data ?? []).map(fromWire);
+    } catch (e) {
+      throw mapApiError(e);
+    }
+  }
+
+  async createSubtask(parentId: number, title: string): Promise<Task> {
+    return this.create({ title, priority: Priority.LOW, status: TaskStatus.PENDING, tagNames: [], parentId });
+  }
+
+  async removeSubtask(id: number): Promise<void> {
+    return this.remove(id);
+  }
 }
 
 export class InMemoryTaskRepository implements TaskRepository {
@@ -293,6 +319,12 @@ export class InMemoryTaskRepository implements TaskRepository {
     if (query?.tagIds && query.tagIds.length > 0) {
       items = items.filter(t => t.tags.some(tag => query.tagIds!.includes(tag.id)));
     }
+    items = items.map(t => {
+      const children = this.tasks.filter(c => c.parentId === t.id);
+      if (children.length === 0) return t;
+      const done = children.filter(c => c.status === TaskStatus.COMPLETED).length;
+      return { ...t, subtaskProgress: { done, total: children.length } };
+    });
     const sort = query?.sort ?? 'createdAt';
     const dir = query?.dir ?? (sort === 'createdAt' ? 'desc' : 'asc');
     return items.sort((a, b) => compareTasks(a, b, sort, dir));
@@ -311,6 +343,7 @@ export class InMemoryTaskRepository implements TaskRepository {
       recurrence: input.recurrence,
       projectId: input.projectId,
       projectName: input.projectId != null ? this.projects.find(p => p.id === input.projectId)?.name : undefined,
+      parentId: input.parentId,
       tags: [...tags],
     };
     this.tasks.push(task);
@@ -332,6 +365,7 @@ export class InMemoryTaskRepository implements TaskRepository {
       recurrence: input.recurrence,
       projectId: input.projectId,
       projectName: input.projectId != null ? this.projects.find(p => p.id === input.projectId)?.name : undefined,
+      parentId: input.parentId,
       tags: [...tags],
     };
     return { ...this.tasks[index], tags: [...this.tasks[index].tags] };
@@ -414,6 +448,24 @@ export class InMemoryTaskRepository implements TaskRepository {
         task.projectName = undefined;
       }
     }
+  }
+
+  async listSubtasks(parentId: number): Promise<Task[]> {
+    if (!this.tasks.some(t => t.id === parentId)) {
+      throw new RepositoryError('not-found', `Task ${parentId} not found`);
+    }
+    return this.tasks.filter(t => t.parentId === parentId).map(t => ({ ...t, tags: [...t.tags] }));
+  }
+
+  async createSubtask(parentId: number, title: string): Promise<Task> {
+    const parent = this.tasks.find(t => t.id === parentId);
+    if (!parent) throw new RepositoryError('not-found', `Task ${parentId} not found`);
+    if (parent.parentId != null) throw new RepositoryError('validation', 'Subtasks cannot be nested');
+    return this.create({ title, priority: Priority.LOW, status: TaskStatus.PENDING, tagNames: [], parentId });
+  }
+
+  async removeSubtask(id: number): Promise<void> {
+    return this.remove(id);
   }
 
   private registerTags(names: string[]): Tag[] {

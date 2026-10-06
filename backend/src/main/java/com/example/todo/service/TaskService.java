@@ -88,6 +88,7 @@ public class TaskService {
         return (root, cq, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(root.get("user"), me));
+            predicates.add(cb.isNull(root.get("parent")));
 
             if (query.status() != null) {
                 predicates.add(cb.equal(root.get("status"), query.status()));
@@ -148,6 +149,7 @@ public class TaskService {
         Task task = new Task();
         applyFields(task, request);
         applyProject(task, request);
+        applyParent(task, request);
         validateRecurrence(task);
         task.setUser(me);
         Set<String> tagNames = request.getTagNames();
@@ -165,6 +167,7 @@ public class TaskService {
         Task task = findOwnedTask(id, me);
         applyFields(task, request);
         applyProject(task, request);
+        applyParent(task, request);
         validateRecurrence(task);
         Set<String> tagNames = request.getTagNames();
         return withTagRetry(() -> {
@@ -232,6 +235,29 @@ public class TaskService {
             throw new InvalidQueryValueException("projectId", "Project not found");
         }
         task.setProject(project);
+    }
+
+    private void applyParent(Task task, TaskRequest request) {
+        if (request.getParentId() == null) {
+            task.setParent(null);
+            return;
+        }
+        User me = currentUser.requireCurrent();
+        Task parent = taskRepository.findById(request.getParentId())
+                .orElseThrow(() -> new InvalidQueryValueException("parentId", "Parent not found"));
+        if (!parent.getUser().getId().equals(me.getId())) {
+            throw new InvalidQueryValueException("parentId", "Parent not found");
+        }
+        if (parent.getParent() != null) {
+            throw new InvalidQueryValueException("parentId", "Subtasks cannot be nested");
+        }
+        task.setParent(parent);
+    }
+
+    public List<TaskResponse> getSubtasks(Long id) {
+        User me = currentUser.requireCurrent();
+        Task parent = findOwnedTask(id, me);
+        return parent.getChildren().stream().map(TaskResponse::of).collect(Collectors.toList());
     }
 
     private void generateNextOccurrence(Task completed, User me) {
