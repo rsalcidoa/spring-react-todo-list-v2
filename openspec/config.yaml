@@ -1,39 +1,156 @@
 schema: spec-driven
 
+# =============================================================================
+# Contexto del proyecto (se inyecta en las instrucciones de todos los artefactos)
+# =============================================================================
 context: |
-  Tech stack principal: Java 17+ (Maven/Gradle, Spring Boot), JavaScript/TypeScript (Node 20+, Express/Nest o React).
-  Lenguajes esporádicos: Scala, Kotlin, .NET, Dart, Python, Go, SQL según el cambio.
-  API: RESTful, respuestas JSON, versionado /v1.
-  Testing: JUnit5 + Mockito para Java, Vitest para TS unit, Playwright para e2e. Cada tarea de código debe dejar tests en verde.
-  Estilo: Google Java Format, ESLint + Prettier, TypeScript estricto. Commits convencionales.
-  Prioridad del usuario: calidad del plan sobre velocidad. Preferir proposal/specs/design precisos aunque la inferencia sea más lenta.
-  Restricción hardware: modelos locales 16GB VRAM (RX 9070) + 32GB RAM. Mantener cambios pequeños y verificables.
+  ## Proyecto
+  Nombre: spring-react-todo-list-v2 (TO-DO)
+  Producto: gestor de tareas personal con tablero Kanban.
+  Paquete base Java: dev.rsalcidoa
+  Objetivo: app personal hoy, disenada para escalar a multiusuario en el futuro.
 
+  ## Estado actual y migracion
+  El codigo actual usa el paquete com.example.todo con capas planas
+  (controller/service/repository/model/dto/exception/security/config/util).
+  La migracion a dev.rsalcidoa feature-based es un CAMBIO FUTURO; hasta entonces
+  la config describe el objetivo y cualquier artefacto debe indicar claramente
+  cuando asume la estructura objetivo frente a la actual.
+
+  ## Arquitectura
+  Backend en capas por responsabilidad, con enfasis en modulos profundos y seams:
+  - controller  -> adaptador HTTP delgado; sin logica de negocio ni parseo manual
+  - service     -> dueno de las operaciones del modulo (p.ej. TaskService.applyStatus)
+  - repository  -> acceso a datos (Spring Data JPA)
+  - model       -> entidades JPA (Task, Tag, User)
+  - dto         -> contratos de entrada/salida (records inmutables)
+  - exception   -> errores de dominio + GlobalExceptionHandler (contrato unificado)
+  - security    -> CurrentUserProvider (seam de identidad/ownership)
+  - config/util -> seguridad, JWT, utilidades compartidas
+
+  Principios (ya aplicados en cambios mergeados):
+  - Contrato de error unificado {error, errors} para 400/401/403/404/409.
+  - Ownership via CurrentUserProvider.requireOwned; NUNCA resolver el usuario en el controller.
+  - Modulos profundos: la interfaz oculta transaccion/reintento (p.ej. tag resolve idempotente).
+  - Cambios pequenos y verificables; cada funcionalidad con tests en verde.
+  - Multi-tenant ready: no asumir un unico usuario; ownership siempre por seam.
+
+  ## Stack
+  - Backend: Java 21 (JDK 27 en la maquina), Spring Boot 3.2.4, Maven, PostgreSQL 16, Flyway
+  - Seguridad: Spring Security + JWT (jjwt 0.11.5); expiracion 1h
+  - Frontend: React 18, TypeScript 5.x (strict), Vite 5, CSS Modules + design tokens
+  - Testing: JUnit 5 + Mockito (unit), MockMvc + PostgreSQL real via docker-compose (integracion),
+    Vitest + Testing Library + happy-dom (unit/component), Playwright (e2e + regresion visual)
+  - Sin Lombok, MapStruct, SpringDoc/OpenAPI ni Testcontainers (no presentes hoy)
+
+  ## Estructura (feature-based)
+  - Backend base: backend/src/main/java/dev.rsalcidoa/{feature}/{layer}
+    - {feature}: auth, tasks, tags
+    - {layer}: controller, service, repository, model, dto, exception (los que apliquen)
+  - Backend compartido: backend/src/main/java/dev.rsalcidoa/shared/{security,config,util,exception}
+    (CurrentUserProvider, JWT, GlobalExceptionHandler, configuracion Spring)
+  - Backend tests: backend/src/test/java/dev.rsalcidoa/{feature}/{layer}
+  - Migraciones: backend/src/main/resources/db/migration/V{n}__{descripcion}.sql
+  - Frontend (sin cambios de estructura): frontend/src/{pages,components,context,services,data,styles}
+    - pages/ PascalCasePage.tsx (+ .module.css); components/ PascalCase.tsx (+ .module.css)
+    - services/ ApiService.ts, session.ts, validateEmail.ts, types/
+    - data/ TaskRepository.ts (interfaz + adaptadores Http/InMemory)
+    - styles/ theme.css + themes/*.css
+  - e2e: frontend/e2e/*.spec.ts + baselines en frontend/e2e/__screenshots__/
+
+  ## Naming
+  - Java: paquetes dev.rsalcidoa.{feature}.{layer}; clases PascalCase; metodos camelCase; tests *Test.java
+  - TS: componentes/pages PascalCase.tsx; modulos/utilidades camelCase.ts; tipos en services/types/
+  - CSS: *.module.css junto al componente; tokens en styles/theme.css
+
+  ## Convenciones backend (Java 21)
+  - Preferir record para DTOs y respuestas inmutables (RegisterResponse, TaskResponse, TagResponse).
+  - Controller delgado: delega al service; parseo/validacion de dominio vive en el service.
+  - Errores tipados (p.ej. InvalidStatusValueException) mapeados a UN contrato en GlobalExceptionHandler.
+  - No exponer entidades JPA fuera del modulo; cruzar el seam con valores (DTOs).
+
+  ## Convenciones frontend
+  - TypeScript estricto; evitar `any` (usar helpers tipados getApiStatus/getApiMessage).
+  - Toda operacion de datos pasa por TaskRepository (no llamar ApiService desde componentes/pages).
+  - Un solo `error` state por pagina; errores con ErrorBanner (sin alert()).
+  - Estilos solo con tokens de styles/theme.css (sin colores literales).
+
+  ## Estilo de codigo (convencion)
+  - Java: Google Java Format
+  - Frontend: ESLint + Prettier, TypeScript estricto
+  (Nota: el formatter/linter aun no esta cableado en el repo; tratarlo como objetivo.)
+
+  ## Commits (Conventional Commits)
+  Formato: type(scope): description
+  Tipos: feat, fix, docs, style, refactor, perf, test, ci, chore, revert
+  Ejemplo: fix(backend): return the structured PATCH error body
+
+  ## Testing por capa
+  - Unit: JUnit5 + Mockito (backend), Vitest (frontend).
+  - Integracion: @SpringBootTest + MockMvc contra PostgreSQL (docker compose up -d postgres).
+    No hay Testcontainers: los tests de integracion requieren la DB levantada.
+  - E2E: Playwright con el stack levantado (backend 8080, frontend 5173); screenshots comparados.
+  - Cada tarea de codigo debe dejar la suite en verde.
+
+  ## Skills de opencode (usar cuando aplique)
+  - `grill-me`: aclarar necesidad y explorar alternativas antes de redactar proposal/specs/design.
+  - `tdd`: implementar funcionalidad en red-green-refactor.
+  - `domain-modeling`: modelar/actualizar el dominio (CONTEXT.md, ADRs).
+  - `codebase-design`: disenar interfaces de modulo, profundidad y ubicacion de seams.
+  - `improve-codebase-architecture`: al detectar oportunidades de profundizar modulos/refactor.
+  - `frontend-design`: construir o redisenar UI.
+  - `diagnosing-bugs`: diagnosticar fallos o regresiones.
+  - `code-review`: revisar estandares y coherencia con las specs antes de cerrar.
+  Invocar la skill correspondiente con la herramienta Skill cuando se cumpla su disparador.
+
+# =============================================================================
+# Reglas por artefacto (aditivas a las del schema spec-driven)
+# =============================================================================
 rules:
   proposal:
-    - Incluir sección "Non-goals" y alcance explícito
-    - Incluir rollback plan y módulos afectados (paquete Java o ruta TS)
-    - Si el cambio toca >3 archivos, proponer dividir en 2 cambios
+    - Mantener la propuesta bajo ~500 palabras
+    - Incluir siempre una seccion "Non-goals" y el alcance explicito
+    - Incluir rollback plan y modulos afectados (paquete Java o ruta TS)
+    - Si el cambio toca >3 archivos, proponer dividirlo en 2 cambios
+    - Justificar el encaje con la arquitectura (capas, seams, contrato de error)
+    - Invocar `grill-me` para aclarar la necesidad y explorar alternativas antes de redactar
   specs:
-    - Usar formato Given/When/Then para cada escenario
-    - Cada requirement con ID estable (ej. REQ-001) y criterio verificable
-    - Para Java indicar paquete/clase afectada. Para TS indicar ruta/archivo afectado
+    - Formato Given/When/Then por escenario
+    - Cada requirement con ID estable (REQ-XXX) y criterio verificable
+    - Cubrir casos de error y validacion (contrato {error, errors})
+    - Indicar para Java el paquete/clase y para TS la ruta/archivo afectado
+    - Invocar `grill-me` para resolver ambiguedades antes de escribir escenarios
   design:
-    - Incluir diagrama de secuencia Mermaid si hay >3 componentes o un flujo async
-    - Listar decisiones con alternativas consideradas (formato ADR corto)
+    - Indicar el seam/modulo profundo implicado y su interfaz publica
+    - Listar decisiones con alternativas consideradas (ADR corto)
+    - Indicar migraciones Flyway necesarias si cambia el modelo de datos
+    - Incluir diagrama Mermaid si hay >3 componentes o un flujo async
     - Indicar estrategia de tests por capa (unit/integration/e2e)
+    - Preferir records; justificar cualquier mutabilidad
+    - Invocar `grill-me` y `domain-modeling`/`codebase-design` segun aplique
   tasks:
-    - Tareas de max ~200 líneas o 2h cada una, con checkbox
-    - Cada tarea termina con comando de verificación (ej. `mvn test -Dtest=X`, `npm run test`, `npm run build`)
-    - Marcar dependencias entre tareas cuando existan
+    - Tareas de max ~200 lineas o ~2h, con checkbox
+    - Separar explicitamente tareas de backend y frontend
+    - Cada tarea termina con un comando de verificacion (mvn test -Dtest=X, npm test -- --run, npx playwright test)
+    - Cada tarea funcional inicia con un test que falla (TDD red)
+    - Marcar dependencias entre tareas
+    - Anotar las skills (tdd/domain-modeling/frontend-design/diagnosing-bugs/code-review) que apliquen
 
+# =============================================================================
+# Guia por operacion (apply / archive)
+# =============================================================================
 operations:
   apply:
     guidance:
-      - Implementar una tarea a la vez y ejecutar su verificación antes de seguir
-      - Si el diseño resulta incorrecto, actualizar design.md primero y continuar
-      - Priorizar compilación + tests en verde sobre cobertura perfecta
+      - Trabajar en ciclo TDD red-green-refactor, una tarea a la vez
+      - Levantar PostgreSQL (docker compose up -d postgres) antes de los tests de integracion
+      - Si el diseno resulta incorrecto, actualizar design.md primero y continuar
+      - No modificar artefactos generados (backend/target/, frontend/dist/, node_modules/)
+      - Mantener resumenes de tests concisos
+      - Usar `tdd` en cada tarea funcional; `domain-modeling`/`codebase-design` al tocar dominio/modulos;
+        `frontend-design` en UI; `diagnosing-bugs` ante fallos; `code-review` antes de cerrar
   archive:
     guidance:
-      - Resumir outcome (qué cambió, tests, archivos) antes de archivar
-      - Verificar que delta specs (ADDED/MODIFIED/REMOVED) mergearon a specs/
+      - Resumir el outcome (que cambio, tests, archivos) antes de archivar
+      - Verificar que las delta specs (ADDED/MODIFIED/REMOVED) mergearon a openspec/specs/
+      - Asegurar que las migraciones Flyway quedaron versionadas
