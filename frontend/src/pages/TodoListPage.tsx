@@ -6,7 +6,7 @@ import { HttpTaskRepository, toDisplayMessage, type TaskRepository } from '../da
 import { filterByView, type BoardView } from '../services/boardView';
 import { nextStatus, type MoveDirection } from '../services/boardKeyboard';
 import { startReminderPolling, browserNotify } from '../services/reminders';
-import { Task, Tag, TaskInput, TaskStatus, TaskQuery, TaskSort, SortDir, Priority } from '../services/types/task';
+import { Task, Tag, Project, TaskInput, TaskStatus, TaskQuery, TaskSort, SortDir, Priority } from '../services/types/task';
 import KanbanColumn from '../components/KanbanColumn';
 import AddTaskModal from '../components/AddTaskModal';
 import ErrorBanner from '../components/ErrorBanner';
@@ -25,6 +25,8 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
   const repository = useMemo(() => repositoryProp ?? new HttpTaskRepository(), [repositoryProp]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectFilter, setProjectFilter] = useState<string>('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [loading, setLoading] = useState(true);
@@ -34,7 +36,7 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
   const [query, setQuery] = useState<TaskQuery>({});
   const [error, setError] = useState<{ message: string; id: number } | null>(null);
 
-  useEffect(() => { loadTasks(); loadTags(); }, []);
+  useEffect(() => { loadTasks(); loadTags(); loadProjects(); }, []);
 
   useEffect(() => {
     const handle = startReminderPolling(browserNotify);
@@ -74,6 +76,10 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
       setTasks(data);
     } catch (e) { showTransientError(errorMessage(e)); }
     finally { setLoading(false); }
+  };
+
+  const loadProjects = async () => {
+    try { setProjects(await repository.listProjects()); } catch (e) { showTransientError(errorMessage(e)); }
   };
 
   const loadTags = async (): Promise<Tag[] | null> => {
@@ -170,9 +176,12 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
   };
 
   const viewTasks = filterByView(tasks, view);
-  const visibleTasks = tagFilter.length === 0
+  let visibleTasks = tagFilter.length === 0
     ? viewTasks
     : viewTasks.filter(t => t.tags.some(tag => tagFilter.includes(tag.id)));
+  if (projectFilter) {
+    visibleTasks = visibleTasks.filter(t => String(t.projectId) === projectFilter);
+  }
 
   const grouped = visibleTasks.reduce((acc, task) => {
     const status = task.status || 'PENDING';
@@ -218,6 +227,18 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
               <option value="today">Hoy</option>
               <option value="overdue">Vencidas</option>
               <option value="upcoming">Próximas</option>
+            </select>
+          </label>
+          <label className={styles.themeLabel}>
+            Proyecto
+            <select
+              aria-label="Filtrar por proyecto"
+              className={styles.themeSelect}
+              value={projectFilter}
+              onChange={e => setProjectFilter(e.target.value)}
+            >
+              <option value="">Todos</option>
+              {projects.map(p => (<option key={p.id} value={String(p.id)}>{p.name}</option>))}
             </select>
           </label>
           <label className={styles.themeLabel}>
@@ -323,6 +344,7 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
         onSave={handleSave}
         repository={repository}
         existingTags={tags}
+        projects={projects}
         editingTask={editingTask}
         countTagTasks={countTagTasks}
         onTagCreated={(tag) => setTags(prev => [...prev, tag])}

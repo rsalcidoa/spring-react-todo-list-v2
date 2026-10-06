@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import styles from './AddTaskModal.module.css';
-import { TaskStatus, Priority, Task, Tag, TaskInput, Recurrence } from '../services/types/task';
+import { TaskStatus, Priority, Task, Tag, Project, TaskInput, Recurrence } from '../services/types/task';
 import { toDisplayMessage, type TaskRepository } from '../data/TaskRepository';
 import ErrorBanner from './ErrorBanner';
 
@@ -10,6 +10,7 @@ interface AddTaskModalProps {
   onSave: (data: TaskInput) => void;
   repository: TaskRepository;
   existingTags?: Tag[];
+  projects?: Project[];
   editingTask?: Task | null;
   onTagCreated?: (tag: Tag) => void;
   onTagDeleted?: (id: number) => void;
@@ -22,7 +23,7 @@ const TAG_ERROR_FALLBACKS = {
   notFound: 'La etiqueta ya no existe',
 };
 
-const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, repository, existingTags=[], editingTask=null, onTagCreated, onTagDeleted, countTagTasks}) => {
+const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, repository, existingTags=[], projects=[], editingTask=null, onTagCreated, onTagDeleted, countTagTasks}) => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState(Priority.LOW);
@@ -31,6 +32,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
   const [dueDate, setDueDate] = useState('');
   const [reminderAt, setReminderAt] = useState('');
   const [recurrence, setRecurrence] = useState<Recurrence>('NONE');
+  const [projectId, setProjectId] = useState<string>('');
   const [newTagName, setNewTagName] = useState('');
   const [tagError, setTagError] = useState<{ message: string; id: number } | null>(null);
   const [titleError, setTitleError] = useState<string | null>(null);
@@ -105,6 +107,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
       setDueDate(editingTask.dueDate || '');
       setReminderAt(editingTask.reminderAt ? editingTask.reminderAt.slice(0, 16) : '');
       setRecurrence((editingTask.recurrence as Recurrence) || 'NONE');
+      setProjectId(editingTask.projectId != null ? String(editingTask.projectId) : '');
     } else if (isOpen && !editingTask) {
       setTitle('');
       setDescription('');
@@ -114,6 +117,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
       setDueDate('');
       setReminderAt('');
       setRecurrence('NONE');
+      setProjectId('');
       setTitleError(null);
     }
   }, [isOpen, editingTask]);
@@ -126,7 +130,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
       return;
     }
     setTitleError(null);
-    onSave({ title, description, priority, status, tagNames: tags, dueDate, reminderAt: reminderAt || undefined, recurrence: recurrence === 'NONE' ? undefined : recurrence });
+    onSave({ title, description, priority, status, tagNames: tags, dueDate, reminderAt: reminderAt || undefined, recurrence: recurrence === 'NONE' ? undefined : recurrence, projectId: projectId === '' ? undefined : Number(projectId) });
     onClose();
   };
 
@@ -176,6 +180,13 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
             <option value="DAILY">Diario</option>
             <option value="WEEKLY">Semanal</option>
             <option value="MONTHLY">Mensual</option>
+          </select>
+        </div>
+        <div className={styles.formGroup}>
+          <label className={styles.formLabel}>Proyecto</label>
+          <select className={styles.select} aria-label="Proyecto de la tarea" value={projectId} onChange={e=>setProjectId(e.target.value)}>
+            <option value="">Sin proyecto</option>
+            {projects.map(p => (<option key={p.id} value={String(p.id)}>{p.name}</option>))}
           </select>
         </div>
         <div className={styles.tagSection}>

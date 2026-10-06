@@ -42,6 +42,7 @@ class TaskServiceTest {
     private PlatformTransactionManager transactionManager;
     private TransactionTemplate transactionTemplate;
     private TaskService service;
+    private com.example.todo.repository.ProjectRepository projectRepository;
 
     private final User me = userWithId(1L, "me@example.com");
     private final User other = userWithId(2L, "other@example.com");
@@ -54,7 +55,8 @@ class TaskServiceTest {
         currentUser = mock(CurrentUserProvider.class);
         transactionManager = mock(PlatformTransactionManager.class);
         transactionTemplate = new TransactionTemplate(transactionManager);
-        service = new TaskService(taskRepository, tagRepository, tagService, currentUser, transactionManager);
+        projectRepository = mock(com.example.todo.repository.ProjectRepository.class);
+        service = new TaskService(taskRepository, tagRepository, tagService, currentUser, transactionManager, projectRepository);
     }
 
     private User userWithId(long id, String email) {

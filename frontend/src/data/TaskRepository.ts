@@ -1,5 +1,5 @@
-import { Task, Tag, TaskInput, TaskQuery, TaskStatus, Priority } from '../services/types/task';
-import { getTasks, createTask, updateTask, deleteTask, patchStatus, getTags, createTag as apiCreateTag, deleteTag as apiDeleteTag } from '../services/ApiService';
+import { Task, Tag, Project, TaskInput, TaskQuery, TaskStatus, Priority } from '../services/types/task';
+import { getTasks, createTask, updateTask, deleteTask, patchStatus, getTags, createTag as apiCreateTag, deleteTag as apiDeleteTag, getProjects, createProject as apiCreateProject, renameProject as apiRenameProject, deleteProject as apiDeleteProject } from '../services/ApiService';
 
 export interface TaskRepository {
   fetchAll(query?: TaskQuery): Promise<Task[]>;
@@ -10,6 +10,10 @@ export interface TaskRepository {
   listTags(): Promise<Tag[]>;
   createTag(name: string): Promise<Tag>;
   deleteTag(id: number): Promise<void>;
+  listProjects(): Promise<Project[]>;
+  createProject(name: string): Promise<Project>;
+  renameProject(id: number, name: string): Promise<Project>;
+  deleteProject(id: number): Promise<void>;
 }
 
 export type RepositoryErrorCode = 'conflict' | 'not-found' | 'validation' | 'unknown';
@@ -112,6 +116,7 @@ interface WireTaskBody {
   dueDate?: string;
   reminderAt?: string;
   recurrence?: string;
+  projectId?: number;
   tagNames: string[];
 }
 
@@ -134,6 +139,9 @@ function toWire(input: TaskInput): WireTaskBody {
   if (input.recurrence) {
     wire.recurrence = input.recurrence;
   }
+  if (input.projectId != null) {
+    wire.projectId = input.projectId;
+  }
   return wire;
 }
 
@@ -150,6 +158,8 @@ function fromWire(wire: Partial<Task> & { id?: number }): Task {
     updatedAt: wire.updatedAt,
     reminderAt: wire.reminderAt,
     recurrence: wire.recurrence,
+    projectId: wire.projectId,
+    projectName: wire.projectName,
   };
 }
 
@@ -222,13 +232,50 @@ export class HttpTaskRepository implements TaskRepository {
       throw mapApiError(e);
     }
   }
+
+  async listProjects(): Promise<Project[]> {
+    try {
+      const r = await getProjects();
+      return Array.isArray(r.data) ? [...r.data] : [];
+    } catch (e) {
+      throw mapApiError(e);
+    }
+  }
+
+  async createProject(name: string): Promise<Project> {
+    try {
+      const r = await apiCreateProject(name.trim());
+      return r.data as Project;
+    } catch (e) {
+      throw mapApiError(e);
+    }
+  }
+
+  async renameProject(id: number, name: string): Promise<Project> {
+    try {
+      const r = await apiRenameProject(id, name.trim());
+      return r.data as Project;
+    } catch (e) {
+      throw mapApiError(e);
+    }
+  }
+
+  async deleteProject(id: number): Promise<void> {
+    try {
+      await apiDeleteProject(id);
+    } catch (e) {
+      throw mapApiError(e);
+    }
+  }
 }
 
 export class InMemoryTaskRepository implements TaskRepository {
   private tasks: Task[] = [];
   private tags: Tag[] = [];
+  private projects: Project[] = [];
   private nextTaskId = 1;
   private nextTagId = 1;
+  private nextProjectId = 1;
 
   async fetchAll(query?: TaskQuery): Promise<Task[]> {
     let items = this.tasks.map(t => ({ ...t, tags: [...t.tags] }));
@@ -262,6 +309,8 @@ export class InMemoryTaskRepository implements TaskRepository {
       dueDate: input.dueDate,
       reminderAt: input.reminderAt,
       recurrence: input.recurrence,
+      projectId: input.projectId,
+      projectName: input.projectId != null ? this.projects.find(p => p.id === input.projectId)?.name : undefined,
       tags: [...tags],
     };
     this.tasks.push(task);
@@ -281,6 +330,8 @@ export class InMemoryTaskRepository implements TaskRepository {
       dueDate: input.dueDate,
       reminderAt: input.reminderAt,
       recurrence: input.recurrence,
+      projectId: input.projectId,
+      projectName: input.projectId != null ? this.projects.find(p => p.id === input.projectId)?.name : undefined,
       tags: [...tags],
     };
     return { ...this.tasks[index], tags: [...this.tasks[index].tags] };
@@ -318,6 +369,50 @@ export class InMemoryTaskRepository implements TaskRepository {
     this.tags.splice(index, 1);
     for (const task of this.tasks) {
       task.tags = task.tags.filter(t => t.id !== id);
+    }
+  }
+
+  async listProjects(): Promise<Project[]> {
+    return [...this.projects].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+  }
+
+  async createProject(name: string): Promise<Project> {
+    const trimmed = name.trim();
+    if (!trimmed) throw new RepositoryError('validation', 'Name must not be blank');
+    if (trimmed.length > 50) throw new RepositoryError('validation', 'Name must not exceed 50 characters');
+    const key = trimmed.toLowerCase();
+    if (this.projects.some(p => p.name.toLowerCase() === key)) {
+      throw new RepositoryError('conflict', 'Project already exists');
+    }
+    const project: Project = { id: this.nextProjectId++, name: trimmed };
+    this.projects.push(project);
+    return { ...project };
+  }
+
+  async renameProject(id: number, name: string): Promise<Project> {
+    const project = this.projects.find(p => p.id === id);
+    if (!project) throw new RepositoryError('not-found', `Project ${id} not found`);
+    const trimmed = name.trim();
+    const key = trimmed.toLowerCase();
+    if (this.projects.some(p => p.id !== id && p.name.toLowerCase() === key)) {
+      throw new RepositoryError('conflict', 'Project already exists');
+    }
+    project.name = trimmed;
+    for (const task of this.tasks) {
+      if (task.projectId === id) task.projectName = trimmed;
+    }
+    return { ...project };
+  }
+
+  async deleteProject(id: number): Promise<void> {
+    const index = this.projects.findIndex(p => p.id === id);
+    if (index === -1) throw new RepositoryError('not-found', `Project ${id} not found`);
+    this.projects.splice(index, 1);
+    for (const task of this.tasks) {
+      if (task.projectId === id) {
+        task.projectId = undefined;
+        task.projectName = undefined;
+      }
     }
   }
 

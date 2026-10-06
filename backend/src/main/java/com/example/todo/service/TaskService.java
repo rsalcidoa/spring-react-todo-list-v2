@@ -18,6 +18,8 @@ import com.example.todo.model.Recurrence;
 import com.example.todo.model.TaskStatus;
 import com.example.todo.repository.TaskRepository;
 import com.example.todo.repository.TagRepository;
+import com.example.todo.repository.ProjectRepository;
+import com.example.todo.model.Project;
 import com.example.todo.security.CurrentUserProvider;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
@@ -44,14 +46,17 @@ public class TaskService {
     private final TagService tagService;
     private final CurrentUserProvider currentUser;
     private final TransactionTemplate transactionTemplate;
+    private final ProjectRepository projectRepository;
 
     public TaskService(TaskRepository taskRepository, TagRepository tagRepository, TagService tagService,
-                       CurrentUserProvider currentUser, PlatformTransactionManager transactionManager) {
+                       CurrentUserProvider currentUser, PlatformTransactionManager transactionManager,
+                       ProjectRepository projectRepository) {
         this.taskRepository = taskRepository;
         this.tagRepository = tagRepository;
         this.tagService = tagService;
         this.currentUser = currentUser;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
+        this.projectRepository = projectRepository;
     }
 
     public List<TaskResponse> getAllTasks() {
@@ -142,6 +147,7 @@ public class TaskService {
         User me = currentUser.requireCurrent();
         Task task = new Task();
         applyFields(task, request);
+        applyProject(task, request);
         validateRecurrence(task);
         task.setUser(me);
         Set<String> tagNames = request.getTagNames();
@@ -158,6 +164,7 @@ public class TaskService {
         User me = currentUser.requireCurrent();
         Task task = findOwnedTask(id, me);
         applyFields(task, request);
+        applyProject(task, request);
         validateRecurrence(task);
         Set<String> tagNames = request.getTagNames();
         return withTagRetry(() -> {
@@ -211,6 +218,20 @@ public class TaskService {
         if (task.getRecurrence() != null && task.getRecurrence() != Recurrence.NONE && task.getDueDate() == null) {
             throw new InvalidQueryValueException("recurrence", "Recurrence requires a due date");
         }
+    }
+
+    private void applyProject(Task task, TaskRequest request) {
+        if (request.getProjectId() == null) {
+            task.setProject(null);
+            return;
+        }
+        User me = currentUser.requireCurrent();
+        Project project = projectRepository.findById(request.getProjectId())
+                .orElseThrow(() -> new InvalidQueryValueException("projectId", "Project not found"));
+        if (!project.getUser().getId().equals(me.getId())) {
+            throw new InvalidQueryValueException("projectId", "Project not found");
+        }
+        task.setProject(project);
     }
 
     private void generateNextOccurrence(Task completed, User me) {

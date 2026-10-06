@@ -47,7 +47,11 @@ public class Task {
             inverseJoinColumns = @JoinColumn(name = "tag_id"))
     private Set<Tag> tags = new HashSet<>();
 
-    @Column(name="created_at", nullable=false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "project_id")
+    private Project project;
+
+    @Column(name = "created_at", nullable=false)
     private LocalDateTime createdAt;
 
     @Column(name="updated_at", nullable=false)
@@ -101,4 +105,6 @@ public class Task {
     public void setRecurrence(Recurrence recurrence) { this.recurrence = recurrence; }
     public Long getRecurrenceSourceId() { return recurrenceSourceId; }
     public void setRecurrenceSourceId(Long recurrenceSourceId) { this.recurrenceSourceId = recurrenceSourceId; }
+    public Project getProject() { return project; }
+    public void setProject(Project project) { this.project = project; }
 }

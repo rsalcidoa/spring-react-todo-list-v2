@@ -214,3 +214,20 @@ describe('fetchAll query semantics', () => {
     );
   });
 });
+
+describe('project operations (InMemory)', () => {
+  it('creates, enforces case-insensitive uniqueness, renames and deletes', async () => {
+    const repo = new InMemoryTaskRepository();
+    const casa = await repo.createProject('Casa');
+    expect(casa.id).toBeGreaterThan(0);
+
+    await expect(repo.createProject(' casa ')).rejects.toMatchObject({ code: 'conflict' });
+
+    const renamed = await repo.renameProject(casa.id, 'Hogar');
+    expect(renamed.name).toBe('Hogar');
+    expect(await repo.listProjects()).toHaveLength(1);
+
+    await repo.deleteProject(casa.id);
+    expect(await repo.listProjects()).toHaveLength(0);
+  });
+});

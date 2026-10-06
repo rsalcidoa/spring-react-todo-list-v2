@@ -47,6 +47,11 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(errorBody("Tag already exists"));
     }
 
+    @ExceptionHandler(ProjectAlreadyExistsException.class)
+    public ResponseEntity<Map<String, String>> handleProjectAlreadyExists(ProjectAlreadyExistsException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(errorBody("Project already exists"));
+    }
+
     @ExceptionHandler(UserAlreadyExistsException.class)
     public ResponseEntity<Map<String, String>> handleUserAlreadyExists(UserAlreadyExistsException ex) {
         Map<String, String> body = new LinkedHashMap<>();

@@ -20,12 +20,15 @@ public class TaskResponse {
     private LocalDateTime updatedAt;
     private LocalDateTime reminderAt;
     private com.example.todo.model.Recurrence recurrence;
+    private Long projectId;
+    private String projectName;
 
     public TaskResponse() {}
 
     public TaskResponse(Long id, String title, String description, Priority priority, LocalDate dueDate,
                         TaskStatus status, java.util.List<TagResponse> tags, LocalDateTime createdAt, LocalDateTime updatedAt,
-                        LocalDateTime reminderAt, com.example.todo.model.Recurrence recurrence) {
+                        LocalDateTime reminderAt, com.example.todo.model.Recurrence recurrence,
+                        Long projectId, String projectName) {
         this.id = id;
         this.title = title;
         this.description = description;
@@ -37,6 +40,8 @@ public class TaskResponse {
         this.updatedAt = updatedAt;
         this.reminderAt = reminderAt;
         this.recurrence = recurrence;
+        this.projectId = projectId;
+        this.projectName = projectName;
     }
 
     /** Maps a task entity to its response, exposing only tag values and no entity internals. */
@@ -45,6 +50,7 @@ public class TaskResponse {
                 .map(t -> new TagResponse(t.getId(), t.getName()))
                 .sorted(java.util.Comparator.comparing(TagResponse::getName))
                 .collect(java.util.stream.Collectors.toList());
+        com.example.todo.model.Project project = task.getProject();
         return new TaskResponse(
                 task.getId(),
                 task.getTitle(),
@@ -56,7 +62,9 @@ public class TaskResponse {
                 task.getCreatedAt(),
                 task.getUpdatedAt(),
                 task.getReminderAt(),
-                task.getRecurrence());
+                task.getRecurrence(),
+                project != null ? project.getId() : null,
+                project != null ? project.getName() : null);
     }
 
     // getters and setters
@@ -83,4 +91,8 @@ public class TaskResponse {
     public void setReminderAt(LocalDateTime reminderAt) { this.reminderAt = reminderAt; }
     public com.example.todo.model.Recurrence getRecurrence() { return recurrence; }
     public void setRecurrence(com.example.todo.model.Recurrence recurrence) { this.recurrence = recurrence; }
+    public Long getProjectId() { return projectId; }
+    public void setProjectId(Long projectId) { this.projectId = projectId; }
+    public String getProjectName() { return projectName; }
+    public void setProjectName(String projectName) { this.projectName = projectName; }
 }

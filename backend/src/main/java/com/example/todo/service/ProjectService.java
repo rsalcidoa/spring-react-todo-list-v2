@@ -1,0 +1,60 @@
+package com.example.todo.service;
+
+import com.example.todo.dto.ProjectResponse;
+import com.example.todo.exception.ProjectAlreadyExistsException;
+import com.example.todo.exception.ResourceNotFoundException;
+import com.example.todo.model.Project;
+import com.example.todo.model.User;
+import com.example.todo.repository.ProjectRepository;
+import com.example.todo.security.CurrentUserProvider;
+import org.springframework.stereotype.Service;
+
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+public class ProjectService {
+
+    private final ProjectRepository projectRepository;
+    private final CurrentUserProvider currentUser;
+
+    public ProjectService(ProjectRepository projectRepository, CurrentUserProvider currentUser) {
+        this.projectRepository = projectRepository;
+        this.currentUser = currentUser;
+    }
+
+    public List<ProjectResponse> list(User me) {
+        return projectRepository.findByUser(me).stream()
+                .map(p -> new ProjectResponse(p.getId(), p.getName()))
+                .sorted(Comparator.comparing(ProjectResponse::name, String.CASE_INSENSITIVE_ORDER))
+                .collect(Collectors.toList());
+    }
+
+    public ProjectResponse create(User me, String rawName) {
+        String name = rawName.trim();
+        if (projectRepository.findByUserIdAndNameIgnoreCase(me.getId(), name).isPresent()) {
+            throw new ProjectAlreadyExistsException();
+        }
+        Project saved = projectRepository.save(new Project(name, me));
+        return new ProjectResponse(saved.getId(), saved.getName());
+    }
+
+    public ProjectResponse rename(Long id, String rawName) {
+        Project project = projectRepository.findById(id).orElseThrow(ResourceNotFoundException::new);
+        currentUser.requireOwned(project.getUser().getId());
+        String name = rawName.trim();
+        projectRepository.findByUserIdAndNameIgnoreCase(project.getUser().getId(), name)
+                .filter(other -> !other.getId().equals(id))
+                .ifPresent(other -> { throw new ProjectAlreadyExistsException(); });
+        project.setName(name);
+        projectRepository.save(project);
+        return new ProjectResponse(project.getId(), project.getName());
+    }
+
+    public void delete(Long id) {
+        Project project = projectRepository.findById(id).orElseThrow(ResourceNotFoundException::new);
+        currentUser.requireOwned(project.getUser().getId());
+        projectRepository.delete(project);
+    }
+}

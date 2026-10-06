@@ -3,6 +3,11 @@ export interface Tag {
   name: string;
 }
 
+export interface Project {
+  id: number;
+  name: string;
+}
+
 export enum TaskStatus {
   PENDING = 'PENDING',
   ACTIVE = 'ACTIVE',
@@ -31,6 +36,8 @@ export interface Task {
   updatedAt?: string;
   reminderAt?: string;
   recurrence?: Recurrence;
+  projectId?: number;
+  projectName?: string;
 }
 
 export interface TaskInput {
@@ -42,6 +49,7 @@ export interface TaskInput {
   tagNames: string[];
   reminderAt?: string;
   recurrence?: Recurrence;
+  projectId?: number;
 }
 
 export type TaskSort = 'createdAt' | 'dueDate' | 'priority' | 'title';

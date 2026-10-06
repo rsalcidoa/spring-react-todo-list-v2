@@ -24,6 +24,8 @@ public class TaskRequest {
     private String reminderAt;
     // Optional recurrence rule (NONE|DAILY|WEEKLY|MONTHLY); parsed by the module.
     private String recurrence;
+    // Optional owning project id.
+    private Long projectId;
 
     public TaskRequest() {}
 
@@ -51,4 +53,6 @@ public class TaskRequest {
     public void setReminderAt(String reminderAt) { this.reminderAt = reminderAt; }
     public String getRecurrence() { return recurrence; }
     public void setRecurrence(String recurrence) { this.recurrence = recurrence; }
+    public Long getProjectId() { return projectId; }
+    public void setProjectId(Long projectId) { this.projectId = projectId; }
 }
