@@ -1,5 +1,5 @@
 import { Task, Tag, Project, TaskInput, TaskQuery, TaskStatus, Priority } from '../services/types/task';
-import { getTasks, createTask, updateTask, deleteTask, patchStatus, getTags, createTag as apiCreateTag, deleteTag as apiDeleteTag, getProjects, createProject as apiCreateProject, renameProject as apiRenameProject, deleteProject as apiDeleteProject, getSubtasks } from '../services/ApiService';
+import { getTasks, createTask, updateTask, deleteTask, patchStatus, getTags, createTag as apiCreateTag, deleteTag as apiDeleteTag, getProjects, createProject as apiCreateProject, renameProject as apiRenameProject, deleteProject as apiDeleteProject, getSubtasks, reorderPosition } from '../services/ApiService';
 
 export interface TaskRepository {
   fetchAll(query?: TaskQuery): Promise<Task[]>;
@@ -17,6 +17,7 @@ export interface TaskRepository {
   listSubtasks(parentId: number): Promise<Task[]>;
   createSubtask(parentId: number, title: string): Promise<Task>;
   removeSubtask(id: number): Promise<void>;
+  reorder(id: number, status: TaskStatus, position: number): Promise<void>;
 }
 
 export type RepositoryErrorCode = 'conflict' | 'not-found' | 'validation' | 'unknown';
@@ -169,6 +170,7 @@ function fromWire(wire: Partial<Task> & { id?: number }): Task {
     projectName: wire.projectName,
     parentId: wire.parentId,
     subtaskProgress: wire.subtaskProgress,
+    position: wire.position,
   };
 }
 
@@ -292,6 +294,14 @@ export class HttpTaskRepository implements TaskRepository {
 
   async removeSubtask(id: number): Promise<void> {
     return this.remove(id);
+  }
+
+  async reorder(id: number, status: TaskStatus, position: number): Promise<void> {
+    try {
+      await reorderPosition(id, status, position);
+    } catch (e) {
+      throw mapApiError(e);
+    }
   }
 }
 
@@ -466,6 +476,13 @@ export class InMemoryTaskRepository implements TaskRepository {
 
   async removeSubtask(id: number): Promise<void> {
     return this.remove(id);
+  }
+
+  async reorder(id: number, status: TaskStatus, position: number): Promise<void> {
+    const task = this.tasks.find(t => t.id === id);
+    if (!task) throw new RepositoryError('not-found', `Task ${id} not found`);
+    task.status = status;
+    task.position = position;
   }
 
   private registerTags(names: string[]): Tag[] {

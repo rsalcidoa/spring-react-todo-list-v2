@@ -14,6 +14,7 @@ interface KanbanColumnProps {
   onDelete?: (task: Task) => void;
   onQuickAdd?: (title: string, status: TaskStatus) => Promise<boolean>;
   onMove?: (task: Task, direction: MoveDirection) => void;
+  onReorder?: (taskId: number, index: number) => void;
 }
 
 const STATUS_DOT_VAR: Record<string, string> = {
@@ -22,7 +23,7 @@ const STATUS_DOT_VAR: Record<string, string> = {
   COMPLETED: 'var(--color-status-completed)',
 };
 
-const KanbanColumn: React.FC<KanbanColumnProps> = ({status, label, tasks, onCardClick, onDrop, onDelete, onQuickAdd, onMove}) => {
+const KanbanColumn: React.FC<KanbanColumnProps> = ({status, label, tasks, onCardClick, onDrop, onDelete, onQuickAdd, onMove, onReorder}) => {
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.currentTarget.classList.add(styles.dragover);
@@ -31,6 +32,27 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({status, label, tasks, onCard
   const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.currentTarget.classList.remove(styles.dragover);
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (onReorder) {
+      const taskId = parseInt((e.dataTransfer as DataTransfer).getData('text/plain'));
+      if (taskId && !isNaN(taskId)) {
+        const body = e.currentTarget as HTMLElement;
+        const cards = Array.from(body.querySelectorAll('[data-task]')) as HTMLElement[];
+        let index = cards.length;
+        for (let i = 0; i < cards.length; i++) {
+          const rect = cards[i].getBoundingClientRect();
+          if (e.clientY < rect.top + rect.height / 2) {
+            index = i;
+            break;
+          }
+        }
+        onReorder(taskId, index);
+      }
+    }
+    onDrop?.(e);
   };
 
   return (
@@ -42,7 +64,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({status, label, tasks, onCard
       <div className={`${styles.body}`}
            onDragOver={handleDragOver}
            onDragLeave={handleDragLeave}
-           onDrop={onDrop}>
+           onDrop={handleDrop}>
         {onQuickAdd && (
           <QuickAddTask status={status as TaskStatus} onCreate={onQuickAdd} />
         )}

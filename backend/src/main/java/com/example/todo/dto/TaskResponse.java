@@ -24,6 +24,7 @@ public class TaskResponse {
     private String projectName;
     private Long parentId;
     private Progress subtaskProgress;
+    private double position;
 
     public record Progress(int done, int total) {}
 
@@ -32,7 +33,7 @@ public class TaskResponse {
     public TaskResponse(Long id, String title, String description, Priority priority, LocalDate dueDate,
                         TaskStatus status, java.util.List<TagResponse> tags, LocalDateTime createdAt, LocalDateTime updatedAt,
                         LocalDateTime reminderAt, com.example.todo.model.Recurrence recurrence,
-                        Long projectId, String projectName, Long parentId, Progress subtaskProgress) {
+                        Long projectId, String projectName, Long parentId, Progress subtaskProgress, double position) {
         this.id = id;
         this.title = title;
         this.description = description;
@@ -48,6 +49,7 @@ public class TaskResponse {
         this.projectName = projectName;
         this.parentId = parentId;
         this.subtaskProgress = subtaskProgress;
+        this.position = position;
     }
 
     /** Maps a task entity to its response, exposing only tag values and no entity internals. */
@@ -78,7 +80,8 @@ public class TaskResponse {
                 project != null ? project.getId() : null,
                 project != null ? project.getName() : null,
                 parent != null ? parent.getId() : null,
-                new Progress(done, total));
+                new Progress(done, total),
+                task.getPosition());
     }
 
     // getters and setters
@@ -113,4 +116,6 @@ public class TaskResponse {
     public void setParentId(Long parentId) { this.parentId = parentId; }
     public Progress getSubtaskProgress() { return subtaskProgress; }
     public void setSubtaskProgress(Progress subtaskProgress) { this.subtaskProgress = subtaskProgress; }
+    public double getPosition() { return position; }
+    public void setPosition(double position) { this.position = position; }
 }

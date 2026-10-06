@@ -7,6 +7,8 @@ import com.example.todo.dto.TaskQuery;
 import com.example.todo.exception.InvalidStatusValueException;
 import com.example.todo.service.TaskService;
 import com.example.todo.service.ReminderService;
+import com.example.todo.service.TaskOrderingService;
+import com.example.todo.dto.PositionUpdateRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -19,11 +21,13 @@ import java.util.List;
 public class TaskController {
     private final TaskService taskService;
     private final ReminderService reminderService;
+    private final TaskOrderingService taskOrderingService;
 
     @Autowired
-    public TaskController(TaskService taskService, ReminderService reminderService) {
+    public TaskController(TaskService taskService, ReminderService reminderService, TaskOrderingService taskOrderingService) {
         this.taskService = taskService;
         this.reminderService = reminderService;
+        this.taskOrderingService = taskOrderingService;
     }
 
     /**
@@ -110,5 +114,13 @@ public class TaskController {
             throw new InvalidStatusValueException("status", "Status must not be blank");
         }
         return ResponseEntity.ok(taskService.applyStatus(id, request.getStatus()));
+    }
+
+    /**
+     * Set a task's status and manual position atomically (drag within/across columns).
+     */
+    @PatchMapping("/{id}/position")
+    public ResponseEntity<TaskResponse> patchPosition(@PathVariable Long id, @Valid @RequestBody PositionUpdateRequest request) {
+        return ResponseEntity.ok(taskOrderingService.reorder(id, request.getStatus(), request.getPosition()));
     }
 }

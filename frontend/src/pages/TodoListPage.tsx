@@ -5,6 +5,7 @@ import { AVAILABLE_THEMES, useTheme } from '../context/ThemeContext';
 import { HttpTaskRepository, toDisplayMessage, type TaskRepository } from '../data/TaskRepository';
 import { filterByView, type BoardView } from '../services/boardView';
 import { nextStatus, type MoveDirection } from '../services/boardKeyboard';
+import { positionBetween } from '../services/taskOrdering';
 import { startReminderPolling, browserNotify } from '../services/reminders';
 import { Task, Tag, Project, TaskInput, TaskStatus, TaskQuery, TaskSort, SortDir, Priority } from '../services/types/task';
 import KanbanColumn from '../components/KanbanColumn';
@@ -175,6 +176,23 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
     }
   };
 
+  const handleReorder = async (taskId: number, status: string, index: number) => {
+    const previous = tasks.find(t => t.id === taskId);
+    if (!previous) return;
+    const column = (grouped[status] ?? []).filter(t => t.id !== taskId);
+    const clamped = Math.max(0, Math.min(index, column.length));
+    const before = clamped > 0 ? column[clamped - 1].position : undefined;
+    const after = clamped < column.length ? column[clamped].position : undefined;
+    const position = positionBetween(before, after);
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: status as Task['status'], position } : t));
+    try {
+      await repository.reorder(taskId, status as TaskStatus, position);
+    } catch (e) {
+      setTasks(prev => prev.map(t => t.id === taskId ? previous : t));
+      showTransientError(`No se pudo mover: ${errorMessage(e)}`);
+    }
+  };
+
   const viewTasks = filterByView(tasks, view);
   let visibleTasks = tagFilter.length === 0
     ? viewTasks
@@ -189,6 +207,8 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
     acc[status].push(task);
     return acc;
   }, {} as Record<string, Task[]>);
+  Object.values(grouped).forEach(list =>
+    list.sort((a, b) => ((a.position ?? 0) - (b.position ?? 0)) || (a.createdAt ?? '').localeCompare(b.createdAt ?? '')));
 
   const toggleTagFilter = (id: number) => {
     setTagFilter(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -329,7 +349,7 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
               label={config.label}
               tasks={grouped[status] ?? []}
               onCardClick={handleCardClick}
-              onDrop={(e) => handleDrop(e, status)}
+              onReorder={(taskId, index) => handleReorder(taskId, status, index)}
               onDelete={(task) => handleDelete(task.id)}
               onQuickAdd={handleQuickAdd}
               onMove={handleKeyboardMove}

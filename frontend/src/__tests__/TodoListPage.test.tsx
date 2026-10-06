@@ -72,7 +72,7 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
 
   it('shows a single banner when two errors occur within 5s', async () => {
     const { repository } = await seedBoard();
-    vi.spyOn(repository, 'move').mockRejectedValueOnce(new Error('move-fail'));
+    vi.spyOn(repository, 'reorder').mockRejectedValueOnce(new Error('move-fail'));
     vi.spyOn(repository, 'remove').mockRejectedValueOnce(new Error('remove-fail'));
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderWithRepo(repository);
@@ -228,7 +228,7 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
 
   it('rolls back optimistic status when move fails', async () => {
     const { repository } = await seedBoard();
-    vi.spyOn(repository, 'move').mockRejectedValueOnce(new Error('offline'));
+    vi.spyOn(repository, 'reorder').mockRejectedValueOnce(new Error('offline'));
     renderWithRepo(repository);
     await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy(), { timeout: 5000 });
 

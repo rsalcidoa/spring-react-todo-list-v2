@@ -40,6 +40,7 @@ export interface Task {
   projectName?: string;
   parentId?: number;
   subtaskProgress?: { done: number; total: number };
+  position?: number;
 }
 
 export interface TaskInput {

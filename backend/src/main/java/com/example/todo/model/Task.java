@@ -77,6 +77,9 @@ public class Task {
     @Column(name = "recurrence_source_id")
     private Long recurrenceSourceId;
 
+    @Column(nullable = false)
+    private double position = 0d;
+
     public Task() {
         this.status = TaskStatus.PENDING;
         this.createdAt = LocalDateTime.now();
@@ -118,4 +121,6 @@ public class Task {
     public void setParent(Task parent) { this.parent = parent; }
     public Set<Task> getChildren() { return children; }
     public void setChildren(Set<Task> children) { this.children = children; }
+    public double getPosition() { return position; }
+    public void setPosition(double position) { this.position = position; }
 }
