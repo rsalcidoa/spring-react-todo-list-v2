@@ -77,3 +77,9 @@ input, textarea, select {
 input::placeholder, textarea::placeholder {
   color: var(--color-text-muted);
 }
+
+/* Breakpoint tokens (documentation); @media queries use their literal values. */
+:root {
+  --bp-sm: 640px;
+  --bp-md: 1024px;
+}
