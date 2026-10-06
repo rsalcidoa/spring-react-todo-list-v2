@@ -57,7 +57,7 @@ describe('ForgotPasswordPage', () => {
 
     await waitFor(() => expect(screen.getByText('ABC123')).toBeTruthy());
     const link = screen.getByRole('link', { name: /Continuar/i });
-    expect(link).toBeTruthy();
+    expect(link.getAttribute('href')).toBe('/reset/ABC123');
   });
 
   it('shows error when API request fails', async () => {

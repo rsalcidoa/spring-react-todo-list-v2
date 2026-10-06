@@ -210,15 +210,15 @@ describe('AddTaskModal', () => {
     expect(call.id).toBe(stored[0].id);
   });
 
-  it('does not call the repository when input is blank', async () => {
+  it('shows a validation ErrorBanner when the tag name is blank', async () => {
     const { repository } = renderModal();
     const spy = vi.spyOn(repository, 'createTag');
 
     fireEvent.change(screen.getByPlaceholderText(/Nueva etiqueta/), { target: { value: '   ' } });
     fireEvent.click(screen.getByRole('button', { name: /Crear/i }));
 
-    await new Promise(r => setTimeout(r, 50));
-    expect(spy).not.toHaveBeenCalled();
+    await waitFor(() => expect(spy).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByText('Nombre de etiqueta inválido')).toBeTruthy());
     expect(await repository.listTags()).toHaveLength(0);
   });
 

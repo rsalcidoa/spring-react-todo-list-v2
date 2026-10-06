@@ -85,6 +85,25 @@ describe('ResetPasswordPage', () => {
   it('links back to forgot-password page', () => {
     renderAt('/reset/ABC123');
     const link = screen.getByRole('link', { name: /Pedir otro código/i });
-    expect(link).toBeTruthy();
+    expect(link.getAttribute('href')).toBe('/forgot-password');
+  });
+
+  it('navigates to /login after a successful reset', async () => {
+    mockVerify.mockResolvedValue({ data: { verified: true } });
+    mockChange.mockResolvedValue({});
+    render(
+      <MemoryRouter initialEntries={['/reset/ABC123']}>
+        <Routes>
+          <Route path="/reset/:token" element={<ResetPasswordPage />} />
+          <Route path="/login" element={<div>login-route</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByLabelText(/Nueva contraseña:/i), { target: { value: 'newpass9' } });
+    fireEvent.change(screen.getByLabelText(/Confirmar contraseña:/i), { target: { value: 'newpass9' } });
+    fireEvent.click(screen.getByRole('button', { name: /Restablecer/i }));
+
+    await waitFor(() => expect(screen.getByText('login-route')).toBeTruthy());
   });
 });

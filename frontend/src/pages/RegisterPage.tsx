@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/ApiService';
+import { getApiStatus, getApiMessage } from '../data/TaskRepository';
 import { useNavigate, Link } from 'react-router-dom';
 import styles from './RegisterPage.module.css';
 import ErrorBanner from '../components/ErrorBanner';
@@ -27,9 +28,10 @@ export default function RegisterPage() {
       await api.post('/auth/register', { email, password });
       await auth.login(email, password);
       navigate('/tasks');
-    } catch (error: any) {
-      if (error.response?.status === 409) {
-        showError(error.response.data?.error || 'Este email ya está registrado');
+    } catch (error: unknown) {
+      if (getApiStatus(error) === 409) {
+        const message = getApiMessage(error);
+        showError(message === 'Error' ? 'Este email ya está registrado' : message);
       } else {
         showError('Error en registro');
       }

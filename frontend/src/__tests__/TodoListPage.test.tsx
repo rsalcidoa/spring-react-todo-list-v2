@@ -62,6 +62,39 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
     await waitFor(() => expect(screen.getByRole('dialog')).toBeTruthy());
   });
 
+  it('renders the plain empty text in a column with no tasks', async () => {
+    const { repository } = await seedBoard();
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy(), { timeout: 5000 });
+
+    expect(screen.getByText('Sin tareas')).toBeTruthy();
+  });
+
+  it('shows a single banner when two errors occur within 5s', async () => {
+    const { repository } = await seedBoard();
+    vi.spyOn(repository, 'move').mockRejectedValueOnce(new Error('move-fail'));
+    vi.spyOn(repository, 'remove').mockRejectedValueOnce(new Error('remove-fail'));
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy(), { timeout: 5000 });
+
+    const header = screen.getByText('En progreso');
+    const body = header.closest('div')!.querySelector('div')!;
+    fireEvent.drop(body, {
+      dataTransfer: { getData: () => '1' },
+      preventDefault: () => {},
+    });
+    await waitFor(() => expect(screen.getByText(/No se pudo mover: move-fail/i)).toBeTruthy());
+
+    const card = screen.getByText(/Task Alpha/i).closest('[data-task]') as HTMLElement;
+    fireEvent.click(within(card).getByRole('button', { name: /Borrar tarea/i }));
+    await waitFor(() => expect(screen.getByText(/remove-fail/i)).toBeTruthy());
+
+    const alerts = screen.getAllByRole('alert');
+    expect(alerts).toHaveLength(1);
+    expect(alerts[0].textContent).toMatch(/remove-fail/);
+  });
+
   it('shows skeletons while loading', async () => {
     const repository = new InMemoryTaskRepository();
     vi.spyOn(repository, 'fetchAll').mockImplementation(() => new Promise(() => {}));
@@ -155,6 +188,21 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
     await waitFor(async () => expect(await repository.listTags()).toHaveLength(1));
     const tasks = await repository.fetchAll();
     expect(tasks.every(t => t.tags.every(tag => tag.name !== 'Personal'))).toBe(true);
+  });
+
+  it('refreshes the tags list from the repository after deleting a tag', async () => {
+    const { repository } = await seedBoard();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy(), { timeout: 5000 });
+
+    fireEvent.click(screen.getByText(/Task Alpha/i).closest('[data-task]')!);
+    await waitFor(() => expect(screen.queryByText(/Editar tarea/i)).toBeTruthy());
+
+    const listSpy = vi.spyOn(repository, 'listTags');
+    fireEvent.click(screen.getByRole('button', { name: /Borrar etiqueta Personal/i }));
+
+    await waitFor(() => expect(listSpy).toHaveBeenCalled());
   });
 
   it('creates tags with real ids so they reconcile without refresh hacks', async () => {

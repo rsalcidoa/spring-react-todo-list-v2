@@ -28,21 +28,22 @@ test.describe('Full E2E Flow (Repository-backed)', () => {
     await expect(titleInput).toBeVisible({ timeout: 5000 });
     await titleInput.fill(uniqueTitle);
 
-    // Add a new tag via the tag input in the modal (if present)
-    const tagInput = page.locator('input[placeholder*="tag" i], input[name*="tag" i]').first();
-    if (await tagInput.isVisible()) {
-      const tagName = `E2ETag_${Date.now()}`;
-      await tagInput.fill(tagName);
-      await tagInput.press('Enter');
-    }
+    // Add a new tag via the tag input in the modal
+    const tagName = `E2ETag_${Date.now()}`;
+    await page.getByPlaceholder(/Nueva etiqueta/).fill(tagName);
+    await page.getByRole('button', { name: 'Crear', exact: true }).click();
+    await expect(
+      page.getByRole('dialog').getByRole('button', { name: tagName, exact: true }),
+    ).toBeVisible({ timeout: 5000 });
 
     await page.getByRole('button', { name: /Guardar/i }).click();
 
-    // Task should appear on the board
+    // Task should appear on the board with its tag
     await expect(page.getByText(uniqueTitle)).toBeVisible({ timeout: 10000 });
+    const card = page.locator('[data-task]', { hasText: uniqueTitle }).first();
+    await expect(card.getByText(tagName)).toBeVisible({ timeout: 10000 });
 
     // --- Verify delete button exists (new feature from this change) ---
-    const card = page.locator('[data-task]', { hasText: uniqueTitle }).first();
     const deleteBtn = card.locator('button[aria-label="Borrar tarea"]');
     await expect(deleteBtn).toBeVisible({ timeout: 5000 });
 

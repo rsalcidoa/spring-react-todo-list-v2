@@ -44,7 +44,6 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
 
   const handleCreateTag = async () => {
     const name = newTagName.trim();
-    if (!name) return;
     try {
       const created = await repository.createTag(name);
       setNewTagName('');

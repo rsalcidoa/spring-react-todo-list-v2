@@ -234,6 +234,7 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
         onTagDeleted={(id) => {
           setTags(prev => prev.filter(t => t.id !== id));
           setTasks(prev => prev.map(t => ({ ...t, tags: t.tags.filter(tag => tag.id !== id) })));
+          loadTags();
         }}
       />
     </div>

@@ -49,4 +49,41 @@ describe('LoginPage', () => {
 
     await waitFor(() => expect(mockLogin).toHaveBeenCalledWith('test@test.com', 'password123', expect.any(Function)));
   });
+
+  it('blocks submit and shows a banner for an invalid email', async () => {
+    render(
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>,
+    );
+
+    const emailInput = screen.getByLabelText(/Correo electrónico/i);
+    fireEvent.change(emailInput, { target: { value: 'notanemail' } });
+    fireEvent.change(screen.getByLabelText(/Contraseña/i), { target: { value: 'password123' } });
+    fireEvent.submit(emailInput.closest('form')!);
+
+    await waitFor(() => expect(screen.getByText('Formato de email inválido')).toBeTruthy());
+    expect(mockLogin).not.toHaveBeenCalled();
+  });
+
+  it('marks the email input as required', () => {
+    render(
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByLabelText(/Correo electrónico/i).hasAttribute('required')).toBe(true);
+  });
+
+  it('links to the forgot-password route', () => {
+    render(
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>,
+    );
+
+    const link = screen.getByRole('link', { name: /¿Olvidaste tu contraseña\?/i });
+    expect(link.getAttribute('href')).toBe('/forgot-password');
+  });
 });
