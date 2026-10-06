@@ -1,5 +1,5 @@
 import { Task, Tag, Project, TaskInput, TaskQuery, TaskStatus, Priority } from '../services/types/task';
-import { getTasks, createTask, updateTask, deleteTask, patchStatus, getTags, createTag as apiCreateTag, deleteTag as apiDeleteTag, getProjects, createProject as apiCreateProject, renameProject as apiRenameProject, deleteProject as apiDeleteProject, getSubtasks, reorderPosition } from '../services/ApiService';
+import { getTasks, createTask, updateTask, deleteTask, patchStatus, getTags, createTag as apiCreateTag, deleteTag as apiDeleteTag, getProjects, createProject as apiCreateProject, renameProject as apiRenameProject, deleteProject as apiDeleteProject, getSubtasks, reorderPosition, restoreTask } from '../services/ApiService';
 
 export interface TaskRepository {
   fetchAll(query?: TaskQuery): Promise<Task[]>;
@@ -18,6 +18,7 @@ export interface TaskRepository {
   createSubtask(parentId: number, title: string): Promise<Task>;
   removeSubtask(id: number): Promise<void>;
   reorder(id: number, status: TaskStatus, position: number): Promise<void>;
+  restore(id: number): Promise<Task>;
 }
 
 export type RepositoryErrorCode = 'conflict' | 'not-found' | 'validation' | 'unknown';
@@ -303,10 +304,20 @@ export class HttpTaskRepository implements TaskRepository {
       throw mapApiError(e);
     }
   }
+
+  async restore(id: number): Promise<Task> {
+    try {
+      const r = await restoreTask(id);
+      return fromWire(r.data);
+    } catch (e) {
+      throw mapApiError(e);
+    }
+  }
 }
 
 export class InMemoryTaskRepository implements TaskRepository {
   private tasks: Task[] = [];
+  private deleted: Task[] = [];
   private tags: Tag[] = [];
   private projects: Project[] = [];
   private nextTaskId = 1;
@@ -390,7 +401,16 @@ export class InMemoryTaskRepository implements TaskRepository {
   async remove(id: number): Promise<void> {
     const index = this.tasks.findIndex(t => t.id === id);
     if (index === -1) throw new RepositoryError('not-found', `Task ${id} not found`);
-    this.tasks.splice(index, 1);
+    const [task] = this.tasks.splice(index, 1);
+    this.deleted.push(task);
+  }
+
+  async restore(id: number): Promise<Task> {
+    const index = this.deleted.findIndex(t => t.id === id);
+    if (index === -1) throw new RepositoryError('not-found', `Task ${id} not found`);
+    const [task] = this.deleted.splice(index, 1);
+    this.tasks.push(task);
+    return { ...task, tags: [...task.tags] };
   }
 
   async listTags(): Promise<Tag[]> {

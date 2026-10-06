@@ -150,14 +150,15 @@ class TaskServiceTest {
     }
 
     @Test
-    void deleteTaskDeletesOwnTask() {
+    void deleteTaskSoftDeletesOwnTask() {
         Task task = taskOwnedBy(10L, me);
         when(currentUser.requireCurrent()).thenReturn(me);
         when(taskRepository.findById(10L)).thenReturn(Optional.of(task));
 
         service.deleteTask(10L);
 
-        org.mockito.Mockito.verify(taskRepository).delete(task);
+        org.junit.jupiter.api.Assertions.assertNotNull(task.getDeletedAt());
+        org.mockito.Mockito.verify(taskRepository).save(task);
     }
 
     @Test

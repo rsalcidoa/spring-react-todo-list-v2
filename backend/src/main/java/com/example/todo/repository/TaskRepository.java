@@ -11,6 +11,6 @@ import java.util.List;
 public interface TaskRepository extends JpaRepository<Task, Long>, JpaSpecificationExecutor<Task> {
     List<Task> findByUser(User user);
     List<Task> findByUserAndStatus(User user, TaskStatus status);
-    List<Task> findByUserAndReminderAtLessThanEqualAndReminderNotifiedAtIsNull(User user, LocalDateTime now);
+    List<Task> findByUserAndReminderAtLessThanEqualAndReminderNotifiedAtIsNullAndDeletedAtIsNull(User user, LocalDateTime now);
     boolean existsByRecurrenceSourceId(Long recurrenceSourceId);
 }

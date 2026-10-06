@@ -33,7 +33,7 @@ public class ReminderService {
     public List<TaskResponse> dueReminders() {
         User me = currentUser.requireCurrent();
         return taskRepository
-                .findByUserAndReminderAtLessThanEqualAndReminderNotifiedAtIsNull(me, LocalDateTime.now(clock))
+                .findByUserAndReminderAtLessThanEqualAndReminderNotifiedAtIsNullAndDeletedAtIsNull(me, LocalDateTime.now(clock))
                 .stream()
                 .map(TaskResponse::of)
                 .collect(Collectors.toList());

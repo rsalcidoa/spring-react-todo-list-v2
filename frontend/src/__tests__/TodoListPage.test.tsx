@@ -406,4 +406,18 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
     await waitFor(() => expect(screen.queryByText(/Parent/i)).toBeTruthy());
     expect(screen.getByText('0/1')).toBeTruthy();
   });
+
+  it('offers undo after deleting a task', async () => {
+    const { repository } = await seedBoard();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy(), { timeout: 5000 });
+
+    const card = screen.getByText(/Task Alpha/i).closest('[data-task]') as HTMLElement;
+    fireEvent.click(within(card).getByRole('button', { name: /Borrar tarea/i }));
+    await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeNull());
+
+    fireEvent.click(screen.getByRole('button', { name: /Deshacer/i }));
+    await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy());
+  });
 });

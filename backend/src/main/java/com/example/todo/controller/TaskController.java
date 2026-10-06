@@ -106,6 +106,14 @@ public class TaskController {
     }
 
     /**
+     * Restore a soft-deleted task belonging to the authenticated user.
+     */
+    @PostMapping("/{id}/restore")
+    public ResponseEntity<TaskResponse> restoreTask(@PathVariable Long id) {
+        return ResponseEntity.ok(taskService.restoreTask(id));
+    }
+
+    /**
      * Update only the status of a task (used by Kanban drag-and-drop).
      */
     @PatchMapping("/{id}/status")

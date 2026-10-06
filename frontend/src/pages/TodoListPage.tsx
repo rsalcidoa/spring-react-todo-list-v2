@@ -36,6 +36,8 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
   const [view, setView] = useState<BoardView>('all');
   const [query, setQuery] = useState<TaskQuery>({});
   const [error, setError] = useState<{ message: string; id: number } | null>(null);
+  const [lastDeleted, setLastDeleted] = useState<{ id: number; title: string } | null>(null);
+  const undoTimer = useRef<number | null>(null);
 
   useEffect(() => { loadTasks(); loadTags(); loadProjects(); }, []);
 
@@ -134,10 +136,29 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
 
   const handleDelete = async (id: number) => {
     if (!window.confirm('Eliminar esta tarea?')) return;
+    const task = tasks.find(t => t.id === id);
     try {
       await repository.remove(id);
       setTasks(prev => prev.filter(t => t.id !== id));
+      if (task) {
+        setLastDeleted({ id, title: task.title });
+        if (undoTimer.current) window.clearTimeout(undoTimer.current);
+        undoTimer.current = window.setTimeout(() => setLastDeleted(null), 5000);
+      }
     } catch (e) { showTransientError(errorMessage(e)); }
+  };
+
+  const handleUndo = async () => {
+    if (!lastDeleted) return;
+    try {
+      const restored = await repository.restore(lastDeleted.id);
+      setTasks(prev => [...prev, restored]);
+    } catch (e) {
+      showTransientError(errorMessage(e));
+    } finally {
+      if (undoTimer.current) window.clearTimeout(undoTimer.current);
+      setLastDeleted(null);
+    }
   };
 
   const handleQuickAdd = async (title: string, status: TaskStatus): Promise<boolean> => {
@@ -226,6 +247,12 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
   return (
     <div className={styles.page}>
       {error && <ErrorBanner key={error.id} message={error.message} onDismiss={dismissError} />}
+      {lastDeleted && (
+        <div className={styles.undoBar} role="status">
+          <span>Tarea eliminada</span>
+          <button type="button" className={styles.newTaskBtn} onClick={handleUndo}>Deshacer</button>
+        </div>
+      )}
       <header className={styles.header}>
         <h1>Tablero <span className={styles.count}>{tasks.length}</span></h1>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>

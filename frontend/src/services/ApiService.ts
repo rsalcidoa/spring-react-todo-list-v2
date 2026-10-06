@@ -31,6 +31,7 @@ export const getDueReminders = () => api.get('/tasks/reminders');
 export const ackReminder = (id: number) => api.post(`/tasks/${id}/reminder-ack`);
 export const getSubtasks = (parentId: number) => api.get(`/tasks/${parentId}/subtasks`);
 export const reorderPosition = (id: number, status: string, position: number) => api.patch(`/tasks/${id}/position`, { status, position });
+export const restoreTask = (id: number) => api.post(`/tasks/${id}/restore`);
 
 // Tag endpoints
 export const getTags = () => api.get('/tags');

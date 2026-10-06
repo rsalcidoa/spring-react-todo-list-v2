@@ -61,7 +61,7 @@ class ReminderServiceTest {
     @Test
     void dueRemindersReturnsTheRepositoryRows() {
         when(currentUser.requireCurrent()).thenReturn(me);
-        when(taskRepository.findByUserAndReminderAtLessThanEqualAndReminderNotifiedAtIsNull(me, LocalDateTime.now(clock)))
+        when(taskRepository.findByUserAndReminderAtLessThanEqualAndReminderNotifiedAtIsNullAndDeletedAtIsNull(me, LocalDateTime.now(clock)))
                 .thenReturn(List.of(taskOwnedBy(me)));
 
         assertEquals(1, service.dueReminders().size());

@@ -89,6 +89,7 @@ public class TaskService {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(cb.equal(root.get("user"), me));
             predicates.add(cb.isNull(root.get("parent")));
+            predicates.add(cb.isNull(root.get("deletedAt")));
 
             if (query.status() != null) {
                 predicates.add(cb.equal(root.get("status"), query.status()));
@@ -329,13 +330,35 @@ public class TaskService {
     public void deleteTask(Long id) {
         User me = currentUser.requireCurrent();
         Task task = findOwnedTask(id, me);
-        taskRepository.delete(task);
+        LocalDateTime now = LocalDateTime.now();
+        task.setDeletedAt(now);
+        for (Task child : task.getChildren()) {
+            child.setDeletedAt(now);
+        }
+        taskRepository.save(task);
+    }
+
+    public TaskResponse restoreTask(Long id) {
+        User me = currentUser.requireCurrent();
+        Task task = taskRepository.findById(id).orElseThrow(ResourceNotFoundException::new);
+        currentUser.requireOwned(task.getUser().getId());
+        if (task.getDeletedAt() != null) {
+            task.setDeletedAt(null);
+            for (Task child : task.getChildren()) {
+                child.setDeletedAt(null);
+            }
+            taskRepository.save(task);
+        }
+        return toResponse(task);
     }
 
     // Ownership operation: lookup stays here (404), the forbidden decision
     // lives in CurrentUserProvider.requireOwned (shared with tags).
     private Task findOwnedTask(Long id, User me) {
         Task task = taskRepository.findById(id).orElseThrow(ResourceNotFoundException::new);
+        if (task.getDeletedAt() != null) {
+            throw new ResourceNotFoundException();
+        }
         currentUser.requireOwned(task.getUser().getId());
         return task;
     }
