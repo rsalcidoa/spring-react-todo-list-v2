@@ -6,6 +6,8 @@ import {
   saveSession,
   clearSession,
   handleUnauthorized,
+  saveRefreshToken,
+  getRefreshToken,
   type SessionStorage,
 } from '../services/session';
 
@@ -41,6 +43,14 @@ describe('session module', () => {
     expect(storage.store).toEqual({ jwt: 'tok', email: 'a@b.c' });
     clearSession(storage);
     expect(storage.store).toEqual({});
+  });
+
+  it('stores and clears the refresh token', () => {
+    const storage = makeStorage();
+    saveRefreshToken('r1', storage);
+    expect(getRefreshToken(storage)).toBe('r1');
+    clearSession(storage);
+    expect(getRefreshToken(storage)).toBeNull();
   });
 
   it('handleUnauthorized clears and redirects for non-login requests', () => {

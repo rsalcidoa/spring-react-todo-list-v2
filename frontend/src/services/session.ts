@@ -1,5 +1,6 @@
 const TOKEN_KEY = 'jwt';
 const EMAIL_KEY = 'email';
+const REFRESH_KEY = 'refreshToken';
 const LOGIN_URL = '/auth/login';
 const LOGIN_ROUTE = '/login';
 
@@ -36,9 +37,18 @@ export function saveSession(token: string, email: string, storage: SessionStorag
   storage.setItem(EMAIL_KEY, email);
 }
 
+export function getRefreshToken(storage: SessionStorage = localStorage): string | null {
+  return storage.getItem(REFRESH_KEY);
+}
+
+export function saveRefreshToken(token: string, storage: SessionStorage = localStorage): void {
+  storage.setItem(REFRESH_KEY, token);
+}
+
 export function clearSession(storage: SessionStorage = localStorage): void {
   storage.removeItem(TOKEN_KEY);
   storage.removeItem(EMAIL_KEY);
+  storage.removeItem(REFRESH_KEY);
 }
 
 /**

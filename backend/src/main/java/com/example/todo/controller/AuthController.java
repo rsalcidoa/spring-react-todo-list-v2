@@ -2,6 +2,8 @@ package com.example.todo.controller;
 
 import com.example.todo.dto.LoginRequest;
 import com.example.todo.dto.LoginResponse;
+import com.example.todo.dto.RefreshRequest;
+import com.example.todo.dto.TokenPairResponse;
 import jakarta.validation.Valid;
 import com.example.todo.dto.PasswordChangeDto;
 import com.example.todo.dto.RegisterRequest;
@@ -11,6 +13,7 @@ import com.example.todo.dto.ResetRequestResponse;
 import com.example.todo.dto.ResetVerifyDto;
 import com.example.todo.dto.VerifyResponse;
 import com.example.todo.service.UserService;
+import com.example.todo.service.TokenService;
 import com.example.todo.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -24,14 +27,17 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final UserService userService;
     private final JwtUtil jwtUtil;
+    private final TokenService tokenService;
 
     @Autowired
     public AuthController(AuthenticationManager authenticationManager,
                           UserService userService,
-                          JwtUtil jwtUtil) {
+                          JwtUtil jwtUtil,
+                          TokenService tokenService) {
         this.authenticationManager = authenticationManager;
         this.userService = userService;
         this.jwtUtil = jwtUtil;
+        this.tokenService = tokenService;
     }
 
     @PostMapping("/register")
@@ -43,11 +49,15 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public LoginResponse login(@Valid @RequestBody LoginRequest request) {
+    public TokenPairResponse login(@Valid @RequestBody LoginRequest request) {
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
-        String token = jwtUtil.generateToken(request.getEmail());
-        return new LoginResponse(token);
+        return tokenService.issueForEmail(request.getEmail());
+    }
+
+    @PostMapping("/refresh")
+    public TokenPairResponse refresh(@Valid @RequestBody RefreshRequest request) {
+        return tokenService.refresh(request.getRefreshToken());
     }
 
     @PostMapping("/reset-request")

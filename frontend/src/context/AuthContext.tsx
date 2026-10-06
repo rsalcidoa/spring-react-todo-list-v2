@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState } from 'react';
 import { api } from '../services/ApiService';
-import { getToken, getEmail, saveSession, clearSession } from '../services/session';
+import { getToken, getEmail, saveSession, saveRefreshToken, clearSession } from '../services/session';
 
 export interface AuthContextProps {
   user: string | null;
@@ -21,6 +21,7 @@ export const AuthProvider: React.FC<{ children?: React.ReactNode }> = ({ childre
     setToken(token);
     setUser(email);
     saveSession(token, email);
+    if (res.data.refreshToken) saveRefreshToken(res.data.refreshToken);
     if (onSuccess) onSuccess();
   };
 

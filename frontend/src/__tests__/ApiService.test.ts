@@ -1,4 +1,5 @@
-import { describe, it, expect, afterEach, beforeEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
+import axios from 'axios';
 import { api, getTasks } from '../services/ApiService';
 
 const originalAdapter = api.defaults.adapter;
@@ -49,5 +50,26 @@ describe('ApiService request interceptor', () => {
     await getTasks();
 
     expect(seen().headers.Authorization).toBeUndefined();
+  });
+
+  it('refreshes once on 401 and retries the request', async () => {
+    localStorage.setItem('jwt', 'old');
+    localStorage.setItem('email', 'a@b.c');
+    localStorage.setItem('refreshToken', 'r1');
+    const postSpy = vi.spyOn(axios, 'post').mockResolvedValue({ data: { token: 'new', refreshToken: 'r2' } } as never);
+    let calls = 0;
+    api.defaults.adapter = async (config: any) => {
+      calls += 1;
+      if (calls === 1) {
+        return Promise.reject({ response: { status: 401 }, config });
+      }
+      return { data: [], status: 200, statusText: 'OK', headers: {}, config };
+    };
+
+    await getTasks();
+
+    expect(postSpy).toHaveBeenCalled();
+    expect(localStorage.getItem('jwt')).toBe('new');
+    postSpy.mockRestore();
   });
 });
