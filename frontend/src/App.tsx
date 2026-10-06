@@ -9,9 +9,11 @@ import ResetPasswordPage from './pages/ResetPasswordPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { I18nProvider } from './i18n';
 
 function App() {
   return (
+    <I18nProvider>
     <AuthProvider>
       <ThemeProvider>
       <Router>
@@ -33,6 +35,7 @@ function App() {
       </Router>
       </ThemeProvider>
     </AuthProvider>
+    </I18nProvider>
   );
 }
 

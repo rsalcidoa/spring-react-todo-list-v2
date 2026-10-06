@@ -3,6 +3,7 @@ import { Task, TaskStatus } from '../services/types/task';
 import { MoveDirection } from '../services/boardKeyboard';
 import KanbanCard from './KanbanCard';
 import QuickAddTask from './QuickAddTask';
+import { useT } from '../i18n';
 import styles from './KanbanColumn.module.css';
 
 interface KanbanColumnProps {
@@ -24,6 +25,7 @@ const STATUS_DOT_VAR: Record<string, string> = {
 };
 
 const KanbanColumn: React.FC<KanbanColumnProps> = ({status, label, tasks, onCardClick, onDrop, onDelete, onQuickAdd, onMove, onReorder}) => {
+  const { t } = useT();
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.currentTarget.classList.add(styles.dragover);
@@ -68,7 +70,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({status, label, tasks, onCard
         {onQuickAdd && (
           <QuickAddTask status={status as TaskStatus} onCreate={onQuickAdd} />
         )}
-        {tasks.length === 0 && <p className={styles.empty}>Sin tareas</p>}
+        {tasks.length === 0 && <p className={styles.empty}>{t('board.columnEmpty')}</p>}
         {tasks.map(t => (
           <KanbanCard key={t.id} task={t} onClick={() => onCardClick?.(t)} onDelete={() => onDelete?.(t)} onMove={(dir) => onMove?.(t, dir)} />
         ))}

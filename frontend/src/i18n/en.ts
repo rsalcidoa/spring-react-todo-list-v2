@@ -1,0 +1,25 @@
+import type { TranslationKey } from './es';
+
+export const en: Partial<Record<TranslationKey, string>> = {
+  'app.title': 'Board',
+  'board.loading': 'Loading tasks',
+  'board.empty': 'No tasks yet',
+  'board.create': 'Create task',
+  'board.columnEmpty': 'No tasks',
+  'board.more': 'Load more',
+  'board.newTask': '+ Task',
+  'board.logout': 'Log out',
+  'board.undo': 'Task deleted',
+  'board.undoAction': 'Undo',
+  'board.language': 'Language',
+  'quickAdd.placeholder': 'Add task',
+  'quickAdd.add': 'Add',
+  'quickAdd.required': 'Title is required',
+  'auth.login.title': 'Sign in',
+  'auth.login.submit': 'Sign in',
+  'auth.register.title': 'Sign up',
+  'auth.register.submit': 'Sign up',
+  'auth.email': 'Email',
+  'auth.password': 'Password',
+  'auth.invalidEmail': 'Invalid email format',
+};

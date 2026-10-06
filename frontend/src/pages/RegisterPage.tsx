@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../services/ApiService';
 import { getApiStatus, getApiMessage } from '../data/TaskRepository';
 import { useNavigate, Link } from 'react-router-dom';
+import { useT } from '../i18n';
 import styles from './RegisterPage.module.css';
 import ErrorBanner from '../components/ErrorBanner';
 import { validateEmail } from '../services/validateEmail';
@@ -11,6 +12,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<{ message: string; id: number } | null>(null);
+  const { t } = useT();
   const auth = useAuth();
   const navigate = useNavigate();
 
@@ -21,7 +23,7 @@ export default function RegisterPage() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateEmail(email)) {
-      showError('Formato de email inválido');
+      showError(t('auth.invalidEmail'));
       return;
     }
     try {
@@ -42,7 +44,7 @@ export default function RegisterPage() {
     <div className={styles.container}>
       {error && <ErrorBanner key={error.id} message={error.message} onDismiss={() => setError(null)} />}
       <form onSubmit={onSubmit} className={styles.form}>
-        <h2 className={styles.title}>Registrarse</h2>
+        <h2 className={styles.title}>{t('auth.register.title')}</h2>
         <div className={styles.field}>
           <label>Correo electrónico</label>
           <input value={email} onChange={e => setEmail(e.target.value)} required />
@@ -51,7 +53,7 @@ export default function RegisterPage() {
           <label>Contraseña</label>
           <input type="password" value={password} onChange={e => setPassword(e.target.value)} required />
         </div>
-        <button type="submit" className={styles.submitBtn}>Registrarse</button>
+        <button type="submit" className={styles.submitBtn}>{t('auth.register.submit')}</button>
         <p className={styles.link}><Link to="/login">¿Ya tienes cuenta? Inicia sesión</Link></p>
       </form>
     </div>

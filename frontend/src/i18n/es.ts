@@ -1,0 +1,25 @@
+export const es = {
+  'app.title': 'Tablero',
+  'board.loading': 'Cargando tareas',
+  'board.empty': 'No hay tareas todavía',
+  'board.create': 'Crear tarea',
+  'board.columnEmpty': 'Sin tareas',
+  'board.more': 'Cargar más',
+  'board.newTask': '+ Tarea',
+  'board.logout': 'Cerrar sesión',
+  'board.undo': 'Tarea eliminada',
+  'board.undoAction': 'Deshacer',
+  'board.language': 'Idioma',
+  'quickAdd.placeholder': 'Añadir tarea',
+  'quickAdd.add': 'Añadir',
+  'quickAdd.required': 'El título es obligatorio',
+  'auth.login.title': 'Iniciar sesión',
+  'auth.login.submit': 'Entrar',
+  'auth.register.title': 'Registrarse',
+  'auth.register.submit': 'Registrarse',
+  'auth.email': 'Correo electrónico',
+  'auth.password': 'Contraseña',
+  'auth.invalidEmail': 'Formato de email inválido',
+} as const;
+
+export type TranslationKey = keyof typeof es;

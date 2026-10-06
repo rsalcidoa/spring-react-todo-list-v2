@@ -7,6 +7,7 @@ import { filterByView, type BoardView } from '../services/boardView';
 import { nextStatus, type MoveDirection } from '../services/boardKeyboard';
 import { positionBetween } from '../services/taskOrdering';
 import { startReminderPolling, browserNotify } from '../services/reminders';
+import { useT, AVAILABLE_LANGS } from '../i18n';
 import { Task, Tag, Project, TaskInput, TaskStatus, TaskQuery, TaskSort, SortDir, Priority } from '../services/types/task';
 import KanbanColumn from '../components/KanbanColumn';
 import AddTaskModal from '../components/AddTaskModal';
@@ -22,6 +23,7 @@ const COLUMN_CONFIG: Record<string, { label: string; status: string }> = {
 const PAGE_SIZE = 20;
 
 export default function TodoListPage({ repository: repositoryProp }: { repository?: TaskRepository } = {}) {
+  const { t, lang, setLang } = useT();
   const { logout } = useAuth();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
@@ -264,12 +266,12 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
       {error && <ErrorBanner key={error.id} message={error.message} onDismiss={dismissError} />}
       {lastDeleted && (
         <div className={styles.undoBar} role="status">
-          <span>Tarea eliminada</span>
-          <button type="button" className={styles.newTaskBtn} onClick={handleUndo}>Deshacer</button>
+          <span>{t('board.undo')}</span>
+          <button type="button" className={styles.newTaskBtn} onClick={handleUndo}>{t('board.undoAction')}</button>
         </div>
       )}
       <header className={styles.header}>
-        <h1>Tablero <span className={styles.count}>{tasks.length}</span></h1>
+        <h1>{t('app.title')} <span className={styles.count}>{tasks.length}</span></h1>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <input
             className={styles.searchInput}
@@ -335,6 +337,17 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
             </select>
           </label>
           <label className={styles.themeLabel}>
+            {t('board.language')}
+            <select
+              aria-label={t('board.language')}
+              className={styles.themeSelect}
+              value={lang}
+              onChange={e => setLang(e.target.value)}
+            >
+              {AVAILABLE_LANGS.map(l => (<option key={l.code} value={l.code}>{l.label}</option>))}
+            </select>
+          </label>
+          <label className={styles.themeLabel}>
             Tema
             <select
               aria-label="Tema"
@@ -347,8 +360,8 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
               ))}
             </select>
           </label>
-          <button className={styles.newTaskBtn} onClick={() => { setEditingTask(null); setModalOpen(true); }}>+ Tarea</button>
-          <button className={styles.logoutBtn} onClick={handleLogout}>Cerrar sesión</button>
+          <button className={styles.newTaskBtn} onClick={() => { setEditingTask(null); setModalOpen(true); }}>{t('board.newTask')}</button>
+          <button className={styles.logoutBtn} onClick={handleLogout}>{t('board.logout')}</button>
         </div>
       </header>
 
@@ -373,14 +386,14 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
 
       <main className={styles.board}>
         {isLoading ? (
-          <div role="status" aria-label="Cargando tareas" className={styles.skeletons}>
+          <div role="status" aria-label={t('board.loading')} className={styles.skeletons}>
             {[0, 1, 2].map(i => <div key={i} className={styles.skeleton} />)}
           </div>
         ) : tasks.length === 0 ? (
           <div className={styles.emptyBoard}>
-            <p>No hay tareas todavía</p>
+            <p>{t('board.empty')}</p>
             <button className={styles.newTaskBtn} onClick={() => { setEditingTask(null); setModalOpen(true); }}>
-              Crear tarea
+              {t('board.create')}
             </button>
           </div>
         ) : (
@@ -402,7 +415,7 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
 
       {!isLoading && tasks.length > 0 && tasks.length < total && (
         <div style={{ padding: '0.5rem' }}>
-          <button className={styles.newTaskBtn} onClick={loadMore}>Cargar más</button>
+          <button className={styles.newTaskBtn} onClick={loadMore}>{t('board.more')}</button>
         </div>
       )}
 
