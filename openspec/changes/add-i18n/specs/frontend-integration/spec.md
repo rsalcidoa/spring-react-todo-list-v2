@@ -3,17 +3,17 @@
 ## ADDED Requirements
 
 ### Requirement: UI Localization
-The system SHALL render user-facing strings through a central i18n layer with at least `es` (default) and `en` locales. A language selector SHALL let the user change locale; the choice SHALL persist in `localStorage` and SHALL default to the browser language when supported, falling back to `es`. Translation keys SHALL be typed so a missing key is a compile-time error. Dates and counts SHALL be formatted with `Intl`.
+The system SHALL render user-facing strings through a central i18n layer with at least `es` (default) and `en` locales. A language selector SHALL let the user change locale; the choice SHALL persist in `localStorage` and SHALL default to `es` when there is no stored preference (Spanish-first product). Translation keys SHALL be typed so a missing key is a compile-time error. Dates and counts SHALL be formatted with `Intl`.
 
 **ID**: REQ-FE-028
 **Affected files**:
-- `frontend/src/i18n/index.ts` — provider + `useT()` + typed `TranslationKey`
+- `frontend/src/i18n/index.tsx` — provider + `useT()` + typed `TranslationKey`
 - `frontend/src/i18n/es.ts`, `frontend/src/i18n/en.ts` — locale dictionaries
 - `frontend/src/App.tsx` — wrap the app in the provider
 - `frontend/src/pages/*`, `frontend/src/components/*` — replace literals with `t(...)`
 
 #### Scenario: Default language is Spanish
-- **WHEN** the app loads with no stored preference and a non-supported browser language
+- **WHEN** the app loads with no stored preference
 - **THEN** the UI renders in Spanish
 
 #### Scenario: Switch language
