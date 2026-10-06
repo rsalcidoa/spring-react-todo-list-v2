@@ -5,6 +5,7 @@ import com.example.todo.dto.TaskRequest;
 import com.example.todo.dto.TaskResponse;
 import com.example.todo.dto.TaskQuery;
 import com.example.todo.exception.InvalidStatusValueException;
+import com.example.todo.exception.InvalidQueryValueException;
 import com.example.todo.service.TaskService;
 import com.example.todo.service.ReminderService;
 import com.example.todo.service.TaskOrderingService;
@@ -36,14 +37,30 @@ public class TaskController {
      * yield the structured 400 contract instead of a generic conversion error.
      */
     @GetMapping
-    public ResponseEntity<List<TaskResponse>> getAllTasks(
+    public ResponseEntity<?> getAllTasks(
             @RequestParam(name = "status", required = false) String status,
             @RequestParam(name = "q", required = false) String q,
             @RequestParam(name = "priority", required = false) String priority,
             @RequestParam(name = "tagIds", required = false) List<String> tagIds,
             @RequestParam(name = "sort", required = false) String sort,
-            @RequestParam(name = "dir", required = false) String dir) {
+            @RequestParam(name = "dir", required = false) String dir,
+            @RequestParam(name = "page", required = false) Integer page,
+            @RequestParam(name = "size", required = false) Integer size) {
         TaskQuery query = TaskQuery.parse(status, q, priority, tagIds, sort, dir);
+        if (page != null || size != null) {
+            int p = page == null ? 0 : page;
+            int s = size == null ? 20 : size;
+            if (p < 0) {
+                throw new InvalidQueryValueException("page", "Page must be >= 0");
+            }
+            if (s < 1 || s > 100) {
+                throw new InvalidQueryValueException("size", "Size must be between 1 and 100");
+            }
+            org.springframework.data.domain.Page<TaskResponse> result =
+                    taskService.getAllTasks(query, org.springframework.data.domain.PageRequest.of(p, s));
+            return ResponseEntity.ok(new com.example.todo.dto.PageResponse<>(
+                    result.getContent(), p, s, result.getTotalElements()));
+        }
         return ResponseEntity.ok(taskService.getAllTasks(query));
     }
 

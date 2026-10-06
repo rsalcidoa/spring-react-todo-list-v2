@@ -97,7 +97,7 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
 
   it('shows skeletons while loading', async () => {
     const repository = new InMemoryTaskRepository();
-    vi.spyOn(repository, 'fetchAll').mockImplementation(() => new Promise(() => {}));
+    vi.spyOn(repository, 'fetchPage').mockImplementation(() => new Promise(() => {}));
     vi.spyOn(repository, 'listTags').mockImplementation(() => new Promise(() => {}));
     renderWithRepo(repository);
     await waitFor(() => expect(screen.getByRole('status', { name: /Cargando tareas/i })).toBeTruthy());
@@ -419,5 +419,18 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Deshacer/i }));
     await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy());
+  });
+
+  it('loads more pages of tasks', async () => {
+    const repository = new InMemoryTaskRepository();
+    for (let i = 0; i < 21; i++) {
+      await repository.create({ title: 'Task ' + i, priority: Priority.LOW, status: TaskStatus.PENDING, tagNames: [] });
+    }
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.queryByText('Task 0')).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: /Cargar más/i }));
+
+    await waitFor(() => expect(screen.queryByText('Task 20')).toBeTruthy());
   });
 });

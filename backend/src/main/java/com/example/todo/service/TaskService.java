@@ -84,6 +84,11 @@ public class TaskService {
                 .collect(Collectors.toList());
     }
 
+    public org.springframework.data.domain.Page<TaskResponse> getAllTasks(TaskQuery query, org.springframework.data.domain.Pageable pageable) {
+        User me = currentUser.requireCurrent();
+        return taskRepository.findAll(taskSpecification(me, query), pageable).map(this::toResponse);
+    }
+
     private Specification<Task> taskSpecification(User me, TaskQuery query) {
         return (root, cq, cb) -> {
             List<Predicate> predicates = new ArrayList<>();

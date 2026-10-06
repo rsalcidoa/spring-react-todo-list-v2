@@ -1,8 +1,9 @@
-import { Task, Tag, Project, TaskInput, TaskQuery, TaskStatus, Priority } from '../services/types/task';
+import { Task, Tag, Project, TaskInput, TaskQuery, Page, TaskStatus, Priority } from '../services/types/task';
 import { getTasks, createTask, updateTask, deleteTask, patchStatus, getTags, createTag as apiCreateTag, deleteTag as apiDeleteTag, getProjects, createProject as apiCreateProject, renameProject as apiRenameProject, deleteProject as apiDeleteProject, getSubtasks, reorderPosition, restoreTask } from '../services/ApiService';
 
 export interface TaskRepository {
   fetchAll(query?: TaskQuery): Promise<Task[]>;
+  fetchPage(query: TaskQuery | undefined, page: number, size: number): Promise<Page<Task>>;
   create(input: TaskInput): Promise<Task>;
   update(id: number, input: TaskInput): Promise<Task>;
   move(id: number, status: TaskStatus): Promise<void>;
@@ -185,6 +186,21 @@ export class HttpTaskRepository implements TaskRepository {
     }
   }
 
+  async fetchPage(query: TaskQuery | undefined, page: number, size: number): Promise<Page<Task>> {
+    try {
+      const r = await getTasks(query, page, size);
+      const data = r.data ?? {};
+      return {
+        items: Array.isArray(data.items) ? data.items.map(fromWire) : [],
+        page: data.page ?? page,
+        size: data.size ?? size,
+        total: data.total ?? 0,
+      };
+    } catch (e) {
+      throw mapApiError(e);
+    }
+  }
+
   async create(input: TaskInput): Promise<Task> {
     try {
       const r = await createTask(toWire(input));
@@ -349,6 +365,12 @@ export class InMemoryTaskRepository implements TaskRepository {
     const sort = query?.sort ?? 'createdAt';
     const dir = query?.dir ?? (sort === 'createdAt' ? 'desc' : 'asc');
     return items.sort((a, b) => compareTasks(a, b, sort, dir));
+  }
+
+  async fetchPage(query: TaskQuery | undefined, page: number, size: number): Promise<Page<Task>> {
+    const all = await this.fetchAll(query);
+    const start = page * size;
+    return { items: all.slice(start, start + size), page, size, total: all.length };
   }
 
   async create(input: TaskInput): Promise<Task> {

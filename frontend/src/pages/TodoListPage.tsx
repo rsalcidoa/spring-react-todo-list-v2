@@ -19,6 +19,8 @@ const COLUMN_CONFIG: Record<string, { label: string; status: string }> = {
   COMPLETED: { label: 'Hecho', status: 'COMPLETED' },
 };
 
+const PAGE_SIZE = 20;
+
 export default function TodoListPage({ repository: repositoryProp }: { repository?: TaskRepository } = {}) {
   const { logout } = useAuth();
   const { theme, setTheme } = useTheme();
@@ -37,6 +39,8 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
   const [query, setQuery] = useState<TaskQuery>({});
   const [error, setError] = useState<{ message: string; id: number } | null>(null);
   const [lastDeleted, setLastDeleted] = useState<{ id: number; title: string } | null>(null);
+  const [pageState, setPageState] = useState(0);
+  const [total, setTotal] = useState(0);
   const undoTimer = useRef<number | null>(null);
 
   useEffect(() => { loadTasks(); loadTags(); loadProjects(); }, []);
@@ -75,10 +79,21 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
 
   const loadTasks = async () => {
     try {
-      const data = await repository.fetchAll(query);
-      setTasks(data);
+      const result = await repository.fetchPage(query, 0, PAGE_SIZE);
+      setTasks(result.items);
+      setPageState(result.page);
+      setTotal(result.total);
     } catch (e) { showTransientError(errorMessage(e)); }
     finally { setLoading(false); }
+  };
+
+  const loadMore = async () => {
+    try {
+      const result = await repository.fetchPage(query, pageState + 1, PAGE_SIZE);
+      setTasks(prev => [...prev, ...result.items]);
+      setPageState(result.page);
+      setTotal(result.total);
+    } catch (e) { showTransientError(errorMessage(e)); }
   };
 
   const loadProjects = async () => {
@@ -384,6 +399,12 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
           ))
         )}
       </main>
+
+      {!isLoading && tasks.length > 0 && tasks.length < total && (
+        <div style={{ padding: '0.5rem' }}>
+          <button className={styles.newTaskBtn} onClick={loadMore}>Cargar más</button>
+        </div>
+      )}
 
       <AddTaskModal
         isOpen={modalOpen}

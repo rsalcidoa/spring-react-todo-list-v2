@@ -55,7 +55,8 @@ api.interceptors.response.use(
   }
 );
 
-export const getTasks = (query?: TaskQuery) => api.get('/tasks', { params: query });
+export const getTasks = (query?: TaskQuery, page?: number, size?: number) =>
+  api.get('/tasks', { params: { ...query, ...(page != null ? { page } : {}), ...(size != null ? { size } : {}) } });
 export const createTask = (task: TaskInput) => api.post('/tasks', task);
 export const updateTask = (id: number, task: TaskInput) => api.put(`/tasks/${id}`, task);
 export const patchStatus = (id: number, status: string) => api.patch(`/tasks/${id}/status`, { status });

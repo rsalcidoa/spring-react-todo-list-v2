@@ -244,3 +244,15 @@ describe('subtask operations (InMemory)', () => {
     expect(await repo.listSubtasks(parent.id)).toHaveLength(0);
   });
 });
+
+describe('pagination (InMemory)', () => {
+  it('fetchPage slices and reports the total', async () => {
+    const repo = new InMemoryTaskRepository();
+    for (let i = 0; i < 5; i++) await repo.create(makeInput({ title: 'T' + i }));
+    const p0 = await repo.fetchPage(undefined, 0, 2);
+    expect(p0.items).toHaveLength(2);
+    expect(p0.total).toBe(5);
+    const p2 = await repo.fetchPage(undefined, 2, 2);
+    expect(p2.items).toHaveLength(1);
+  });
+});
