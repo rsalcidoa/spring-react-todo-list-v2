@@ -302,4 +302,88 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
     expect(chip('Today T').className).toMatch(/dueToday/);
     expect(chip('Future T').className).not.toMatch(/dueOverdue|dueToday/);
   });
+
+  it('filters via the debounced search box', async () => {
+    const { repository } = await seedBoard();
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy(), { timeout: 5000 });
+
+    fireEvent.change(screen.getByPlaceholderText(/Buscar tareas/i), { target: { value: 'Beta' } });
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Task Beta/i)).toBeTruthy();
+      expect(screen.queryByText(/Task Alpha/i)).toBeNull();
+    });
+  });
+
+  it('filters by priority through the header control', async () => {
+    const { repository } = await seedBoard();
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy(), { timeout: 5000 });
+
+    fireEvent.change(screen.getByLabelText(/^Prioridad$/i), { target: { value: 'HIGH' } });
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Task Beta/i)).toBeTruthy();
+      expect(screen.queryByText(/Task Alpha/i)).toBeNull();
+    });
+  });
+
+  it('narrows the board with the view selector', async () => {
+    const repository = new InMemoryTaskRepository();
+    const pad = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const now = new Date();
+    const past = new Date(now); past.setDate(now.getDate() - 1);
+    const future = new Date(now); future.setDate(now.getDate() + 3);
+    await repository.create({ title: 'Overdue T', priority: Priority.LOW, status: TaskStatus.PENDING, tagNames: [], dueDate: pad(past) });
+    await repository.create({ title: 'Today T', priority: Priority.LOW, status: TaskStatus.PENDING, tagNames: [], dueDate: pad(now) });
+    await repository.create({ title: 'Future T', priority: Priority.LOW, status: TaskStatus.PENDING, tagNames: [], dueDate: pad(future) });
+
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.queryByText(/Today T/i)).toBeTruthy());
+
+    fireEvent.change(screen.getByLabelText(/^Vista$/i), { target: { value: 'overdue' } });
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Overdue T/i)).toBeTruthy();
+      expect(screen.queryByText(/Today T/i)).toBeNull();
+      expect(screen.queryByText(/Future T/i)).toBeNull();
+    });
+  });
+
+  it('moves a focused task forward with Alt+Arrow', async () => {
+    const { repository } = await seedBoard();
+    const moveSpy = vi.spyOn(repository, 'move');
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy(), { timeout: 5000 });
+
+    const card = screen.getByText(/Task Alpha/i).closest('[data-task]') as HTMLElement;
+    fireEvent.keyDown(card, { key: 'ArrowRight', altKey: true });
+
+    await waitFor(() => expect(moveSpy).toHaveBeenCalledWith(1, 'ACTIVE'));
+  });
+
+  it('no-ops the keyboard move at the ends of the order', async () => {
+    const { repository } = await seedBoard();
+    const moveSpy = vi.spyOn(repository, 'move');
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy(), { timeout: 5000 });
+
+    const card = screen.getByText(/Task Alpha/i).closest('[data-task]') as HTMLElement; // PENDING
+    fireEvent.keyDown(card, { key: 'ArrowLeft', altKey: true });
+
+    await new Promise(r => setTimeout(r, 50));
+    expect(moveSpy).not.toHaveBeenCalled();
+  });
+
+  it('opens the edit modal on Enter from a focused card', async () => {
+    const { repository } = await seedBoard();
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy(), { timeout: 5000 });
+
+    const card = screen.getByText(/Task Alpha/i).closest('[data-task]') as HTMLElement;
+    fireEvent.keyDown(card, { key: 'Enter' });
+
+    await waitFor(() => expect(screen.queryByText(/Editar tarea/i)).toBeTruthy());
+  });
 });

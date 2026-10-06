@@ -1,6 +1,8 @@
 import React from 'react';
-import { Task } from '../services/types/task';
+import { Task, TaskStatus } from '../services/types/task';
+import { MoveDirection } from '../services/boardKeyboard';
 import KanbanCard from './KanbanCard';
+import QuickAddTask from './QuickAddTask';
 import styles from './KanbanColumn.module.css';
 
 interface KanbanColumnProps {
@@ -10,6 +12,8 @@ interface KanbanColumnProps {
   onCardClick?: (task: Task) => void;
   onDrop?: (e: React.DragEvent<HTMLDivElement>) => void;
   onDelete?: (task: Task) => void;
+  onQuickAdd?: (title: string, status: TaskStatus) => Promise<boolean>;
+  onMove?: (task: Task, direction: MoveDirection) => void;
 }
 
 const STATUS_DOT_VAR: Record<string, string> = {
@@ -18,7 +22,7 @@ const STATUS_DOT_VAR: Record<string, string> = {
   COMPLETED: 'var(--color-status-completed)',
 };
 
-const KanbanColumn: React.FC<KanbanColumnProps> = ({status, label, tasks, onCardClick, onDrop, onDelete}) => {
+const KanbanColumn: React.FC<KanbanColumnProps> = ({status, label, tasks, onCardClick, onDrop, onDelete, onQuickAdd, onMove}) => {
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.currentTarget.classList.add(styles.dragover);
@@ -39,9 +43,12 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({status, label, tasks, onCard
            onDragOver={handleDragOver}
            onDragLeave={handleDragLeave}
            onDrop={onDrop}>
+        {onQuickAdd && (
+          <QuickAddTask status={status as TaskStatus} onCreate={onQuickAdd} />
+        )}
         {tasks.length === 0 && <p className={styles.empty}>Sin tareas</p>}
         {tasks.map(t => (
-          <KanbanCard key={t.id} task={t} onClick={() => onCardClick?.(t)} onDelete={() => onDelete?.(t)} />
+          <KanbanCard key={t.id} task={t} onClick={() => onCardClick?.(t)} onDelete={() => onDelete?.(t)} onMove={(dir) => onMove?.(t, dir)} />
         ))}
       </div>
     </div>

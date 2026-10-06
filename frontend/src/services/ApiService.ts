@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { TaskInput } from './types/task';
+import { TaskInput, TaskQuery } from './types/task';
 import { getToken, handleUnauthorized } from './session';
 
 const api = axios.create({ baseURL: '/v1' });
@@ -22,7 +22,7 @@ api.interceptors.response.use(
   }
 );
 
-export const getTasks = () => api.get('/tasks');
+export const getTasks = (query?: TaskQuery) => api.get('/tasks', { params: query });
 export const createTask = (task: TaskInput) => api.post('/tasks', task);
 export const updateTask = (id: number, task: TaskInput) => api.put(`/tasks/${id}`, task);
 export const patchStatus = (id: number, status: string) => api.patch(`/tasks/${id}/status`, { status });

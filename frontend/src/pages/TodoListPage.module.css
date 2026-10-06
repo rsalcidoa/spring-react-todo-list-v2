@@ -156,3 +156,11 @@
   background-color: var(--color-surface);
   color: var(--color-text);
 }
+
+.searchInput {
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+}

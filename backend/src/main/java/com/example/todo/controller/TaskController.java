@@ -3,6 +3,7 @@ package com.example.todo.controller;
 import com.example.todo.dto.StatusUpdateRequest;
 import com.example.todo.dto.TaskRequest;
 import com.example.todo.dto.TaskResponse;
+import com.example.todo.dto.TaskQuery;
 import com.example.todo.exception.InvalidStatusValueException;
 import com.example.todo.service.TaskService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,7 +12,6 @@ import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/v1/tasks")
@@ -24,19 +24,20 @@ public class TaskController {
     }
 
     /**
-     * Retrieve the authenticated user's tasks, optionally filtered by status.
-     * The raw value is parsed by the Task module so an invalid status yields
-     * the structured 400 contract instead of a generic conversion error.
+     * Retrieve the authenticated user's tasks with optional, composable
+     * filters. Raw parameters are parsed by the Task module so invalid values
+     * yield the structured 400 contract instead of a generic conversion error.
      */
     @GetMapping
-    public ResponseEntity<List<TaskResponse>> getAllTasks(@RequestParam(name="status", required=false) Optional<String> status) {
-        List<TaskResponse> tasks;
-        if (status.isPresent()) {
-            tasks = taskService.getAllTasksByStatus(status.get());
-        } else {
-            tasks = taskService.getAllTasks();
-        }
-        return ResponseEntity.ok(tasks);
+    public ResponseEntity<List<TaskResponse>> getAllTasks(
+            @RequestParam(name = "status", required = false) String status,
+            @RequestParam(name = "q", required = false) String q,
+            @RequestParam(name = "priority", required = false) String priority,
+            @RequestParam(name = "tagIds", required = false) List<String> tagIds,
+            @RequestParam(name = "sort", required = false) String sort,
+            @RequestParam(name = "dir", required = false) String dir) {
+        TaskQuery query = TaskQuery.parse(status, q, priority, tagIds, sort, dir);
+        return ResponseEntity.ok(taskService.getAllTasks(query));
     }
 
     /**

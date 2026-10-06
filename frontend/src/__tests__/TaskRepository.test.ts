@@ -191,3 +191,26 @@ describe('mapApiError / toDisplayMessage', () => {
     expect(toDisplayMessage(new Error('Network down'))).toBe('Network down');
   });
 });
+
+describe('fetchAll query semantics', () => {
+  it('InMemory filters by text, priority and tags, and sorts by dueDate', async () => {
+    const repo = new InMemoryTaskRepository();
+    const work = await repo.createTag('Work');
+    await repo.create(makeInput({ title: 'Alpha', priority: Priority.LOW, dueDate: '2026-03-01' }));
+    await repo.create(makeInput({ title: 'Beta informe', priority: Priority.HIGH, dueDate: '2026-01-01', tagNames: ['Work'] }));
+
+    expect((await repo.fetchAll({ q: 'informe' })).map(t => t.title)).toEqual(['Beta informe']);
+    expect((await repo.fetchAll({ priority: Priority.HIGH })).map(t => t.title)).toEqual(['Beta informe']);
+    expect((await repo.fetchAll({ tagIds: [work.id] })).map(t => t.title)).toEqual(['Beta informe']);
+    expect((await repo.fetchAll({ sort: 'dueDate', dir: 'asc' })).map(t => t.title)).toEqual(['Beta informe', 'Alpha']);
+  });
+
+  it('HttpTaskRepository forwards the query to ApiService', async () => {
+    vi.mocked(ApiService.getTasks).mockResolvedValueOnce({ data: [] } as never);
+    const repo = new HttpTaskRepository();
+    await repo.fetchAll({ q: 'informe', priority: Priority.HIGH, sort: 'dueDate', dir: 'asc' });
+    expect(ApiService.getTasks).toHaveBeenCalledWith(
+      expect.objectContaining({ q: 'informe', priority: 'HIGH', sort: 'dueDate', dir: 'asc' }),
+    );
+  });
+});

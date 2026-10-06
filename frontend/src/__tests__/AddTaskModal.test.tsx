@@ -32,6 +32,22 @@ describe('AddTaskModal', () => {
     expect(screen.getByText(/Nueva tarea/i)).toBeTruthy();
   });
 
+  it('closes on Escape', () => {
+    const onClose = vi.fn();
+    renderModal({ onClose });
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('focuses the title field on open', () => {
+    renderModal();
+
+    const title = screen.getByPlaceholderText(/Título de la tarea/i) as HTMLInputElement;
+    expect(document.activeElement).toBe(title);
+  });
+
   it('does not render when isOpen is false', () => {
     renderModal({ isOpen: false });
     expect(screen.queryByText(/Nueva tarea/i)).toBeNull();

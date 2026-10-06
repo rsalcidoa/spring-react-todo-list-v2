@@ -1,9 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { AVAILABLE_THEMES, useTheme } from '../context/ThemeContext';
 import { HttpTaskRepository, toDisplayMessage, type TaskRepository } from '../data/TaskRepository';
-import { Task, Tag, TaskInput, TaskStatus } from '../services/types/task';
+import { filterByView, type BoardView } from '../services/boardView';
+import { nextStatus, type MoveDirection } from '../services/boardKeyboard';
+import { Task, Tag, TaskInput, TaskStatus, TaskQuery, TaskSort, SortDir, Priority } from '../services/types/task';
 import KanbanColumn from '../components/KanbanColumn';
 import AddTaskModal from '../components/AddTaskModal';
 import ErrorBanner from '../components/ErrorBanner';
@@ -27,9 +29,21 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
   const [loading, setLoading] = useState(true);
   const [tagsLoading, setTagsLoading] = useState(true);
   const [tagFilter, setTagFilter] = useState<number[]>([]);
+  const [view, setView] = useState<BoardView>('all');
+  const [query, setQuery] = useState<TaskQuery>({});
   const [error, setError] = useState<{ message: string; id: number } | null>(null);
 
   useEffect(() => { loadTasks(); loadTags(); }, []);
+
+  const firstQueryRun = useRef(true);
+  useEffect(() => {
+    if (firstQueryRun.current) {
+      firstQueryRun.current = false;
+      return;
+    }
+    const timer = window.setTimeout(() => { void loadTasks(); }, 250);
+    return () => window.clearTimeout(timer);
+  }, [query]);
 
   const showError = (message: string) => {
     setError({ message, id: Date.now() });
@@ -50,7 +64,7 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
 
   const loadTasks = async () => {
     try {
-      const data = await repository.fetchAll();
+      const data = await repository.fetchAll(query);
       setTasks(data);
     } catch (e) { showTransientError(errorMessage(e)); }
     finally { setLoading(false); }
@@ -113,6 +127,27 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
     } catch (e) { showTransientError(errorMessage(e)); }
   };
 
+  const handleQuickAdd = async (title: string, status: TaskStatus): Promise<boolean> => {
+    try {
+      const created = await repository.create({ title, priority: Priority.LOW, status, tagNames: [] });
+      setTasks(prev => [...prev, created]);
+      return true;
+    } catch (e) {
+      showTransientError(errorMessage(e));
+      return false;
+    }
+  };
+
+  const handleKeyboardMove = async (task: Task, direction: MoveDirection) => {
+    const target = nextStatus(task.status, direction);
+    if (!target) return;
+    await handleStatusChange(task.id, target);
+    requestAnimationFrame(() => {
+      const el = document.querySelector(`[data-task="${task.id}"]`) as HTMLElement | null;
+      el?.focus();
+    });
+  };
+
   const handleDrop = async (e: React.DragEvent<HTMLDivElement>, status: string) => {
     e.preventDefault();
     if (e.currentTarget.classList.contains('dragover')) {
@@ -128,9 +163,10 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
     }
   };
 
+  const viewTasks = filterByView(tasks, view);
   const visibleTasks = tagFilter.length === 0
-    ? tasks
-    : tasks.filter(t => t.tags.some(tag => tagFilter.includes(tag.id)));
+    ? viewTasks
+    : viewTasks.filter(t => t.tags.some(tag => tagFilter.includes(tag.id)));
 
   const grouped = visibleTasks.reduce((acc, task) => {
     const status = task.status || 'PENDING';
@@ -157,7 +193,58 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
       {error && <ErrorBanner key={error.id} message={error.message} onDismiss={dismissError} />}
       <header className={styles.header}>
         <h1>Tablero <span className={styles.count}>{tasks.length}</span></h1>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <input
+            className={styles.searchInput}
+            placeholder="Buscar tareas"
+            value={query.q ?? ''}
+            onChange={e => setQuery(prev => ({ ...prev, q: e.target.value || undefined }))}
+          />
+          <label className={styles.themeLabel}>
+            Vista
+            <select
+              aria-label="Vista"
+              className={styles.themeSelect}
+              value={view}
+              onChange={e => setView(e.target.value as BoardView)}
+            >
+              <option value="all">Todas</option>
+              <option value="today">Hoy</option>
+              <option value="overdue">Vencidas</option>
+              <option value="upcoming">Próximas</option>
+            </select>
+          </label>
+          <label className={styles.themeLabel}>
+            Prioridad
+            <select
+              aria-label="Prioridad"
+              className={styles.themeSelect}
+              value={query.priority ?? ''}
+              onChange={e => setQuery(prev => ({ ...prev, priority: (e.target.value || undefined) as Priority | undefined }))}
+            >
+              <option value="">Todas</option>
+              <option value={Priority.LOW}>Baja</option>
+              <option value={Priority.MEDIUM}>Media</option>
+              <option value={Priority.HIGH}>Alta</option>
+            </select>
+          </label>
+          <label className={styles.themeLabel}>
+            Ordenar
+            <select
+              aria-label="Ordenar"
+              className={styles.themeSelect}
+              value={`${query.sort ?? 'createdAt'}:${query.dir ?? (query.sort && query.sort !== 'createdAt' ? 'asc' : 'desc')}`}
+              onChange={e => {
+                const [sort, dir] = e.target.value.split(':');
+                setQuery(prev => ({ ...prev, sort: sort as TaskSort, dir: dir as SortDir }));
+              }}
+            >
+              <option value="createdAt:desc">Recientes</option>
+              <option value="dueDate:asc">Vence pronto</option>
+              <option value="priority:desc">Prioridad</option>
+              <option value="title:asc">Título</option>
+            </select>
+          </label>
           <label className={styles.themeLabel}>
             Tema
             <select
@@ -217,6 +304,8 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
               onCardClick={handleCardClick}
               onDrop={(e) => handleDrop(e, status)}
               onDelete={(task) => handleDelete(task.id)}
+              onQuickAdd={handleQuickAdd}
+              onMove={handleKeyboardMove}
             />
           ))
         )}

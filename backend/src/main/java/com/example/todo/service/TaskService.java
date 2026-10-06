@@ -3,16 +3,26 @@ package com.example.todo.service;
 import com.example.todo.dto.TagResponse;
 import com.example.todo.dto.TaskRequest;
 import com.example.todo.dto.TaskResponse;
+import com.example.todo.dto.TaskQuery;
+import com.example.todo.dto.TaskSortField;
+import com.example.todo.dto.SortDirection;
 import com.example.todo.exception.InvalidStatusValueException;
 import com.example.todo.exception.ResourceNotFoundException;
 import com.example.todo.exception.TagAlreadyExistsException;
 import com.example.todo.model.Task;
 import com.example.todo.model.User;
 import com.example.todo.model.Tag;
+import com.example.todo.model.Priority;
 import com.example.todo.repository.TaskRepository;
 import com.example.todo.repository.TagRepository;
 import com.example.todo.security.CurrentUserProvider;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Order;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -57,6 +67,67 @@ public class TaskService {
 
     public List<TaskResponse> getAllTasksByStatus(String rawStatus) {
         return getAllTasksByStatus(parseStatus(rawStatus));
+    }
+
+    public List<TaskResponse> getAllTasks(TaskQuery query) {
+        User me = currentUser.requireCurrent();
+        return taskRepository.findAll(taskSpecification(me, query)).stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    private Specification<Task> taskSpecification(User me, TaskQuery query) {
+        return (root, cq, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            predicates.add(cb.equal(root.get("user"), me));
+
+            if (query.status() != null) {
+                predicates.add(cb.equal(root.get("status"), query.status()));
+            }
+            if (query.priority() != null) {
+                predicates.add(cb.equal(root.get("priority"), query.priority()));
+            }
+            if (query.q() != null) {
+                String like = "%" + query.q().toLowerCase() + "%";
+                predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("title")), like),
+                        cb.like(cb.lower(cb.coalesce(root.get("description"), "")), like)));
+            }
+            if (!query.tagIds().isEmpty()) {
+                predicates.add(root.join("tags").get("id").in(query.tagIds()));
+                cq.distinct(true);
+            }
+
+            applyOrdering(cb, cq, root, query);
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+    }
+
+    private void applyOrdering(CriteriaBuilder cb, CriteriaQuery<?> cq, Root<Task> root, TaskQuery query) {
+        boolean asc = query.dir() == SortDirection.asc;
+        List<Order> orders = new ArrayList<>();
+
+        switch (query.sort()) {
+            case priority -> {
+                var rank = cb.selectCase()
+                        .when(cb.equal(root.get("priority"), Priority.LOW), 0)
+                        .when(cb.equal(root.get("priority"), Priority.MEDIUM), 1)
+                        .otherwise(2);
+                orders.add(asc ? cb.asc(rank) : cb.desc(rank));
+            }
+            case dueDate -> {
+                var path = root.get("dueDate");
+                orders.add(cb.asc(cb.isNull(path)));
+                orders.add(asc ? cb.asc(path) : cb.desc(path));
+            }
+            case title -> orders.add(asc ? cb.asc(cb.lower(root.get("title"))) : cb.desc(cb.lower(root.get("title"))));
+            case createdAt -> orders.add(asc ? cb.asc(root.get("createdAt")) : cb.desc(root.get("createdAt")));
+        }
+
+        if (query.sort() != TaskSortField.createdAt) {
+            orders.add(cb.desc(root.get("createdAt")));
+        }
+        cq.orderBy(orders);
     }
 
     public TaskResponse getTaskById(Long id) {

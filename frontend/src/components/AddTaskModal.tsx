@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import styles from './AddTaskModal.module.css';
 import { TaskStatus, Priority, Task, Tag, TaskInput } from '../services/types/task';
 import { toDisplayMessage, type TaskRepository } from '../data/TaskRepository';
@@ -32,6 +32,20 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
   const [newTagName, setNewTagName] = useState('');
   const [tagError, setTagError] = useState<{ message: string; id: number } | null>(null);
   const [titleError, setTitleError] = useState<string | null>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
+
+  useEffect(() => {
+    if (isOpen) titleRef.current?.focus();
+  }, [isOpen]);
 
   const showTagError = (message: string) => {
     setTagError({ message, id: Date.now() });
@@ -120,7 +134,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
         <h2 className={styles.header}>{editingTask ? 'Editar tarea' : 'Nueva tarea'}</h2>
         <div className={styles.formGroup}>
           <label className={styles.formLabel}>Título *</label>
-          <input className={styles.input} placeholder="Título de la tarea" value={title} onChange={e=>setTitle(e.target.value)} />
+          <input className={styles.input} ref={titleRef} placeholder="Título de la tarea" value={title} onChange={e=>setTitle(e.target.value)} />
           {titleError && <span className={styles.requiredMsg} role="alert">{titleError}</span>}
         </div>
         <div className={styles.formGroup}>

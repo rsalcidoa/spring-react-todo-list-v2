@@ -1,8 +1,8 @@
-import { Task, Tag, TaskInput, TaskStatus, Priority } from '../services/types/task';
+import { Task, Tag, TaskInput, TaskQuery, TaskStatus, Priority } from '../services/types/task';
 import { getTasks, createTask, updateTask, deleteTask, patchStatus, getTags, createTag as apiCreateTag, deleteTag as apiDeleteTag } from '../services/ApiService';
 
 export interface TaskRepository {
-  fetchAll(): Promise<Task[]>;
+  fetchAll(query?: TaskQuery): Promise<Task[]>;
   create(input: TaskInput): Promise<Task>;
   update(id: number, input: TaskInput): Promise<Task>;
   move(id: number, status: TaskStatus): Promise<void>;
@@ -72,6 +72,38 @@ function checkTagName(name: string): string {
   return trimmed;
 }
 
+const PRIORITY_RANK: Record<Priority, number> = {
+  [Priority.LOW]: 0,
+  [Priority.MEDIUM]: 1,
+  [Priority.HIGH]: 2,
+};
+
+function compareTasks(a: Task, b: Task, sort: TaskQuery['sort'], dir: TaskQuery['dir']): number {
+  const field = sort ?? 'createdAt';
+  const direction = dir ?? (field === 'createdAt' ? 'desc' : 'asc');
+  let result: number;
+  switch (field) {
+    case 'priority':
+      result = PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
+      break;
+    case 'title':
+      result = a.title.toLowerCase().localeCompare(b.title.toLowerCase());
+      break;
+    case 'dueDate': {
+      const ad = a.dueDate;
+      const bd = b.dueDate;
+      if (!ad && !bd) return 0;
+      if (!ad) return 1; // dateless tasks last, regardless of direction
+      if (!bd) return -1;
+      result = ad.localeCompare(bd);
+      break;
+    }
+    default:
+      result = (a.createdAt ?? '').localeCompare(b.createdAt ?? '');
+  }
+  return direction === 'desc' ? -result : result;
+}
+
 interface WireTaskBody {
   title: string;
   description?: string;
@@ -112,9 +144,9 @@ function fromWire(wire: Partial<Task> & { id?: number }): Task {
 }
 
 export class HttpTaskRepository implements TaskRepository {
-  async fetchAll(): Promise<Task[]> {
+  async fetchAll(query?: TaskQuery): Promise<Task[]> {
     try {
-      const r = await getTasks();
+      const r = await getTasks(query);
       return (r.data ?? []).map(fromWire);
     } catch (e) {
       throw mapApiError(e);
@@ -188,8 +220,25 @@ export class InMemoryTaskRepository implements TaskRepository {
   private nextTaskId = 1;
   private nextTagId = 1;
 
-  async fetchAll(): Promise<Task[]> {
-    return this.tasks.map(t => ({ ...t, tags: [...t.tags] }));
+  async fetchAll(query?: TaskQuery): Promise<Task[]> {
+    let items = this.tasks.map(t => ({ ...t, tags: [...t.tags] }));
+    if (query?.q) {
+      const needle = query.q.toLowerCase();
+      items = items.filter(t =>
+        t.title.toLowerCase().includes(needle) || (t.description ?? '').toLowerCase().includes(needle));
+    }
+    if (query?.priority) {
+      items = items.filter(t => t.priority === query.priority);
+    }
+    if (query?.status) {
+      items = items.filter(t => t.status === query.status);
+    }
+    if (query?.tagIds && query.tagIds.length > 0) {
+      items = items.filter(t => t.tags.some(tag => query.tagIds!.includes(tag.id)));
+    }
+    const sort = query?.sort ?? 'createdAt';
+    const dir = query?.dir ?? (sort === 'createdAt' ? 'desc' : 'asc');
+    return items.sort((a, b) => compareTasks(a, b, sort, dir));
   }
 
   async create(input: TaskInput): Promise<Task> {

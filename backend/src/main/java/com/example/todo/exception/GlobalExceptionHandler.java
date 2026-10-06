@@ -35,6 +35,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(validationBody(errors));
     }
 
+    @ExceptionHandler(InvalidQueryValueException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidQueryValue(InvalidQueryValueException ex) {
+        Map<String, List<String>> errors = new LinkedHashMap<>();
+        errors.computeIfAbsent(ex.getField(), k -> new java.util.ArrayList<>()).add(ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(validationBody(errors));
+    }
+
     @ExceptionHandler(TagAlreadyExistsException.class)
     public ResponseEntity<Map<String, String>> handleTagAlreadyExists(TagAlreadyExistsException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(errorBody("Tag already exists"));

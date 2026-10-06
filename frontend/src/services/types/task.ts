@@ -38,3 +38,15 @@ export interface TaskInput {
   tagNames: string[];
 }
 
+export type TaskSort = 'createdAt' | 'dueDate' | 'priority' | 'title';
+export type SortDir = 'asc' | 'desc';
+
+export interface TaskQuery {
+  status?: TaskStatus;
+  q?: string;
+  priority?: Priority;
+  tagIds?: number[];
+  sort?: TaskSort;
+  dir?: SortDir;
+}
+
