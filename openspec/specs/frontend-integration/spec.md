@@ -10,7 +10,7 @@ The system SHALL display all tasks grouped by status with per-column counts (tab
 
 #### Scenario: User Views Task List
 - **WHEN** user navigates to /tasks page
-- **THEN** system displays all user's tasks in a scrollable list
+- **THEN** system displays the user's tasks grouped into status columns on the Kanban board
 
 #### Scenario: User sees counts and due-states at a glance
 - **WHEN** user opens `/tasks` with tasks across statuses and dates
