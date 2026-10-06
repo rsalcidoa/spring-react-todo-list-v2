@@ -1,0 +1,2 @@
+ALTER TABLE tasks ADD COLUMN reminder_at TIMESTAMP NULL;
+ALTER TABLE tasks ADD COLUMN reminder_notified_at TIMESTAMP NULL;

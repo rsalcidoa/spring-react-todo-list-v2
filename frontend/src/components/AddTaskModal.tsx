@@ -29,6 +29,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
   const [status, setStatus] = useState(TaskStatus.PENDING);
   const [tags, setTags] = useState<string[]>([]);
   const [dueDate, setDueDate] = useState('');
+  const [reminderAt, setReminderAt] = useState('');
   const [newTagName, setNewTagName] = useState('');
   const [tagError, setTagError] = useState<{ message: string; id: number } | null>(null);
   const [titleError, setTitleError] = useState<string | null>(null);
@@ -101,6 +102,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
       setStatus((editingTask.status as TaskStatus) || TaskStatus.PENDING);
       setTags(editingTask.tags?.map(t => t.name) || []);
       setDueDate(editingTask.dueDate || '');
+      setReminderAt(editingTask.reminderAt ? editingTask.reminderAt.slice(0, 16) : '');
     } else if (isOpen && !editingTask) {
       setTitle('');
       setDescription('');
@@ -108,6 +110,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
       setStatus(TaskStatus.PENDING);
       setTags([]);
       setDueDate('');
+      setReminderAt('');
       setTitleError(null);
     }
   }, [isOpen, editingTask]);
@@ -120,7 +123,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
       return;
     }
     setTitleError(null);
-    onSave({ title, description, priority, status, tagNames: tags, dueDate });
+    onSave({ title, description, priority, status, tagNames: tags, dueDate, reminderAt: reminderAt || undefined });
     onClose();
   };
 
@@ -158,6 +161,10 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
         <div className={styles.formGroup}>
           <label className={styles.formLabel}>Vencimiento</label>
           <input type="date" className={styles.input} value={dueDate} onChange={e=>setDueDate(e.target.value)} />
+        </div>
+        <div className={styles.formGroup}>
+          <label className={styles.formLabel}>Recordatorio</label>
+          <input type="datetime-local" className={styles.input} aria-label="Recordatorio" value={reminderAt} onChange={e=>setReminderAt(e.target.value)} />
         </div>
         <div className={styles.tagSection}>
           <span className={styles.sectionLabel}>Etiquetas:</span>

@@ -53,6 +53,12 @@ public class Task {
     @Column(name="updated_at", nullable=false)
     private LocalDateTime updatedAt;
 
+    @Column(name = "reminder_at")
+    private LocalDateTime reminderAt;
+
+    @Column(name = "reminder_notified_at")
+    private LocalDateTime reminderNotifiedAt;
+
     public Task() {
         this.status = TaskStatus.PENDING;
         this.createdAt = LocalDateTime.now();
@@ -80,4 +86,8 @@ public class Task {
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public LocalDateTime getReminderAt() { return reminderAt; }
+    public void setReminderAt(LocalDateTime reminderAt) { this.reminderAt = reminderAt; }
+    public LocalDateTime getReminderNotifiedAt() { return reminderNotifiedAt; }
+    public void setReminderNotifiedAt(LocalDateTime reminderNotifiedAt) { this.reminderNotifiedAt = reminderNotifiedAt; }
 }

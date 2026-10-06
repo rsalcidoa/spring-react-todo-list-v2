@@ -18,11 +18,13 @@ public class TaskResponse {
     private java.util.List<TagResponse> tags;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private LocalDateTime reminderAt;
 
     public TaskResponse() {}
 
     public TaskResponse(Long id, String title, String description, Priority priority, LocalDate dueDate,
-                        TaskStatus status, java.util.List<TagResponse> tags, LocalDateTime createdAt, LocalDateTime updatedAt) {
+                        TaskStatus status, java.util.List<TagResponse> tags, LocalDateTime createdAt, LocalDateTime updatedAt,
+                        LocalDateTime reminderAt) {
         this.id = id;
         this.title = title;
         this.description = description;
@@ -32,6 +34,26 @@ public class TaskResponse {
         this.tags = tags;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+        this.reminderAt = reminderAt;
+    }
+
+    /** Maps a task entity to its response, exposing only tag values and no entity internals. */
+    public static TaskResponse of(com.example.todo.model.Task task) {
+        java.util.List<TagResponse> tags = task.getTags().stream()
+                .map(t -> new TagResponse(t.getId(), t.getName()))
+                .sorted(java.util.Comparator.comparing(TagResponse::getName))
+                .collect(java.util.stream.Collectors.toList());
+        return new TaskResponse(
+                task.getId(),
+                task.getTitle(),
+                task.getDescription(),
+                task.getPriority(),
+                task.getDueDate(),
+                task.getStatus(),
+                tags,
+                task.getCreatedAt(),
+                task.getUpdatedAt(),
+                task.getReminderAt());
     }
 
     // getters and setters
@@ -54,4 +76,6 @@ public class TaskResponse {
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public LocalDateTime getReminderAt() { return reminderAt; }
+    public void setReminderAt(LocalDateTime reminderAt) { this.reminderAt = reminderAt; }
 }

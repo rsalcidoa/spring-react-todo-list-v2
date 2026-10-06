@@ -27,6 +27,7 @@ export interface Task {
   tags: Tag[];
   createdAt?: string;
   updatedAt?: string;
+  reminderAt?: string;
 }
 
 export interface TaskInput {
@@ -36,6 +37,7 @@ export interface TaskInput {
   status: TaskStatus;
   dueDate?: string;
   tagNames: string[];
+  reminderAt?: string;
 }
 
 export type TaskSort = 'createdAt' | 'dueDate' | 'priority' | 'title';

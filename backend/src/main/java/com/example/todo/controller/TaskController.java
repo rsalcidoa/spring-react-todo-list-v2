@@ -6,6 +6,7 @@ import com.example.todo.dto.TaskResponse;
 import com.example.todo.dto.TaskQuery;
 import com.example.todo.exception.InvalidStatusValueException;
 import com.example.todo.service.TaskService;
+import com.example.todo.service.ReminderService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,10 +18,12 @@ import java.util.List;
 @RequestMapping("/v1/tasks")
 public class TaskController {
     private final TaskService taskService;
+    private final ReminderService reminderService;
 
     @Autowired
-    public TaskController(TaskService taskService) {
+    public TaskController(TaskService taskService, ReminderService reminderService) {
         this.taskService = taskService;
+        this.reminderService = reminderService;
     }
 
     /**
@@ -46,6 +49,22 @@ public class TaskController {
     @GetMapping("/{id}")
     public ResponseEntity<TaskResponse> getTask(@PathVariable Long id) {
         return ResponseEntity.ok(taskService.getTaskById(id));
+    }
+
+    /**
+     * Reminders that are due and not yet notified for the authenticated user.
+     */
+    @GetMapping("/reminders")
+    public ResponseEntity<List<TaskResponse>> getDueReminders() {
+        return ResponseEntity.ok(reminderService.dueReminders());
+    }
+
+    /**
+     * Mark a task's reminder as delivered (idempotent).
+     */
+    @PostMapping("/{id}/reminder-ack")
+    public ResponseEntity<TaskResponse> ackReminder(@PathVariable Long id) {
+        return ResponseEntity.ok(reminderService.acknowledge(id));
     }
 
     /**

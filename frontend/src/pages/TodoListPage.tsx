@@ -5,6 +5,7 @@ import { AVAILABLE_THEMES, useTheme } from '../context/ThemeContext';
 import { HttpTaskRepository, toDisplayMessage, type TaskRepository } from '../data/TaskRepository';
 import { filterByView, type BoardView } from '../services/boardView';
 import { nextStatus, type MoveDirection } from '../services/boardKeyboard';
+import { startReminderPolling, browserNotify } from '../services/reminders';
 import { Task, Tag, TaskInput, TaskStatus, TaskQuery, TaskSort, SortDir, Priority } from '../services/types/task';
 import KanbanColumn from '../components/KanbanColumn';
 import AddTaskModal from '../components/AddTaskModal';
@@ -34,6 +35,11 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
   const [error, setError] = useState<{ message: string; id: number } | null>(null);
 
   useEffect(() => { loadTasks(); loadTags(); }, []);
+
+  useEffect(() => {
+    const handle = startReminderPolling(browserNotify);
+    return () => handle.stop();
+  }, []);
 
   const firstQueryRun = useRef(true);
   useEffect(() => {

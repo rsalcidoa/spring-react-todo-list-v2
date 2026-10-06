@@ -48,6 +48,18 @@ describe('AddTaskModal', () => {
     expect(document.activeElement).toBe(title);
   });
 
+  it('includes reminderAt in the saved input', () => {
+    const onSave = vi.fn();
+    renderModal({ onSave });
+
+    fireEvent.change(screen.getByPlaceholderText(/Título de la tarea/i), { target: { value: 'Remind' } });
+    fireEvent.change(screen.getByLabelText(/Recordatorio/i), { target: { value: '2026-07-01T09:00' } });
+    fireEvent.click(screen.getByRole('button', { name: /Guardar/i }));
+
+    const input = onSave.mock.calls[0][0] as TaskInput;
+    expect(input.reminderAt).toBe('2026-07-01T09:00');
+  });
+
   it('does not render when isOpen is false', () => {
     renderModal({ isOpen: false });
     expect(screen.queryByText(/Nueva tarea/i)).toBeNull();

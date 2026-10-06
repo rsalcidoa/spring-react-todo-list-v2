@@ -7,6 +7,7 @@ import com.example.todo.dto.TaskQuery;
 import com.example.todo.dto.TaskSortField;
 import com.example.todo.dto.SortDirection;
 import com.example.todo.exception.InvalidStatusValueException;
+import com.example.todo.exception.InvalidQueryValueException;
 import com.example.todo.exception.ResourceNotFoundException;
 import com.example.todo.exception.TagAlreadyExistsException;
 import com.example.todo.model.Task;
@@ -30,8 +31,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.time.LocalDateTime;
 import java.util.stream.Collectors;
-
 @Service
 public class TaskService {
     private static final int MAX_ATTEMPTS = 2;
@@ -182,8 +183,21 @@ public class TaskService {
         task.setDescription(request.getDescription());
         task.setPriority(request.getPriority());
         task.setDueDate(request.getDueDate());
+        task.setReminderAt(parseReminderAt(request.getReminderAt()));
+        task.setReminderNotifiedAt(null);
         if (request.getStatus() != null) {
             task.setStatus(parseStatus(request.getStatus()));
+        }
+    }
+
+    private LocalDateTime parseReminderAt(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDateTime.parse(raw.trim());
+        } catch (java.time.format.DateTimeParseException e) {
+            throw new InvalidQueryValueException("reminderAt", "Invalid reminder timestamp");
         }
     }
 
@@ -228,19 +242,6 @@ public class TaskService {
     }
 
     private TaskResponse toResponse(Task task) {
-        java.util.List<TagResponse> tags = task.getTags().stream()
-                .map(t -> new TagResponse(t.getId(), t.getName()))
-                .sorted(java.util.Comparator.comparing(TagResponse::getName))
-                .collect(Collectors.toList());
-        return new TaskResponse(
-                task.getId(),
-                task.getTitle(),
-                task.getDescription(),
-                task.getPriority(),
-                task.getDueDate(),
-                task.getStatus(),
-                tags,
-                task.getCreatedAt(),
-                task.getUpdatedAt());
+        return TaskResponse.of(task);
     }
 }

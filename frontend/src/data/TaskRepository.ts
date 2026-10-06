@@ -110,6 +110,7 @@ interface WireTaskBody {
   priority: Task['priority'];
   status: TaskStatus;
   dueDate?: string;
+  reminderAt?: string;
   tagNames: string[];
 }
 
@@ -126,6 +127,9 @@ function toWire(input: TaskInput): WireTaskBody {
   if (input.dueDate) {
     wire.dueDate = input.dueDate;
   }
+  if (input.reminderAt) {
+    wire.reminderAt = input.reminderAt;
+  }
   return wire;
 }
 
@@ -140,6 +144,7 @@ function fromWire(wire: Partial<Task> & { id?: number }): Task {
     tags: Array.isArray(wire.tags) ? wire.tags : [],
     createdAt: wire.createdAt,
     updatedAt: wire.updatedAt,
+    reminderAt: wire.reminderAt,
   };
 }
 

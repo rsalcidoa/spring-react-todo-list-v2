@@ -20,6 +20,8 @@ public class TaskRequest {
     private Set<@NotBlank(message="Tag name must not be blank") @Size(max=50, message="Tag name must not exceed 50 characters") String> tagNames;
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate dueDate;
+    // Optional reminder timestamp (ISO-8601); parsed strictly by the module.
+    private String reminderAt;
 
     public TaskRequest() {}
 
@@ -43,4 +45,6 @@ public class TaskRequest {
     public void setTagNames(Set<String> tagNames) { this.tagNames = tagNames; }
     public LocalDate getDueDate() { return dueDate; }
     public void setDueDate(LocalDate dueDate) { this.dueDate = dueDate; }
+    public String getReminderAt() { return reminderAt; }
+    public void setReminderAt(String reminderAt) { this.reminderAt = reminderAt; }
 }
