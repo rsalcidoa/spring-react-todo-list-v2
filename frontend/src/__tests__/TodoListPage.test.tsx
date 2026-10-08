@@ -113,6 +113,16 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
     await waitFor(() => expect(screen.getByRole('dialog', { name: /Gestionar proyectos/i })).toBeTruthy());
   });
 
+  it('places the new-project action before the new-task action', async () => {
+    renderWithRepo(new InMemoryTaskRepository());
+    await waitFor(() => expect(screen.getByText(/Todas las tareas/i)).toBeTruthy());
+
+    const actions = screen.getByRole('button', { name: /\+ Tarea/i }).parentElement as HTMLElement;
+    const labels = Array.from(actions.querySelectorAll('button')).map(b => b.textContent ?? '');
+    expect(labels.findIndex(x => x.includes('Nuevo proyecto')))
+      .toBeLessThan(labels.findIndex(x => x.includes('+ Tarea')));
+  });
+
   it('groups the new-task action apart from the filters', async () => {
     const { repository } = await seedBoard();
     renderWithRepo(repository);
@@ -261,7 +271,8 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
     await waitFor(() => expect(screen.queryByText(/Editar tarea/i)).toBeTruthy());
 
     const dialog = screen.getByRole('dialog');
-    fireEvent.click(within(dialog).getByText('Personal'));
+    fireEvent.click(within(dialog).getByRole('button', { name: /Etiquetas/i }));
+    fireEvent.click(within(dialog).getByRole('option', { name: 'Personal' }));
     fireEvent.change(screen.getByPlaceholderText(/Título de la tarea/), { target: { value: 'Task Alpha updated' } });
     fireEvent.click(screen.getByRole('button', { name: /Guardar/i }));
 
@@ -281,6 +292,7 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
     fireEvent.click(screen.getByText(/Task Alpha/i).closest('[data-task]')!);
     await waitFor(() => expect(screen.queryByText(/Editar tarea/i)).toBeTruthy());
 
+    fireEvent.click(screen.getByRole('button', { name: /Etiquetas/i }));
     fireEvent.click(screen.getByRole('button', { name: /Borrar etiqueta Personal/i }));
 
     await waitFor(async () => expect(await repository.listTags()).toHaveLength(1));
@@ -298,6 +310,7 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
     await waitFor(() => expect(screen.queryByText(/Editar tarea/i)).toBeTruthy());
 
     const listSpy = vi.spyOn(repository, 'listTags');
+    fireEvent.click(screen.getByRole('button', { name: /Etiquetas/i }));
     fireEvent.click(screen.getByRole('button', { name: /Borrar etiqueta Personal/i }));
 
     await waitFor(() => expect(listSpy).toHaveBeenCalled());

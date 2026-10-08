@@ -1,4 +1,6 @@
 .page {
+  display: flex;
+  flex-direction: column;
   min-height: 100vh;
   background-color: var(--color-bg);
 }
@@ -80,7 +82,7 @@
 }
 
 .projectBtn {
-  background-color: transparent;
+  background-color: var(--color-surface-raised);
   color: var(--color-text);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -92,6 +94,7 @@
 
 .projectBtn:hover {
   border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .logoutBtn {

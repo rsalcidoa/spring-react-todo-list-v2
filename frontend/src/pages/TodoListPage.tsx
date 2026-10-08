@@ -110,8 +110,8 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
           </div>
           <div className={styles.headerRight}>
             <div className={styles.actions}>
-              <button className={styles.newTaskBtn} onClick={() => { setEditingTask(null); setModalOpen(true); }}>{t('board.newTask')}</button>
               <button className={styles.projectBtn} onClick={() => setProjectsOpen(true)}>{t('board.newProject')}</button>
+              <button className={styles.newTaskBtn} onClick={() => { setEditingTask(null); setModalOpen(true); }}>{t('board.newTask')}</button>
               <UserMenu email={user} onLogout={handleLogout} />
             </div>
             <div className={styles.appearance}>

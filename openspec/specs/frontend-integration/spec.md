@@ -779,20 +779,21 @@ preselect the active project for new tasks.
 - **THEN** that project is preselected in the modal
 
 ### Requirement: Header Project Action and Drag Feedback
-The board header actions SHALL include a "New project" action alongside the
-"New task" button and the user avatar, opening the Manage projects dialog. A
-board column SHALL show its drag-over highlight only while a card is dragged
-over it, and the highlight SHALL clear when the card leaves or is dropped (no
-stale highlight after a drop or when the board content changes).
+The board header actions SHALL include a styled secondary "New project" button **before** the "New task" button, with the user avatar after them, opening the Manage projects dialog. A board column SHALL show its drag-over highlight only while a card is dragged over it, and the highlight SHALL clear when the card leaves or is dropped (no stale highlight after a drop or when the board content changes).
 
 **ID**: REQ-FE-039
 **Affected files**:
-- `frontend/src/pages/TodoListPage.tsx` — the header "New project" action
+- `frontend/src/pages/TodoListPage.tsx` — header action order and "New project" button
+- `frontend/src/pages/TodoListPage.module.css` — secondary button style
 - `frontend/src/components/KanbanColumn.tsx` — state-driven drag-over highlight
 
 #### Scenario: New project from the header
 - **WHEN** the user activates "New project" in the header
 - **THEN** the Manage projects dialog opens
+
+#### Scenario: Project action precedes the task action
+- **WHEN** the board header renders
+- **THEN** the "New project" button appears before the "New task" button, styled as a visible secondary button
 
 #### Scenario: Highlight clears after a drop
 - **WHEN** a card is dropped on a column
@@ -803,19 +804,13 @@ stale highlight after a drop or when the board content changes).
 - **THEN** no column remains highlighted
 
 ### Requirement: Tag Filter and Picker
-Tag selection SHALL use a searchable control that never renders the full tag
-list at once. It SHALL show a text input that filters tags by name
-(case-insensitive), a bounded list of matching tags, and a chip per selected
-tag with a way to clear the selection. The board header SHALL expose it as a
-"Filter by tag" control whose selection narrows the visible tasks (a task
-matches when it carries any selected tag). The task modal SHALL use the same
-control for a task's tags, keeping the ability to create and delete tags.
+Tag selection SHALL use a searchable, collapsible dropdown that never renders the full tag list at once. It SHALL show a toggle, a text input that filters tags by name (case-insensitive), a bounded list of matching tags, and a chip per selected tag with a way to clear the selection. The board header SHALL expose it as a "Filter by tag" control whose selection narrows the visible tasks (a task matches when it carries any selected tag). The task modal SHALL use the same collapsible dropdown for a task's tags, showing the selected tags as chips, keeping the ability to create and delete tags.
 
 **ID**: REQ-FE-038
 **Affected files**:
-- `frontend/src/components/TagSelect.tsx` — searchable tag control
+- `frontend/src/components/TagSelect.tsx` — searchable, collapsible tag control
 - `frontend/src/pages/TodoListPage.tsx` — board "Filter by tag"
-- `frontend/src/components/AddTaskModal.tsx` / `useTaskForm.ts` — task tag picker
+- `frontend/src/components/AddTaskModal.tsx` / `useTaskForm.ts` — task tag dropdown
 
 #### Scenario: Filter tags by name
 - **WHEN** the user types part of a tag name in the control
@@ -830,23 +825,25 @@ control for a task's tags, keeping the ability to create and delete tags.
 - **THEN** every task is shown again
 
 #### Scenario: Pick tags in the task modal
-- **WHEN** the user searches and selects tags in the modal
-- **THEN** the selected tags are applied to the saved task, and the full tag list is never rendered at once
+- **WHEN** the user opens the tag dropdown, searches and selects tags
+- **THEN** the selected tags show as chips and are applied to the saved task, and the full tag list is never rendered at once
 
 ### Requirement: Application Footer
-The board SHALL render a footer showing the application name and version, the
-keyboard hints (`Alt+←/→` move, `Enter` edit, `Esc` close), a link to the project
-repository, and a copyright line. The footer SHALL use the active locale and
-theme tokens and SHALL NOT appear on the authentication screens.
+The board SHALL render a footer showing the application name and version, the keyboard hints (`Alt+←/→` move, `Enter` edit, `Esc` close), a link to the project repository, and a copyright line. The footer SHALL use the active locale and theme tokens and SHALL NOT appear on the authentication screens. The footer SHALL stay visible at the bottom of the viewport while the board scrolls.
 
 **ID**: REQ-FE-040
 **Affected files**:
 - `frontend/src/components/AppFooter.tsx` — the footer
+- `frontend/src/components/AppFooter.module.css` — sticky positioning
 - `frontend/src/pages/TodoListPage.tsx` — mounts the footer on the board
 
 #### Scenario: Board shows the footer
 - **WHEN** the board renders
 - **THEN** the footer shows the app name and version, the keyboard hints, the repository link and the copyright line
+
+#### Scenario: Footer stays visible while scrolling
+- **WHEN** the board content is taller than the viewport and the user scrolls
+- **THEN** the footer remains visible at the bottom of the viewport
 
 #### Scenario: Localized footer
 - **WHEN** the locale is English
