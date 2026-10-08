@@ -1,0 +1,59 @@
+.userMenu {
+  position: relative;
+  display: inline-block;
+}
+
+.avatar {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-raised);
+  color: var(--color-text);
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar:hover {
+  border-color: var(--color-accent);
+}
+
+.dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.35rem);
+  min-width: 12rem;
+  padding: 0.35rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 6px);
+  background: var(--color-surface-raised);
+  box-shadow: var(--shadow-md, 0 6px 18px rgba(0, 0, 0, 0.25));
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.email {
+  padding: 0.35rem 0.5rem;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  word-break: break-all;
+}
+
+.logout {
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  border: none;
+  border-radius: var(--radius-sm, 4px);
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.logout:hover {
+  background: var(--color-surface);
+}
