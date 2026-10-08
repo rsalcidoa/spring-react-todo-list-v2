@@ -1,6 +1,6 @@
 import React from 'react';
 import { Task, TaskStatus } from '../services/types/task';
-import { MoveDirection } from '../services/boardKeyboard';
+import { dropIndex, type MoveDirection } from '../services/boardInteraction';
 import KanbanCard from './KanbanCard';
 import QuickAddTask from './QuickAddTask';
 import { useT } from '../i18n';
@@ -44,15 +44,8 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({status, label, tasks, onCard
       if (taskId && !isNaN(taskId)) {
         const body = e.currentTarget as HTMLElement;
         const cards = Array.from(body.querySelectorAll('[data-task]')) as HTMLElement[];
-        let index = cards.length;
-        for (let i = 0; i < cards.length; i++) {
-          const rect = cards[i].getBoundingClientRect();
-          if (e.clientY < rect.top + rect.height / 2) {
-            index = i;
-            break;
-          }
-        }
-        onReorder(taskId, index);
+        const rects = cards.map(card => card.getBoundingClientRect());
+        onReorder(taskId, dropIndex(e.clientY, rects));
       }
     }
     onDrop?.(e);

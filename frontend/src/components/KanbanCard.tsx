@@ -1,7 +1,6 @@
 import React from 'react';
 import { Task, Priority } from '../services/types/task';
-import { MoveDirection } from '../services/boardKeyboard';
-import { getDueState } from '../services/dueState';
+import { getDueState, type MoveDirection } from '../services/boardInteraction';
 import styles from './KanbanCard.module.css';
 import { useT } from '../i18n';
 import { formatDate } from '../services/format';
