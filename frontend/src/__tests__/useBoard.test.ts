@@ -121,4 +121,19 @@ describe('useBoard (optimistic board controller seam)', () => {
     expect(result.current.projects).toHaveLength(1);
     expect(result.current.filters.projectFilter).toBe(String(created.id));
   });
+
+  it('removes the project tasks when deleting a project', async () => {
+    const repository = new InMemoryTaskRepository();
+    const project = await repository.createProject('Casa');
+    const keep = await repository.create({ title: 'Keep', priority: Priority.LOW, status: TaskStatus.PENDING, tagNames: [] });
+    await repository.create({ title: 'Gone', priority: Priority.LOW, status: TaskStatus.PENDING, tagNames: [], projectId: project.id });
+
+    const { result } = renderHook(() => useBoard(repository));
+    await waitFor(() => expect(result.current.tasks).toHaveLength(2));
+
+    await act(async () => { await result.current.actions.deleteProject(project.id); });
+
+    await waitFor(() => expect(result.current.tasks.map(t => t.id)).toEqual([keep.id]));
+    expect(result.current.projects).toHaveLength(0);
+  });
 });

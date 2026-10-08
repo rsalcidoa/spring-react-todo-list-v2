@@ -114,15 +114,55 @@ class ProjectApiIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.projectId[0]").exists());
 
-        // Deleting the project unassigns it from the task.
+        // Deleting the project also deletes its task.
         mockMvc.perform(delete("/v1/projects/" + projectId)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isNoContent());
 
         mockMvc.perform(get("/v1/tasks/" + taskId)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.projectId").doesNotExist());
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void deletingProjectRemovesItsTasksAndSubtasks() throws Exception {
+        registerAndLogin();
+        long projectId = createProject("Work");
+
+        MvcResult parent = mockMvc.perform(post("/v1/tasks")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\": \"Parent\", \"priority\": \"LOW\", \"projectId\": " + projectId + "}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        long parentId = mapper.readTree(parent.getResponse().getContentAsString()).path("id").asLong();
+
+        MvcResult child = mockMvc.perform(post("/v1/tasks")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\": \"Child\", \"priority\": \"LOW\", \"parentId\": " + parentId + "}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        long childId = mapper.readTree(child.getResponse().getContentAsString()).path("id").asLong();
+
+        MvcResult keep = mockMvc.perform(post("/v1/tasks")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\": \"Keep\", \"priority\": \"LOW\"}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        long keepId = mapper.readTree(keep.getResponse().getContentAsString()).path("id").asLong();
+
+        mockMvc.perform(delete("/v1/projects/" + projectId)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/v1/tasks/" + parentId).header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/v1/tasks/" + childId).header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(get("/v1/tasks/" + keepId).header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk());
     }
 
     @Test

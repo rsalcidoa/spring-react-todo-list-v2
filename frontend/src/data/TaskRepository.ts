@@ -481,12 +481,8 @@ export class InMemoryTaskRepository implements TaskRepository {
     const index = this.projects.findIndex(p => p.id === id);
     if (index === -1) throw new RepositoryError('not-found', `Project ${id} not found`);
     this.projects.splice(index, 1);
-    for (const task of this.tasks) {
-      if (task.projectId === id) {
-        task.projectId = undefined;
-        task.projectName = undefined;
-      }
-    }
+    const removed = new Set(this.tasks.filter(t => t.projectId === id).map(t => t.id));
+    this.tasks = this.tasks.filter(t => t.projectId !== id && !(t.parentId != null && removed.has(t.parentId)));
   }
 
   async listSubtasks(parentId: number): Promise<Task[]> {

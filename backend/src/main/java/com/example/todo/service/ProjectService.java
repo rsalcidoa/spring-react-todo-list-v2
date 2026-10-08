@@ -6,8 +6,10 @@ import com.example.todo.exception.ResourceNotFoundException;
 import com.example.todo.model.Project;
 import com.example.todo.model.User;
 import com.example.todo.repository.ProjectRepository;
+import com.example.todo.repository.TaskRepository;
 import com.example.todo.security.CurrentUserProvider;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
 import java.util.List;
@@ -17,10 +19,12 @@ import java.util.stream.Collectors;
 public class ProjectService {
 
     private final ProjectRepository projectRepository;
+    private final TaskRepository taskRepository;
     private final CurrentUserProvider currentUser;
 
-    public ProjectService(ProjectRepository projectRepository, CurrentUserProvider currentUser) {
+    public ProjectService(ProjectRepository projectRepository, TaskRepository taskRepository, CurrentUserProvider currentUser) {
         this.projectRepository = projectRepository;
+        this.taskRepository = taskRepository;
         this.currentUser = currentUser;
     }
 
@@ -62,9 +66,12 @@ public class ProjectService {
         return rawDescription.trim();
     }
 
+    @Transactional
     public void delete(Long id) {
         Project project = projectRepository.findById(id).orElseThrow(ResourceNotFoundException::new);
         currentUser.requireOwned(project.getUser().getId());
+        // Delete the project's tasks (their subtasks cascade via the parent_id FK), then the project.
+        taskRepository.deleteByProjectId(id);
         projectRepository.delete(project);
     }
 }

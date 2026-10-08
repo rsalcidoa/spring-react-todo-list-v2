@@ -294,10 +294,11 @@ export function useBoard(repository: TaskStore & OrderingStore & TagStore & Proj
   };
 
   const deleteProject = async (id: number): Promise<void> => {
+    const removedIds = new Set(tasks.filter(t => t.projectId === id).map(t => t.id));
     await repository.deleteProject(id);
     setProjects(prev => prev.filter(p => p.id !== id));
     setProjectFilter(prev => (prev === String(id) ? '' : prev));
-    setTasks(prev => prev.map(t => t.projectId === id ? { ...t, projectId: undefined, projectName: undefined } : t));
+    setTasks(prev => prev.filter(t => !removedIds.has(t.id) && !(t.parentId != null && removedIds.has(t.parentId))));
   };
 
   return {
