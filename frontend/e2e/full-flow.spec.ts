@@ -18,7 +18,7 @@ test.describe('Full E2E Flow (Repository-backed)', () => {
     await page.getByRole('button', { name: /Registrarse/i }).click();
 
     // Auto-login should navigate to /tasks and show the board
-    await expect(page.getByText(/Tablero/i)).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/Todas las tareas/i)).toBeVisible({ timeout: 15000 });
 
     // --- Create a task via modal ---
     const uniqueTitle = `E2E Task ${Date.now()}`;
@@ -78,7 +78,7 @@ test.describe('Full E2E Flow (Repository-backed)', () => {
     await inputs.nth(0).fill(unique);
     await inputs.nth(1).fill(password);
     await page.getByRole('button', { name: /Registrarse/i }).click();
-    await expect(page.getByText(/Tablero/i)).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/Todas las tareas/i)).toBeVisible({ timeout: 15000 });
 
     // Empty board: create the first task through the CTA/modal so columns render.
     await page.getByRole('button', { name: /Crear tarea/i }).click();

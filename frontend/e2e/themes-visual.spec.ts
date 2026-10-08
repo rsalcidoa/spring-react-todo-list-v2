@@ -15,7 +15,7 @@ async function register(page: import('playwright/test').Page, email: string, pas
   await inputs.nth(0).fill(email);
   await inputs.nth(1).fill(password);
   await page.getByRole('button', { name: /Registrarse/i }).click();
-  await expect(page.getByText(/Tablero/i)).toBeVisible({ timeout: 15000 });
+  await expect(page.getByText(/Todas las tareas/i)).toBeVisible({ timeout: 15000 });
 }
 
 for (const theme of THEMES) {

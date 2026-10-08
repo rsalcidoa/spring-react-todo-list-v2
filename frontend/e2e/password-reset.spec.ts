@@ -15,7 +15,7 @@ test.describe('Password reset', () => {
     await regInputs.nth(0).fill(email);
     await regInputs.nth(1).fill(password);
     await page.getByRole('button', { name: /Registrarse/i }).click();
-    await expect(page.getByText(/Tablero/i)).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/Todas las tareas/i)).toBeVisible({ timeout: 15000 });
 
     // Log out through the user menu.
     await page.getByRole('button', { name: /Cuenta/i }).click();
@@ -43,6 +43,6 @@ test.describe('Password reset', () => {
     await page.getByLabel(/Correo electrónico/i).fill(email);
     await page.getByLabel(/Contraseña/i).fill(newPassword);
     await page.getByRole('button', { name: /Entrar/i }).click();
-    await expect(page.getByText(/Tablero/i)).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/Todas las tareas/i)).toBeVisible({ timeout: 15000 });
   });
 });

@@ -93,4 +93,32 @@ describe('useBoard (optimistic board controller seam)', () => {
 
     await waitFor(() => expect(result.current.grouped.PENDING.map(t => t.id)).toEqual([b.id, a.id]));
   });
+
+  it('scopes the board by project, including tasks without a project', async () => {
+    const repository = new InMemoryTaskRepository();
+    const project = await repository.createProject('Casa');
+    const withProject = await repository.create({ title: 'Con', priority: Priority.LOW, status: TaskStatus.PENDING, tagNames: [], projectId: project.id });
+    const without = await repository.create({ title: 'Sin', priority: Priority.LOW, status: TaskStatus.PENDING, tagNames: [] });
+
+    const { result } = renderHook(() => useBoard(repository));
+    await waitFor(() => expect(result.current.tasks).toHaveLength(2));
+
+    act(() => result.current.actions.setProjectFilter('none'));
+    await waitFor(() => expect(result.current.grouped.PENDING.map(t => t.id)).toEqual([without.id]));
+
+    act(() => result.current.actions.setProjectFilter(String(project.id)));
+    await waitFor(() => expect(result.current.grouped.PENDING.map(t => t.id)).toEqual([withProject.id]));
+  });
+
+  it('selects a newly created project', async () => {
+    const repository = new InMemoryTaskRepository();
+    const { result } = renderHook(() => useBoard(repository));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    let created: { id: number } = { id: 0 };
+    await act(async () => { created = await result.current.actions.createProject('Casa', 'desc'); });
+
+    expect(result.current.projects).toHaveLength(1);
+    expect(result.current.filters.projectFilter).toBe(String(created.id));
+  });
 });

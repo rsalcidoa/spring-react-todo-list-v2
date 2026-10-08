@@ -19,7 +19,7 @@ test.describe('visual baselines', () => {
     await inputs.nth(0).fill(email);
     await inputs.nth(1).fill(password);
     await page.getByRole('button', { name: /Registrarse/i }).click();
-    await expect(page.getByText(/Tablero/i)).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/Todas las tareas/i)).toBeVisible({ timeout: 15000 });
 
     await page.getByRole('button', { name: /\+ Tarea/i }).click();
     const titleInput = page.getByPlaceholder(/Título de la tarea/i);

@@ -13,7 +13,7 @@ test.describe('Responsive layout', () => {
     await inputs.nth(0).fill(email);
     await inputs.nth(1).fill('Test123!');
     await page.getByRole('button', { name: /Registrarse/i }).click();
-    await expect(page.getByText(/Tablero/i)).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText(/Todas las tareas/i)).toBeVisible({ timeout: 15000 });
 
     await page.getByRole('button', { name: /Crear tarea/i }).click();
     await page.getByPlaceholder(/Título de la tarea/i).fill('Movil');

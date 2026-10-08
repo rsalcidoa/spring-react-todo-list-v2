@@ -43,6 +43,11 @@ describe('applyBoardQuery', () => {
     expect(ids({ projectId: 1 }).sort()).toEqual([1, 3]);
   });
 
+  it('filters to tasks without a project with the none scope', () => {
+    const subset = [board[0], task({ title: 'Suelta', projectId: undefined })];
+    expect(applyBoardQuery(subset, { projectId: 'none' }, TODAY).map(t => t.title)).toEqual(['Suelta']);
+  });
+
   it('filters by board view against the local date', () => {
     expect(ids({ view: 'overdue' }).sort((a, b) => a - b)).toEqual([1, 2, 4]);
     expect(ids({ view: 'today' })).toEqual([5]);

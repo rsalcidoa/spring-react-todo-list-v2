@@ -13,7 +13,7 @@ export interface BoardQuery {
   priority?: Priority;
   status?: TaskStatus;
   tagIds?: number[];
-  projectId?: number;
+  projectId?: number | 'none';
   view?: BoardView;
   sort?: TaskSort;
   dir?: SortDir;
@@ -71,7 +71,9 @@ export function applyBoardQuery(tasks: Task[], query: BoardQuery = {}, today?: s
     const tagIds = query.tagIds;
     items = items.filter(t => t.tags.some(tag => tagIds.includes(tag.id)));
   }
-  if (query.projectId !== undefined) {
+  if (query.projectId === 'none') {
+    items = items.filter(t => t.projectId == null);
+  } else if (query.projectId !== undefined) {
     items = items.filter(t => t.projectId === query.projectId);
   }
 
