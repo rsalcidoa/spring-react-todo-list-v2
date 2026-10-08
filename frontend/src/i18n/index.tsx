@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useCallback } from 'react';
 import { es, type TranslationKey } from './es';
 import { en } from './en';
 
+export type { TranslationKey } from './es';
+
 type Dict = Partial<Record<TranslationKey, string>>;
 
 const DICTS: Record<string, Dict> = { es, en };

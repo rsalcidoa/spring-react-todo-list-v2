@@ -437,7 +437,7 @@ The task modal SHALL close on `Esc` and SHALL move focus to the title field when
 - **THEN** the title input receives focus
 
 ### Requirement: Manual Ordering
-The board SHALL order each status column by task `position` ascending, breaking ties by `createdAt`, and SHALL let the user reorder tasks by dragging a card to a new position within or across columns. On drop, the page SHALL compute the target position as the midpoint between the new neighbors and call the reorder endpoint optimistically, rolling back and surfacing the error banner on failure.
+The board SHALL order each status column by task `position` ascending, breaking ties by `createdAt`, whenever no field sort is active (see "Board Sort Control"), and SHALL let the user reorder tasks by dragging a card to a new position within or across columns. On drop, the page SHALL compute the target position as the midpoint between the new neighbors and call the reorder endpoint optimistically, rolling back and surfacing the error banner on failure.
 
 **ID**: REQ-FE-023
 **Affected files**:
@@ -446,7 +446,7 @@ The board SHALL order each status column by task `position` ascending, breaking 
 - `frontend/src/data/TaskRepository.ts` — `reorder(id, status, position)`
 
 #### Scenario: Order a column by position
-- **WHEN** the board renders a column with tasks at positions 0, 1, 2
+- **WHEN** the board renders a column with tasks at positions 0, 1, 2 and no field sort is active
 - **THEN** the cards appear in that order
 
 #### Scenario: Drag within a column
@@ -551,7 +551,7 @@ The board SHALL load tasks one page at a time through `TaskRepository.fetchPage(
 - **THEN** it returns the same page/`total` semantics without network
 
 ### Requirement: UI Localization
-The system SHALL render user-facing strings through a central i18n layer with at least `es` (default) and `en` locales. A language selector SHALL let the user change locale; the choice SHALL persist in `localStorage` and SHALL default to `es` when there is no stored preference (Spanish-first product). Translation keys SHALL be typed so a missing key is a compile-time error. Dates and counts SHALL be formatted with `Intl`.
+The system SHALL render every user-facing string through a central i18n layer with at least `es` (default) and `en` locales. This SHALL include the board chrome (column labels, header controls and their options, filter aria-labels and the delete confirmation), the task modal, and the authentication pages (login, register, forgot-password, reset-password). A language selector SHALL let the user change locale; the choice SHALL persist in `localStorage` and SHALL default to `es` when there is no stored preference (Spanish-first product). Translation keys SHALL be typed so a missing key is a compile-time error. Dates and counts SHALL be formatted with `Intl`.
 
 **ID**: REQ-FE-028
 **Affected files**:
@@ -567,6 +567,10 @@ The system SHALL render user-facing strings through a central i18n layer with at
 #### Scenario: Switch language
 - **WHEN** the user selects English in the selector
 - **THEN** the visible strings render in English immediately and the choice persists across reloads
+
+#### Scenario: Board chrome and auth pages are localized
+- **WHEN** the locale is English
+- **THEN** the column labels, header controls and their options, the delete confirmation, the task modal and the login/register/reset pages render in English
 
 #### Scenario: Missing key is a compile error
 - **WHEN** a component uses a key absent from the dictionaries
@@ -599,3 +603,103 @@ The board SHALL announce transient status through a non-interactive polite live 
 #### Scenario: Board reports busy while loading
 - **WHEN** the board is loading tasks
 - **THEN** the board region exposes `aria-busy="true"`
+
+### Requirement: Board Sort Control
+The board header SHALL offer a sort control with `Manual` (default), `Recientes`
+(`createdAt` desc), `Vence pronto` (`dueDate` asc, dateless last), `Prioridad`
+(`priority` desc) and `Título` (`title` asc). When a field sort is selected,
+each status column SHALL be ordered by that field. While a field sort is active,
+card drag-and-drop SHALL be disabled and the board SHALL indicate that `Manual`
+must be selected to reorder.
+
+**ID**: REQ-FE-030
+**Affected files**:
+- `frontend/src/pages/useBoard.ts` — pass `sort`/`dir` into the per-column ordering
+- `frontend/src/services/boardQuery.ts` — apply the sort within a column
+- `frontend/src/pages/TodoListPage.tsx` — sort options and default `Manual`
+- `frontend/src/components/KanbanColumn.tsx` / `KanbanCard.tsx` — disable drag when sorted
+
+#### Scenario: Field sort orders each column
+- **WHEN** the user selects `Vence pronto`
+- **THEN** every column shows its tasks ordered by `dueDate` ascending with dateless tasks last
+
+#### Scenario: Manual keeps position ordering
+- **WHEN** the sort is `Manual`
+- **THEN** each column is ordered by `position` ascending, tie-break `createdAt`
+
+#### Scenario: Drag disabled while sorted
+- **WHEN** a field sort is active
+- **THEN** cards are not draggable and the board tells the user to choose `Manual` to reorder
+
+### Requirement: Visible Active User
+The board header SHALL show the signed-in user as an avatar with the initial of
+their email and a tooltip naming the email. Activating the avatar SHALL open a
+menu that shows the email and a "Log out" action; logging out SHALL end the
+session and navigate to the login screen.
+
+**ID**: REQ-FE-031
+**Affected files**:
+- `frontend/src/components/UserMenu.tsx` — avatar, tooltip and menu
+- `frontend/src/pages/TodoListPage.tsx` — replaces the standalone logout button
+
+#### Scenario: Avatar shows the user's initial
+- **WHEN** the board renders for `ana@example.com`
+- **THEN** the header shows an avatar with `A` and the tooltip names `ana@example.com`
+
+#### Scenario: Menu exposes identity and logout
+- **WHEN** the user opens the avatar menu
+- **THEN** it shows the email and a "Log out" action
+
+#### Scenario: Logout ends the session
+- **WHEN** the user chooses "Log out"
+- **THEN** the session is cleared and the app navigates to `/login`
+
+### Requirement: Completed Task Treatment
+A task whose Status is Completed SHALL be visually distinct from non-completed
+tasks: its title SHALL be struck through and the card muted, using theme tokens
+(not literal colors).
+
+**ID**: REQ-FE-032
+**Affected files**:
+- `frontend/src/components/KanbanCard.tsx` — apply the completed class
+- `frontend/src/components/KanbanCard.module.css` — struck-through + muted treatment
+
+#### Scenario: Completed card is struck through and muted
+- **WHEN** a task in the Completed column renders
+- **THEN** its title is struck through and the card is muted, distinct from pending/active cards
+
+### Requirement: Inline Validation Clears on Edit
+An inline validation message offered by a form SHALL clear as soon as the user
+edits the offending field, rather than persisting until the next submit.
+
+**ID**: REQ-FE-033
+**Affected files**:
+- `frontend/src/components/QuickAddTask.tsx` — clear the inline error on input change
+- `frontend/src/components/useTaskForm.ts` — clear the title error on title change
+
+#### Scenario: Quick-add error clears when typing
+- **WHEN** an empty quick-add was rejected and the user types a title
+- **THEN** the inline error disappears
+
+#### Scenario: Modal title error clears when typing
+- **WHEN** saving with a blank title shows the inline error and the user types
+- **THEN** the inline error disappears
+
+### Requirement: Appearance and Language Controls on Auth Screens
+The login, register, forgot-password and reset-password screens SHALL offer a
+theme selector and a language selector, sharing the same persisted preferences
+as the board. Changing either SHALL apply immediately and persist across
+reloads.
+
+**ID**: REQ-FE-034
+**Affected files**:
+- `frontend/src/components/AppControls.tsx` — theme + language selectors
+- `frontend/src/pages/LoginPage.tsx`, `RegisterPage.tsx`, `ForgotPasswordPage.tsx`, `ResetPasswordPage.tsx` — render the control
+
+#### Scenario: Change theme before login
+- **WHEN** the user selects a different theme on the login screen
+- **THEN** the theme applies immediately and persists across reloads
+
+#### Scenario: Change language before login
+- **WHEN** the user selects English on the login screen
+- **THEN** the auth screen strings render in English and the choice persists

@@ -3,11 +3,13 @@ import { render, screen, waitFor, fireEvent, cleanup, within, act } from '@testi
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import TodoListPage from '../pages/TodoListPage';
 import { ThemeProvider } from '../context/ThemeContext';
+import { I18nProvider } from '../i18n';
 import { InMemoryTaskRepository } from '../data/TaskRepository';
 import { Priority, TaskStatus } from '../services/types/task';
 
 vi.mock('../context/AuthContext', () => ({
   useAuth: vi.fn(() => ({
+    user: 'me@example.com',
     logout: vi.fn(),
   })),
 }));
@@ -20,13 +22,15 @@ afterEach(() => {
 describe('TodoListPage Kanban (through the repository seam)', () => {
   const renderWithRepo = (repository: InMemoryTaskRepository) => {
     return render(
-      <MemoryRouter initialEntries={['/tasks']}>
-        <ThemeProvider>
-          <Routes>
-            <Route path="/tasks" element={<TodoListPage repository={repository} />} />
-          </Routes>
-        </ThemeProvider>
-      </MemoryRouter>,
+      <I18nProvider>
+        <MemoryRouter initialEntries={['/tasks']}>
+          <ThemeProvider>
+            <Routes>
+              <Route path="/tasks" element={<TodoListPage repository={repository} />} />
+            </Routes>
+          </ThemeProvider>
+        </MemoryRouter>
+      </I18nProvider>,
     );
   };
 
@@ -53,6 +57,43 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
     expect(screen.getByRole('heading', { name: /En progreso 1/ })).toBeTruthy();
     expect(screen.getByRole('heading', { name: /Hecho 0/ })).toBeTruthy();
     expect(screen.getByText(/Tablero/i).closest('h1')?.textContent).toMatch(/2/);
+  });
+
+  it('renders the board chrome in English after switching language', async () => {
+    const { repository } = await seedBoard();
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Por hacer 1/ })).toBeTruthy());
+
+    fireEvent.change(screen.getByLabelText('Idioma'), { target: { value: 'en' } });
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: /To do 1/ })).toBeTruthy());
+    expect(screen.getByRole('heading', { name: /In progress 1/ })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: /Done 0/ })).toBeTruthy();
+    expect(screen.getByPlaceholderText('Search tasks')).toBeTruthy();
+  });
+
+  it('disables drag and hints Manual when a field sort is active', async () => {
+    const { repository } = await seedBoard();
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy());
+
+    fireEvent.change(screen.getByLabelText('Ordenar'), { target: { value: 'dueDate:asc' } });
+
+    await waitFor(() => {
+      const card = screen.getByText(/Task Alpha/i).closest('[data-task]') as HTMLElement;
+      expect(card.getAttribute('draggable')).toBe('false');
+    });
+    expect(screen.getByText(/Elegí "Manual"/i)).toBeTruthy();
+  });
+
+  it('marks completed cards with the completed treatment', async () => {
+    const repository = new InMemoryTaskRepository();
+    await repository.create({ title: 'Finished', priority: Priority.LOW, status: TaskStatus.COMPLETED, tagNames: [] });
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.getByText('Finished')).toBeTruthy());
+
+    const card = screen.getByText('Finished').closest('[data-task]') as HTMLElement;
+    expect(card.className).toMatch(/completed/);
   });
 
   it('shows an empty state with a create action when there are no tasks', async () => {

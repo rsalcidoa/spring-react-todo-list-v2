@@ -6,30 +6,32 @@ import { HttpTaskRepository, type TaskRepository } from '../data/TaskRepository'
 import type { BoardView, MoveDirection } from '../services/boardInteraction';
 import { keyboardTarget, restoreFocus } from '../services/boardInteraction';
 import { startReminderPolling, browserNotify } from '../services/reminders';
-import { useT, AVAILABLE_LANGS } from '../i18n';
+import { useT, AVAILABLE_LANGS, type TranslationKey } from '../i18n';
 import { formatNumber } from '../services/format';
 import { Task, TaskInput, TaskStatus, TaskSort, SortDir, Priority } from '../services/types/task';
 import { useBoard } from './useBoard';
 import KanbanColumn from '../components/KanbanColumn';
 import AddTaskModal from '../components/AddTaskModal';
 import ErrorBanner from '../components/ErrorBanner';
+import UserMenu from '../components/UserMenu';
 import styles from './TodoListPage.module.css';
 
-const COLUMN_CONFIG: Record<string, { label: string; status: string }> = {
-  PENDING: { label: 'Por hacer', status: 'PENDING' },
-  ACTIVE: { label: 'En progreso', status: 'ACTIVE' },
-  COMPLETED: { label: 'Hecho', status: 'COMPLETED' },
+const COLUMN_CONFIG: Record<string, { labelKey: TranslationKey; status: string }> = {
+  PENDING: { labelKey: 'board.column.pending', status: 'PENDING' },
+  ACTIVE: { labelKey: 'board.column.active', status: 'ACTIVE' },
+  COMPLETED: { labelKey: 'board.column.completed', status: 'COMPLETED' },
 };
 
 export default function TodoListPage({ repository: repositoryProp }: { repository?: TaskRepository } = {}) {
   const { t, lang, setLang } = useT();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const repository = useMemo(() => repositoryProp ?? new HttpTaskRepository(), [repositoryProp]);
 
   const { tasks, grouped, tags, projects, filters, error, loading: isLoading, total, lastDeleted, actions } = useBoard(repository);
   const { view, query, tagFilter, projectFilter } = filters;
+  const canReorder = !query.sort;
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -55,7 +57,7 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Eliminar esta tarea?')) return;
+    if (!window.confirm(t('board.deleteConfirm'))) return;
     await actions.delete(id);
   };
 
@@ -95,65 +97,71 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <input
             className={styles.searchInput}
-            placeholder="Buscar tareas"
+            placeholder={t('board.search')}
             value={query.q ?? ''}
             onChange={e => actions.setQuery({ q: e.target.value || undefined })}
           />
           <label className={styles.themeLabel}>
-            Vista
+            {t('board.view')}
             <select
-              aria-label="Vista"
+              aria-label={t('board.view')}
               className={styles.themeSelect}
               value={view}
               onChange={e => actions.setView(e.target.value as BoardView)}
             >
-              <option value="all">Todas</option>
-              <option value="today">Hoy</option>
-              <option value="overdue">Vencidas</option>
-              <option value="upcoming">Próximas</option>
+              <option value="all">{t('board.view.all')}</option>
+              <option value="today">{t('board.view.today')}</option>
+              <option value="overdue">{t('board.view.overdue')}</option>
+              <option value="upcoming">{t('board.view.upcoming')}</option>
             </select>
           </label>
           <label className={styles.themeLabel}>
-            Proyecto
+            {t('board.project')}
             <select
-              aria-label="Filtrar por proyecto"
+              aria-label={t('board.filterProject')}
               className={styles.themeSelect}
               value={projectFilter}
               onChange={e => actions.setProjectFilter(e.target.value)}
             >
-              <option value="">Todos</option>
+              <option value="">{t('board.allProjects')}</option>
               {projects.map(p => (<option key={p.id} value={String(p.id)}>{p.name}</option>))}
             </select>
           </label>
           <label className={styles.themeLabel}>
-            Prioridad
+            {t('board.priority')}
             <select
-              aria-label="Prioridad"
+              aria-label={t('board.priority')}
               className={styles.themeSelect}
               value={query.priority ?? ''}
               onChange={e => actions.setQuery({ priority: (e.target.value || undefined) as Priority | undefined })}
             >
-              <option value="">Todas</option>
-              <option value={Priority.LOW}>Baja</option>
-              <option value={Priority.MEDIUM}>Media</option>
-              <option value={Priority.HIGH}>Alta</option>
+              <option value="">{t('board.allPriorities')}</option>
+              <option value={Priority.LOW}>{t('priority.low')}</option>
+              <option value={Priority.MEDIUM}>{t('priority.medium')}</option>
+              <option value={Priority.HIGH}>{t('priority.high')}</option>
             </select>
           </label>
           <label className={styles.themeLabel}>
-            Ordenar
+            {t('board.sort')}
             <select
-              aria-label="Ordenar"
+              aria-label={t('board.sort')}
               className={styles.themeSelect}
-              value={`${query.sort ?? 'createdAt'}:${query.dir ?? (query.sort && query.sort !== 'createdAt' ? 'asc' : 'desc')}`}
+              value={query.sort ? `${query.sort}:${query.dir ?? 'asc'}` : 'manual'}
               onChange={e => {
-                const [sort, dir] = e.target.value.split(':');
-                actions.setQuery({ sort: sort as TaskSort, dir: dir as SortDir });
+                const value = e.target.value;
+                if (value === 'manual') {
+                  actions.setQuery({ sort: undefined, dir: undefined });
+                } else {
+                  const [sort, dir] = value.split(':');
+                  actions.setQuery({ sort: sort as TaskSort, dir: dir as SortDir });
+                }
               }}
             >
-              <option value="createdAt:desc">Recientes</option>
-              <option value="dueDate:asc">Vence pronto</option>
-              <option value="priority:desc">Prioridad</option>
-              <option value="title:asc">Título</option>
+              <option value="manual">{t('board.sort.manual')}</option>
+              <option value="createdAt:desc">{t('board.sort.recent')}</option>
+              <option value="dueDate:asc">{t('board.sort.dueSoon')}</option>
+              <option value="priority:desc">{t('board.sort.priority')}</option>
+              <option value="title:asc">{t('board.sort.title')}</option>
             </select>
           </label>
           <label className={styles.themeLabel}>
@@ -168,24 +176,24 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
             </select>
           </label>
           <label className={styles.themeLabel}>
-            Tema
+            {t('board.theme')}
             <select
-              aria-label="Tema"
+              aria-label={t('board.theme')}
               value={theme}
               onChange={e => setTheme(e.target.value as typeof theme)}
               className={styles.themeSelect}
             >
-              {AVAILABLE_THEMES.map(t => (
-                <option key={t.name} value={t.name}>{t.label}</option>
+              {AVAILABLE_THEMES.map(themeOption => (
+                <option key={themeOption.name} value={themeOption.name}>{t(`theme.${themeOption.name}` as TranslationKey)}</option>
               ))}
             </select>
           </label>
           <button className={styles.newTaskBtn} onClick={() => { setEditingTask(null); setModalOpen(true); }}>{t('board.newTask')}</button>
-          <button className={styles.logoutBtn} onClick={handleLogout}>{t('board.logout')}</button>
+          <UserMenu email={user} onLogout={handleLogout} />
         </div>
       </header>
 
-      <div className={styles.filterRow} role="group" aria-label="Filtrar por etiqueta">
+      <div className={styles.filterRow} role="group" aria-label={t('board.filterByTag')}>
         {tags.map(tag => (
           <button
             key={tag.id}
@@ -199,7 +207,7 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
         ))}
         {tagFilter.length > 0 && (
           <button type="button" className={styles.filterClear} onClick={() => actions.clearTagFilter()}>
-            Limpiar
+            {t('board.clear')}
           </button>
         )}
       </div>
@@ -221,8 +229,9 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
             <KanbanColumn
               key={status}
               status={status}
-              label={config.label}
+              label={t(config.labelKey)}
               tasks={grouped[status] ?? []}
+              dragEnabled={canReorder}
               onCardClick={handleCardClick}
               onReorder={(taskId, index) => actions.reorder(taskId, status as TaskStatus, index)}
               onDelete={(task) => handleDelete(task.id)}
@@ -232,6 +241,10 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
           ))
         )}
       </main>
+
+      {!isLoading && !canReorder && (
+        <p className={styles.sortHint}>{t('board.sortDragHint')}</p>
+      )}
 
       {!isLoading && tasks.length > 0 && tasks.length < total && (
         <div style={{ padding: '0.5rem' }}>

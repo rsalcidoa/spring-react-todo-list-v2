@@ -6,6 +6,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useT } from '../i18n';
 import styles from './RegisterPage.module.css';
 import ErrorBanner from '../components/ErrorBanner';
+import AppControls from '../components/AppControls';
 import { validateEmail } from '../services/validateEmail';
 
 export default function RegisterPage() {
@@ -42,19 +43,20 @@ export default function RegisterPage() {
 
   return (
     <div className={styles.container}>
+      <AppControls />
       {error && <ErrorBanner key={error.id} message={error.message} onDismiss={() => setError(null)} />}
       <form onSubmit={onSubmit} className={styles.form}>
         <h2 className={styles.title}>{t('auth.register.title')}</h2>
         <div className={styles.field}>
-          <label>Correo electrónico</label>
+          <label>{t('auth.email')}</label>
           <input value={email} onChange={e => setEmail(e.target.value)} required />
         </div>
         <div className={styles.field}>
-          <label>Contraseña</label>
+          <label>{t('auth.password')}</label>
           <input type="password" value={password} onChange={e => setPassword(e.target.value)} required />
         </div>
         <button type="submit" className={styles.submitBtn}>{t('auth.register.submit')}</button>
-        <p className={styles.link}><Link to="/login">¿Ya tienes cuenta? Inicia sesión</Link></p>
+        <p className={styles.link}><Link to="/login">{t('auth.haveAccount')}</Link></p>
       </form>
     </div>
   );

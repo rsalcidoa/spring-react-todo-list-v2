@@ -95,7 +95,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
         </div>
         <div className={styles.formGroup}>
           <label className={styles.formLabel}>{t('task.project')}</label>
-          <select className={styles.select} aria-label="Proyecto de la tarea" value={form.values.projectId} onChange={e=>form.setProjectId(e.target.value)}>
+          <select className={styles.select} aria-label={t('task.projectAria')} value={form.values.projectId} onChange={e=>form.setProjectId(e.target.value)}>
             <option value="">{t('common.none')}</option>
             {projectList.map(p => (<option key={p.id} value={String(p.id)}>{p.name}</option>))}
           </select>
