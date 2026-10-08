@@ -421,6 +421,34 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
     await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy());
   });
 
+  it('announces deletion without embedding a control and focuses undo', async () => {
+    const { repository } = await seedBoard();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy(), { timeout: 5000 });
+
+    const card = screen.getByText(/Task Alpha/i).closest('[data-task]') as HTMLElement;
+    fireEvent.click(within(card).getByRole('button', { name: /Borrar tarea/i }));
+
+    await waitFor(() => {
+      const live = screen.getAllByRole('status').find(el => el.textContent?.includes('Tarea eliminada'));
+      expect(live).toBeTruthy();
+      expect(live!.querySelector('button')).toBeNull();
+    });
+
+    const undo = screen.getByRole('button', { name: /Deshacer/i });
+    await waitFor(() => expect(document.activeElement).toBe(undo));
+  });
+
+  it('marks the board busy while loading', async () => {
+    const repository = new InMemoryTaskRepository();
+    vi.spyOn(repository, 'fetchPage').mockImplementation(() => new Promise(() => {}));
+    vi.spyOn(repository, 'listTags').mockImplementation(() => new Promise(() => {}));
+    renderWithRepo(repository);
+
+    await waitFor(() => expect(screen.getByRole('main').getAttribute('aria-busy')).toBe('true'));
+  });
+
   it('loads more pages of tasks', async () => {
     const repository = new InMemoryTaskRepository();
     for (let i = 0; i < 21; i++) {

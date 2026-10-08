@@ -45,6 +45,11 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
   const [pageState, setPageState] = useState(0);
   const [total, setTotal] = useState(0);
   const undoTimer = useRef<number | null>(null);
+  const undoRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (lastDeleted) undoRef.current?.focus();
+  }, [lastDeleted]);
 
   useEffect(() => { loadTasks(); loadTags(); loadProjects(); }, []);
 
@@ -179,6 +184,17 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
     }
   };
 
+  const pauseUndoDismiss = () => {
+    if (undoTimer.current) {
+      window.clearTimeout(undoTimer.current);
+      undoTimer.current = null;
+    }
+  };
+
+  const resumeUndoDismiss = () => {
+    if (lastDeleted) undoTimer.current = window.setTimeout(() => setLastDeleted(null), 5000);
+  };
+
   const handleQuickAdd = async (title: string, status: TaskStatus): Promise<boolean> => {
     try {
       const created = await repository.create({ title, priority: Priority.LOW, status, tagNames: [] });
@@ -250,10 +266,18 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
   return (
     <div className={styles.page}>
       {error && <ErrorBanner key={error.id} message={error.message} onDismiss={dismissError} />}
+      <span role="status" className={styles.srOnly}>{lastDeleted ? t('board.undo') : ''}</span>
       {lastDeleted && (
-        <div className={styles.undoBar} role="status">
+        <div className={styles.undoBar}>
           <span>{t('board.undo')}</span>
-          <button type="button" className={styles.newTaskBtn} onClick={handleUndo}>{t('board.undoAction')}</button>
+          <button
+            ref={undoRef}
+            type="button"
+            className={styles.newTaskBtn}
+            onClick={handleUndo}
+            onFocus={pauseUndoDismiss}
+            onBlur={resumeUndoDismiss}
+          >{t('board.undoAction')}</button>
         </div>
       )}
       <header className={styles.header}>
@@ -370,7 +394,7 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
         )}
       </div>
 
-      <main className={styles.board}>
+      <main className={styles.board} aria-busy={isLoading}>
         {isLoading ? (
           <div role="status" aria-label={t('board.loading')} className={styles.skeletons}>
             {[0, 1, 2].map(i => <div key={i} className={styles.skeleton} />)}
