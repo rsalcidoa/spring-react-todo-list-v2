@@ -1,26 +1,14 @@
 import axios from 'axios';
 import { TaskInput, TaskQuery } from './types/task';
-import { getToken, getEmail, getRefreshToken, saveSession, saveRefreshToken, handleUnauthorized } from './session';
+import { authSession } from './AuthSession';
 
 const api = axios.create({ baseURL: '/v1' });
 
 api.interceptors.request.use(config => {
-  const token = getToken();
+  const token = authSession.getToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
-
-let refreshPromise: Promise<string> | null = null;
-
-async function performRefresh(): Promise<string> {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) throw new Error('No refresh token');
-  const response = await axios.post('/v1/auth/refresh', { refreshToken });
-  const token = response.data.token as string;
-  saveSession(token, getEmail() ?? '');
-  saveRefreshToken(response.data.refreshToken as string);
-  return token;
-}
 
 api.interceptors.response.use(
   response => {
@@ -30,26 +18,22 @@ api.interceptors.response.use(
     const original = error?.config;
     const status = error?.response?.status;
     const url: string = original?.url ?? '';
-    const isAuthCall = url.includes('/auth/login') || url.includes('/auth/refresh');
 
-    if (status === 401 && !isAuthCall && original && !(original as { _retry?: boolean })._retry) {
+    if (status === 401 && original && !authSession.isAuthEndpoint(url) && !(original as { _retry?: boolean })._retry) {
       (original as { _retry?: boolean })._retry = true;
       try {
-        if (!refreshPromise) {
-          refreshPromise = performRefresh().finally(() => { refreshPromise = null; });
-        }
-        const token = await refreshPromise;
+        const token = await authSession.ensureFreshToken();
         original.headers = original.headers ?? {};
         original.headers.Authorization = `Bearer ${token}`;
         return api(original);
-      } catch (refreshError) {
-        handleUnauthorized(url);
+      } catch {
+        authSession.handleUnauthorized(url);
         return Promise.reject(error);
       }
     }
 
     if (status === 401) {
-      handleUnauthorized(url);
+      authSession.handleUnauthorized(url);
     }
     return Promise.reject(error);
   }

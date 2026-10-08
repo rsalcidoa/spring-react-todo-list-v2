@@ -1,6 +1,5 @@
-import React, { createContext, useContext, useState } from 'react';
-import { api } from '../services/ApiService';
-import { getToken, getEmail, saveSession, saveRefreshToken, clearSession } from '../services/session';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { authSession } from '../services/AuthSession';
 
 export interface AuthContextProps {
   user: string | null;
@@ -12,26 +11,23 @@ export interface AuthContextProps {
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
-  const [token, setToken] = useState<string | null>(() => getToken());
-  const [user, setUser] = useState<string | null>(() => getEmail());
+  const [state, setState] = useState(() => ({
+    token: authSession.getToken(),
+    user: authSession.getEmail(),
+  }));
+
+  useEffect(() => authSession.subscribe(s => setState({ token: s.token, user: s.email })), []);
 
   const login = async (email: string, password: string, onSuccess?: () => void) => {
-    const res = await api.post('/auth/login', { email, password });
-    const token = res.data.token;
-    setToken(token);
-    setUser(email);
-    saveSession(token, email);
-    if (res.data.refreshToken) saveRefreshToken(res.data.refreshToken);
+    await authSession.login(email, password);
     if (onSuccess) onSuccess();
   };
 
   const logout = () => {
-    setToken(null);
-    setUser(null);
-    clearSession();
+    authSession.logout();
   };
 
-  return <AuthContext.Provider value={{ user, token, login, logout }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user: state.user, token: state.token, login, logout }}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = (): AuthContextProps => {
