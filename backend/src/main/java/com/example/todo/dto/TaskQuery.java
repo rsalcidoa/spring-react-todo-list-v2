@@ -1,12 +1,14 @@
 package com.example.todo.dto;
 
 import com.example.todo.exception.InvalidQueryValueException;
-import com.example.todo.exception.InvalidStatusValueException;
 import com.example.todo.model.Priority;
 import com.example.todo.model.TaskStatus;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Composable, validated query for the task listing. Parsing lives in the Task
@@ -25,11 +27,7 @@ public record TaskQuery(
                                   List<String> tagIds, String sort, String dir) {
         TaskStatus parsedStatus = null;
         if (status != null && !status.isBlank()) {
-            try {
-                parsedStatus = TaskStatus.valueOf(status);
-            } catch (IllegalArgumentException e) {
-                throw new InvalidStatusValueException("status", "Status must be PENDING, ACTIVE or COMPLETED");
-            }
+            parsedStatus = TaskStatus.parse(status);
         }
 
         String parsedQ = (q == null || q.isBlank()) ? null : q.trim();
@@ -79,5 +77,25 @@ public record TaskQuery(
         }
 
         return new TaskQuery(parsedStatus, parsedQ, parsedPriority, List.copyOf(parsedTagIds), parsedSort, parsedDir);
+    }
+
+    /**
+     * Validates the optional page/size pair and builds the page request, or
+     * empty when neither was provided (plain-array listing). Owning the bounds
+     * here keeps the controller free of query parsing.
+     */
+    public static Optional<Pageable> pageable(Integer page, Integer size) {
+        if (page == null && size == null) {
+            return Optional.empty();
+        }
+        int p = page == null ? 0 : page;
+        int s = size == null ? 20 : size;
+        if (p < 0) {
+            throw new InvalidQueryValueException("page", "Page must be >= 0");
+        }
+        if (s < 1 || s > 100) {
+            throw new InvalidQueryValueException("size", "Size must be between 1 and 100");
+        }
+        return Optional.of(PageRequest.of(p, s));
     }
 }

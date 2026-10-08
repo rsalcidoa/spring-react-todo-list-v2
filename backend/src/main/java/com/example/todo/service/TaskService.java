@@ -6,9 +6,7 @@ import com.example.todo.dto.TaskResponse;
 import com.example.todo.dto.TaskQuery;
 import com.example.todo.dto.TaskSortField;
 import com.example.todo.dto.SortDirection;
-import com.example.todo.exception.InvalidStatusValueException;
 import com.example.todo.exception.InvalidQueryValueException;
-import com.example.todo.exception.ResourceNotFoundException;
 import com.example.todo.exception.TagAlreadyExistsException;
 import com.example.todo.model.Task;
 import com.example.todo.model.User;
@@ -47,34 +45,18 @@ public class TaskService {
     private final CurrentUserProvider currentUser;
     private final TransactionTemplate transactionTemplate;
     private final ProjectRepository projectRepository;
+    private final TaskAccess taskAccess;
 
     public TaskService(TaskRepository taskRepository, TagRepository tagRepository, TagService tagService,
                        CurrentUserProvider currentUser, PlatformTransactionManager transactionManager,
-                       ProjectRepository projectRepository) {
+                       ProjectRepository projectRepository, TaskAccess taskAccess) {
         this.taskRepository = taskRepository;
         this.tagRepository = tagRepository;
         this.tagService = tagService;
         this.currentUser = currentUser;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.projectRepository = projectRepository;
-    }
-
-    public List<TaskResponse> getAllTasks() {
-        User me = currentUser.requireCurrent();
-        return taskRepository.findByUser(me).stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
-    }
-
-    public List<TaskResponse> getAllTasksByStatus(com.example.todo.model.TaskStatus status) {
-        User me = currentUser.requireCurrent();
-        return taskRepository.findByUserAndStatus(me, status).stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
-    }
-
-    public List<TaskResponse> getAllTasksByStatus(String rawStatus) {
-        return getAllTasksByStatus(parseStatus(rawStatus));
+        this.taskAccess = taskAccess;
     }
 
     public List<TaskResponse> getAllTasks(TaskQuery query) {
@@ -146,8 +128,8 @@ public class TaskService {
     }
 
     public TaskResponse getTaskById(Long id) {
-        User me = currentUser.requireCurrent();
-        return toResponse(findOwnedTask(id, me));
+        currentUser.requireCurrent();
+        return toResponse(taskAccess.owned(id));
     }
 
     public TaskResponse createTask(TaskRequest request) {
@@ -170,7 +152,7 @@ public class TaskService {
 
     public TaskResponse updateTask(Long id, TaskRequest request) {
         User me = currentUser.requireCurrent();
-        Task task = findOwnedTask(id, me);
+        Task task = taskAccess.owned(id);
         applyFields(task, request);
         applyProject(task, request);
         applyParent(task, request);
@@ -208,7 +190,7 @@ public class TaskService {
         task.setReminderNotifiedAt(null);
         task.setRecurrence(parseRecurrence(request.getRecurrence()));
         if (request.getStatus() != null) {
-            task.setStatus(parseStatus(request.getStatus()));
+            task.setStatus(TaskStatus.parse(request.getStatus()));
         }
     }
 
@@ -261,8 +243,8 @@ public class TaskService {
     }
 
     public List<TaskResponse> getSubtasks(Long id) {
-        User me = currentUser.requireCurrent();
-        Task parent = findOwnedTask(id, me);
+        currentUser.requireCurrent();
+        Task parent = taskAccess.owned(id);
         return parent.getChildren().stream().map(TaskResponse::of).collect(Collectors.toList());
     }
 
@@ -307,19 +289,11 @@ public class TaskService {
 
     public TaskResponse applyStatus(Long id, String rawStatus) {
         User me = currentUser.requireCurrent();
-        Task task = findOwnedTask(id, me);
-        task.setStatus(parseStatus(rawStatus));
+        Task task = taskAccess.owned(id);
+        task.setStatus(TaskStatus.parse(rawStatus));
         taskRepository.save(task);
         generateNextOccurrence(task, me);
         return toResponse(task);
-    }
-
-    private com.example.todo.model.TaskStatus parseStatus(String rawStatus) {
-        try {
-            return com.example.todo.model.TaskStatus.valueOf(rawStatus);
-        } catch (IllegalArgumentException e) {
-            throw new InvalidStatusValueException("status", "Status must be PENDING, ACTIVE or COMPLETED");
-        }
     }
 
     private void assignTags(Task task, User me, Set<String> tagNames) {
@@ -333,39 +307,15 @@ public class TaskService {
     }
 
     public void deleteTask(Long id) {
-        User me = currentUser.requireCurrent();
-        Task task = findOwnedTask(id, me);
-        LocalDateTime now = LocalDateTime.now();
-        task.setDeletedAt(now);
-        for (Task child : task.getChildren()) {
-            child.setDeletedAt(now);
-        }
-        taskRepository.save(task);
+        currentUser.requireCurrent();
+        taskAccess.softDelete(taskAccess.owned(id));
     }
 
     public TaskResponse restoreTask(Long id) {
-        User me = currentUser.requireCurrent();
-        Task task = taskRepository.findById(id).orElseThrow(ResourceNotFoundException::new);
-        currentUser.requireOwned(task.getUser().getId());
-        if (task.getDeletedAt() != null) {
-            task.setDeletedAt(null);
-            for (Task child : task.getChildren()) {
-                child.setDeletedAt(null);
-            }
-            taskRepository.save(task);
-        }
+        currentUser.requireCurrent();
+        Task task = taskAccess.ownedIncludingDeleted(id);
+        taskAccess.restore(task);
         return toResponse(task);
-    }
-
-    // Ownership operation: lookup stays here (404), the forbidden decision
-    // lives in CurrentUserProvider.requireOwned (shared with tags).
-    private Task findOwnedTask(Long id, User me) {
-        Task task = taskRepository.findById(id).orElseThrow(ResourceNotFoundException::new);
-        if (task.getDeletedAt() != null) {
-            throw new ResourceNotFoundException();
-        }
-        currentUser.requireOwned(task.getUser().getId());
-        return task;
     }
 
     private TaskResponse toResponse(Task task) {

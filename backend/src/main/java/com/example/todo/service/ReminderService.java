@@ -1,7 +1,6 @@
 package com.example.todo.service;
 
 import com.example.todo.dto.TaskResponse;
-import com.example.todo.exception.ResourceNotFoundException;
 import com.example.todo.model.Task;
 import com.example.todo.model.User;
 import com.example.todo.repository.TaskRepository;
@@ -23,11 +22,13 @@ public class ReminderService {
     private final TaskRepository taskRepository;
     private final CurrentUserProvider currentUser;
     private final Clock clock;
+    private final TaskAccess taskAccess;
 
-    public ReminderService(TaskRepository taskRepository, CurrentUserProvider currentUser, Clock clock) {
+    public ReminderService(TaskRepository taskRepository, CurrentUserProvider currentUser, Clock clock, TaskAccess taskAccess) {
         this.taskRepository = taskRepository;
         this.currentUser = currentUser;
         this.clock = clock;
+        this.taskAccess = taskAccess;
     }
 
     public List<TaskResponse> dueReminders() {
@@ -40,9 +41,8 @@ public class ReminderService {
     }
 
     public TaskResponse acknowledge(Long id) {
-        User me = currentUser.requireCurrent();
-        Task task = taskRepository.findById(id).orElseThrow(ResourceNotFoundException::new);
-        currentUser.requireOwned(task.getUser().getId());
+        currentUser.requireCurrent();
+        Task task = taskAccess.owned(id);
         if (task.getReminderNotifiedAt() == null) {
             task.setReminderNotifiedAt(LocalDateTime.now(clock));
             taskRepository.save(task);

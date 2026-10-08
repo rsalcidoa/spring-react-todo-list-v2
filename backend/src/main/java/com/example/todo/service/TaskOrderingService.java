@@ -2,10 +2,8 @@ package com.example.todo.service;
 
 import com.example.todo.dto.TaskResponse;
 import com.example.todo.exception.InvalidQueryValueException;
-import com.example.todo.exception.ResourceNotFoundException;
 import com.example.todo.model.Task;
 import com.example.todo.model.TaskStatus;
-import com.example.todo.model.User;
 import com.example.todo.repository.TaskRepository;
 import com.example.todo.security.CurrentUserProvider;
 import org.springframework.stereotype.Service;
@@ -16,30 +14,23 @@ public class TaskOrderingService {
 
     private final TaskRepository taskRepository;
     private final CurrentUserProvider currentUser;
+    private final TaskAccess taskAccess;
 
-    public TaskOrderingService(TaskRepository taskRepository, CurrentUserProvider currentUser) {
+    public TaskOrderingService(TaskRepository taskRepository, CurrentUserProvider currentUser, TaskAccess taskAccess) {
         this.taskRepository = taskRepository;
         this.currentUser = currentUser;
+        this.taskAccess = taskAccess;
     }
 
     public TaskResponse reorder(Long id, String rawStatus, double position) {
-        User me = currentUser.requireCurrent();
+        currentUser.requireCurrent();
         if (Double.isNaN(position) || Double.isInfinite(position)) {
             throw new InvalidQueryValueException("position", "Position must be a finite number");
         }
-        Task task = taskRepository.findById(id).orElseThrow(ResourceNotFoundException::new);
-        currentUser.requireOwned(task.getUser().getId());
-        task.setStatus(parseStatus(rawStatus));
+        Task task = taskAccess.owned(id);
+        task.setStatus(TaskStatus.parse(rawStatus));
         task.setPosition(position);
         taskRepository.save(task);
         return TaskResponse.of(task);
-    }
-
-    private TaskStatus parseStatus(String rawStatus) {
-        try {
-            return TaskStatus.valueOf(rawStatus);
-        } catch (IllegalArgumentException e) {
-            throw new InvalidQueryValueException("status", "Status must be PENDING, ACTIVE or COMPLETED");
-        }
     }
 }

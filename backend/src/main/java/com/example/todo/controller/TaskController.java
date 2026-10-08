@@ -1,34 +1,32 @@
 package com.example.todo.controller;
 
+import com.example.todo.dto.PageResponse;
+import com.example.todo.dto.PositionUpdateRequest;
 import com.example.todo.dto.StatusUpdateRequest;
+import com.example.todo.dto.TaskQuery;
 import com.example.todo.dto.TaskRequest;
 import com.example.todo.dto.TaskResponse;
-import com.example.todo.dto.TaskQuery;
 import com.example.todo.exception.InvalidStatusValueException;
-import com.example.todo.exception.InvalidQueryValueException;
-import com.example.todo.service.TaskService;
-import com.example.todo.service.ReminderService;
-import com.example.todo.service.TaskOrderingService;
-import com.example.todo.dto.PositionUpdateRequest;
+import com.example.todo.service.TaskModule;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 
 import java.util.List;
+import java.util.Optional;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 @RestController
 @RequestMapping("/v1/tasks")
 public class TaskController {
-    private final TaskService taskService;
-    private final ReminderService reminderService;
-    private final TaskOrderingService taskOrderingService;
+    private final TaskModule taskModule;
 
     @Autowired
-    public TaskController(TaskService taskService, ReminderService reminderService, TaskOrderingService taskOrderingService) {
-        this.taskService = taskService;
-        this.reminderService = reminderService;
-        this.taskOrderingService = taskOrderingService;
+    public TaskController(TaskModule taskModule) {
+        this.taskModule = taskModule;
     }
 
     /**
@@ -47,21 +45,13 @@ public class TaskController {
             @RequestParam(name = "page", required = false) Integer page,
             @RequestParam(name = "size", required = false) Integer size) {
         TaskQuery query = TaskQuery.parse(status, q, priority, tagIds, sort, dir);
-        if (page != null || size != null) {
-            int p = page == null ? 0 : page;
-            int s = size == null ? 20 : size;
-            if (p < 0) {
-                throw new InvalidQueryValueException("page", "Page must be >= 0");
-            }
-            if (s < 1 || s > 100) {
-                throw new InvalidQueryValueException("size", "Size must be between 1 and 100");
-            }
-            org.springframework.data.domain.Page<TaskResponse> result =
-                    taskService.getAllTasks(query, org.springframework.data.domain.PageRequest.of(p, s));
-            return ResponseEntity.ok(new com.example.todo.dto.PageResponse<>(
-                    result.getContent(), p, s, result.getTotalElements()));
+        Optional<Pageable> pageable = TaskQuery.pageable(page, size);
+        if (pageable.isPresent()) {
+            Page<TaskResponse> result = taskModule.list(query, pageable.get());
+            return ResponseEntity.ok(new PageResponse<>(
+                    result.getContent(), result.getNumber(), result.getSize(), result.getTotalElements()));
         }
-        return ResponseEntity.ok(taskService.getAllTasks(query));
+        return ResponseEntity.ok(taskModule.list(query));
     }
 
     /**
@@ -69,7 +59,7 @@ public class TaskController {
      */
     @GetMapping("/{id}")
     public ResponseEntity<TaskResponse> getTask(@PathVariable Long id) {
-        return ResponseEntity.ok(taskService.getTaskById(id));
+        return ResponseEntity.ok(taskModule.get(id));
     }
 
     /**
@@ -77,7 +67,7 @@ public class TaskController {
      */
     @GetMapping("/reminders")
     public ResponseEntity<List<TaskResponse>> getDueReminders() {
-        return ResponseEntity.ok(reminderService.dueReminders());
+        return ResponseEntity.ok(taskModule.dueReminders());
     }
 
     /**
@@ -85,7 +75,7 @@ public class TaskController {
      */
     @GetMapping("/{id}/subtasks")
     public ResponseEntity<List<TaskResponse>> getSubtasks(@PathVariable Long id) {
-        return ResponseEntity.ok(taskService.getSubtasks(id));
+        return ResponseEntity.ok(taskModule.subtasks(id));
     }
 
     /**
@@ -93,7 +83,7 @@ public class TaskController {
      */
     @PostMapping("/{id}/reminder-ack")
     public ResponseEntity<TaskResponse> ackReminder(@PathVariable Long id) {
-        return ResponseEntity.ok(reminderService.acknowledge(id));
+        return ResponseEntity.ok(taskModule.acknowledgeReminder(id));
     }
 
     /**
@@ -101,7 +91,7 @@ public class TaskController {
      */
     @PostMapping
     public ResponseEntity<TaskResponse> createTask(@Valid @RequestBody TaskRequest request) {
-        TaskResponse created = taskService.createTask(request);
+        TaskResponse created = taskModule.create(request);
         return ResponseEntity.status(201).body(created);
     }
 
@@ -110,7 +100,7 @@ public class TaskController {
      */
     @PutMapping("/{id}")
     public ResponseEntity<TaskResponse> updateTask(@PathVariable Long id, @Valid @RequestBody TaskRequest request) {
-        return ResponseEntity.ok(taskService.updateTask(id, request));
+        return ResponseEntity.ok(taskModule.update(id, request));
     }
 
     /**
@@ -118,7 +108,7 @@ public class TaskController {
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteTask(@PathVariable Long id) {
-        taskService.deleteTask(id);
+        taskModule.delete(id);
         return ResponseEntity.noContent().build();
     }
 
@@ -127,7 +117,7 @@ public class TaskController {
      */
     @PostMapping("/{id}/restore")
     public ResponseEntity<TaskResponse> restoreTask(@PathVariable Long id) {
-        return ResponseEntity.ok(taskService.restoreTask(id));
+        return ResponseEntity.ok(taskModule.restore(id));
     }
 
     /**
@@ -138,7 +128,7 @@ public class TaskController {
         if (request == null) {
             throw new InvalidStatusValueException("status", "Status must not be blank");
         }
-        return ResponseEntity.ok(taskService.applyStatus(id, request.getStatus()));
+        return ResponseEntity.ok(taskModule.changeStatus(id, request.getStatus()));
     }
 
     /**
@@ -146,6 +136,6 @@ public class TaskController {
      */
     @PatchMapping("/{id}/position")
     public ResponseEntity<TaskResponse> patchPosition(@PathVariable Long id, @Valid @RequestBody PositionUpdateRequest request) {
-        return ResponseEntity.ok(taskOrderingService.reorder(id, request.getStatus(), request.getPosition()));
+        return ResponseEntity.ok(taskModule.reorder(id, request.getStatus(), request.getPosition()));
     }
 }

@@ -31,6 +31,7 @@ class ReminderServiceTest {
     private CurrentUserProvider currentUser;
     private Clock clock;
     private ReminderService service;
+    private TaskAccess taskAccess;
 
     private final User me = userWithId(1L);
     private final User other = userWithId(2L);
@@ -40,7 +41,8 @@ class ReminderServiceTest {
         taskRepository = mock(TaskRepository.class);
         currentUser = mock(CurrentUserProvider.class);
         clock = Clock.fixed(Instant.parse("2026-06-01T00:00:00Z"), ZoneOffset.UTC);
-        service = new ReminderService(taskRepository, currentUser, clock);
+        taskAccess = new TaskAccess(taskRepository, currentUser);
+        service = new ReminderService(taskRepository, currentUser, clock, taskAccess);
     }
 
     private User userWithId(long id) {
