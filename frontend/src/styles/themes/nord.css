@@ -4,6 +4,7 @@
   color-scheme: light;
   --color-bg: #e8edf3;
   --color-surface: rgba(255, 255, 255, 0.72);
+  --color-surface-raised: rgba(255, 255, 255, 0.9);
   --color-primary: #5e81ac;
   --color-primary-hover: #4c6a8f;
   --color-text: #2e3440;
