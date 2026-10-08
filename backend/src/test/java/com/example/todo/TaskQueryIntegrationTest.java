@@ -126,4 +126,24 @@ class TaskQueryIntegrationTest {
                 .andExpect(jsonPath("$.error").value("Validation failed"))
                 .andExpect(jsonPath("$.errors.priority[0]").exists());
     }
+
+    /**
+     * Parity fixture shared with the frontend `boardQuery.test.ts`: the same
+     * query must yield the same order on the server spec and on
+     * {@code BoardQuery.apply}.
+     */
+    @Test
+    void boardQueryParityOrdering() throws Exception {
+        registerAndLogin();
+        createTask("{\"title\": \"Low\", \"priority\": \"LOW\"}");
+        createTask("{\"title\": \"High\", \"priority\": \"HIGH\"}");
+        createTask("{\"title\": \"Medium\", \"priority\": \"MEDIUM\"}");
+
+        JsonNode result = list("?sort=priority&dir=desc");
+
+        assertEquals(3, result.size());
+        assertEquals("High", result.get(0).path("title").asText());
+        assertEquals("Medium", result.get(1).path("title").asText());
+        assertEquals("Low", result.get(2).path("title").asText());
+    }
 }

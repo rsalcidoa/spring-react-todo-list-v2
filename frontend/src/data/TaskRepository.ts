@@ -1,28 +1,45 @@
 import { Task, Tag, Project, TaskInput, TaskQuery, Page, TaskStatus, Priority } from '../services/types/task';
+import { applyBoardQuery } from '../services/boardQuery';
 import { getTasks, createTask, updateTask, deleteTask, patchStatus, getTags, createTag as apiCreateTag, deleteTag as apiDeleteTag, getProjects, createProject as apiCreateProject, renameProject as apiRenameProject, deleteProject as apiDeleteProject, getSubtasks, reorderPosition, restoreTask } from '../services/ApiService';
 
-export interface TaskRepository {
+/** Role-sized ports: callers depend only on the capability they use. */
+export interface TaskStore {
   fetchAll(query?: TaskQuery): Promise<Task[]>;
   fetchPage(query: TaskQuery | undefined, page: number, size: number): Promise<Page<Task>>;
   create(input: TaskInput): Promise<Task>;
   update(id: number, input: TaskInput): Promise<Task>;
   move(id: number, status: TaskStatus): Promise<void>;
   remove(id: number): Promise<void>;
+  restore(id: number): Promise<Task>;
+}
+
+export interface OrderingStore {
+  reorder(id: number, status: TaskStatus, position: number): Promise<void>;
+}
+
+export interface TagStore {
   listTags(): Promise<Tag[]>;
   createTag(name: string): Promise<Tag>;
   deleteTag(id: number): Promise<void>;
+}
+
+export interface ProjectStore {
   listProjects(): Promise<Project[]>;
   createProject(name: string): Promise<Project>;
   renameProject(id: number, name: string): Promise<Project>;
   deleteProject(id: number): Promise<void>;
+}
+
+export interface SubtaskStore {
   listSubtasks(parentId: number): Promise<Task[]>;
   createSubtask(parentId: number, title: string): Promise<Task>;
   removeSubtask(id: number): Promise<void>;
-  reorder(id: number, status: TaskStatus, position: number): Promise<void>;
-  restore(id: number): Promise<Task>;
 }
 
-export type RepositoryErrorCode = 'conflict' | 'not-found' | 'validation' | 'unknown';
+/** Composite port for callers that need the whole board (e.g. the page). */
+export interface TaskRepository extends TaskStore, OrderingStore, TagStore, ProjectStore, SubtaskStore {}
+
+export type RepositoryErrorCode = 'conflict' | 'unauthorized' | 'forbidden' | 'not-found' | 'validation' | 'unknown';
 
 export class RepositoryError extends Error {
   readonly code: RepositoryErrorCode;
@@ -51,6 +68,8 @@ export function mapApiError(e: unknown): RepositoryError {
   const status = getApiStatus(e);
   const detail = getApiMessage(e);
   if (status === 409) return new RepositoryError('conflict', detail, status);
+  if (status === 401) return new RepositoryError('unauthorized', detail, status);
+  if (status === 403) return new RepositoryError('forbidden', detail, status);
   if (status === 404) return new RepositoryError('not-found', detail, status);
   if (status === 400) return new RepositoryError('validation', detail, status);
   return new RepositoryError('unknown', detail, status);
@@ -80,38 +99,6 @@ function checkTagName(name: string): string {
   if (!trimmed) throw new RepositoryError('validation', 'Tag name must not be blank');
   if (trimmed.length > 50) throw new RepositoryError('validation', 'Tag name must not exceed 50 characters');
   return trimmed;
-}
-
-const PRIORITY_RANK: Record<Priority, number> = {
-  [Priority.LOW]: 0,
-  [Priority.MEDIUM]: 1,
-  [Priority.HIGH]: 2,
-};
-
-function compareTasks(a: Task, b: Task, sort: TaskQuery['sort'], dir: TaskQuery['dir']): number {
-  const field = sort ?? 'createdAt';
-  const direction = dir ?? (field === 'createdAt' ? 'desc' : 'asc');
-  let result: number;
-  switch (field) {
-    case 'priority':
-      result = PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority];
-      break;
-    case 'title':
-      result = a.title.toLowerCase().localeCompare(b.title.toLowerCase());
-      break;
-    case 'dueDate': {
-      const ad = a.dueDate;
-      const bd = b.dueDate;
-      if (!ad && !bd) return 0;
-      if (!ad) return 1; // dateless tasks last, regardless of direction
-      if (!bd) return -1;
-      result = ad.localeCompare(bd);
-      break;
-    }
-    default:
-      result = (a.createdAt ?? '').localeCompare(b.createdAt ?? '');
-  }
-  return direction === 'desc' ? -result : result;
 }
 
 interface WireTaskBody {
@@ -341,30 +328,23 @@ export class InMemoryTaskRepository implements TaskRepository {
   private nextProjectId = 1;
 
   async fetchAll(query?: TaskQuery): Promise<Task[]> {
-    let items = this.tasks.map(t => ({ ...t, tags: [...t.tags] }));
-    if (query?.q) {
-      const needle = query.q.toLowerCase();
-      items = items.filter(t =>
-        t.title.toLowerCase().includes(needle) || (t.description ?? '').toLowerCase().includes(needle));
-    }
-    if (query?.priority) {
-      items = items.filter(t => t.priority === query.priority);
-    }
-    if (query?.status) {
-      items = items.filter(t => t.status === query.status);
-    }
-    if (query?.tagIds && query.tagIds.length > 0) {
-      items = items.filter(t => t.tags.some(tag => query.tagIds!.includes(tag.id)));
-    }
-    items = items.map(t => {
+    const items = applyBoardQuery(
+      this.tasks.map(t => ({ ...t, tags: [...t.tags] })),
+      {
+        q: query?.q,
+        priority: query?.priority,
+        status: query?.status,
+        tagIds: query?.tagIds,
+        sort: query?.sort,
+        dir: query?.dir,
+      },
+    );
+    return items.map(t => {
       const children = this.tasks.filter(c => c.parentId === t.id);
       if (children.length === 0) return t;
       const done = children.filter(c => c.status === TaskStatus.COMPLETED).length;
       return { ...t, subtaskProgress: { done, total: children.length } };
     });
-    const sort = query?.sort ?? 'createdAt';
-    const dir = query?.dir ?? (sort === 'createdAt' ? 'desc' : 'asc');
-    return items.sort((a, b) => compareTasks(a, b, sort, dir));
   }
 
   async fetchPage(query: TaskQuery | undefined, page: number, size: number): Promise<Page<Task>> {
@@ -374,6 +354,7 @@ export class InMemoryTaskRepository implements TaskRepository {
   }
 
   async create(input: TaskInput): Promise<Task> {
+    this.requireValidParent(input.parentId);
     const tags = this.registerTags(input.tagNames);
     const task: Task = {
       id: this.nextTaskId++,
@@ -510,14 +491,19 @@ export class InMemoryTaskRepository implements TaskRepository {
   }
 
   async createSubtask(parentId: number, title: string): Promise<Task> {
-    const parent = this.tasks.find(t => t.id === parentId);
-    if (!parent) throw new RepositoryError('not-found', `Task ${parentId} not found`);
-    if (parent.parentId != null) throw new RepositoryError('validation', 'Subtasks cannot be nested');
     return this.create({ title, priority: Priority.LOW, status: TaskStatus.PENDING, tagNames: [], parentId });
   }
 
   async removeSubtask(id: number): Promise<void> {
     return this.remove(id);
+  }
+
+  /** Backend rule: a parent must exist and may not itself be a subtask. */
+  private requireValidParent(parentId?: number): void {
+    if (parentId == null) return;
+    const parent = this.tasks.find(t => t.id === parentId);
+    if (!parent) throw new RepositoryError('validation', `Parent ${parentId} not found`);
+    if (parent.parentId != null) throw new RepositoryError('validation', 'Subtasks cannot be nested');
   }
 
   async reorder(id: number, status: TaskStatus, position: number): Promise<void> {
