@@ -52,11 +52,11 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
   it('renders three Kanban columns with correct labels and counts', async () => {
     const { repository } = await seedBoard();
     renderWithRepo(repository);
-    await waitFor(() => expect(screen.getByText(/Tablero/i)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/Todas las tareas/i)).toBeTruthy());
     await waitFor(() => expect(screen.getByRole('heading', { name: /Por hacer 1/ })).toBeTruthy());
     expect(screen.getByRole('heading', { name: /En progreso 1/ })).toBeTruthy();
     expect(screen.getByRole('heading', { name: /Hecho 0/ })).toBeTruthy();
-    expect(screen.getByText(/Tablero/i).closest('h1')?.textContent).toMatch(/2/);
+    expect(screen.getByText(/Todas las tareas/i).closest('h1')?.textContent).toMatch(/2/);
   });
 
   it('renders the board chrome in English after switching language', async () => {
@@ -103,6 +103,22 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
     expect(actionsGroup.className).toMatch(/actions/);
     expect(actionsGroup.contains(search)).toBe(false);
     expect(search.closest('[class*="filters"]')).toBeTruthy();
+
+    const language = screen.getByLabelText('Idioma');
+    expect(language.closest('[class*="appearance"]')).toBeTruthy();
+    expect(language.closest('[class*="filters"]')).toBeNull();
+  });
+
+  it('shows the active project name and description as the title', async () => {
+    const repository = new InMemoryTaskRepository();
+    const project = await repository.createProject('Casa', 'Remodelación de la cocina');
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.getByRole('option', { name: 'Casa' })).toBeTruthy());
+
+    fireEvent.change(screen.getByLabelText('Filtrar por proyecto'), { target: { value: String(project.id) } });
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: /Casa/ })).toBeTruthy());
+    expect(screen.getByText('Remodelación de la cocina')).toBeTruthy();
   });
 
   it('marks completed cards with the completed treatment', async () => {
@@ -173,7 +189,7 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
   it('creates a task via modal and stores it through the repository', async () => {
     const repository = new InMemoryTaskRepository();
     renderWithRepo(repository);
-    await waitFor(() => expect(screen.queryByText(/Tablero/i)).toBeTruthy());
+    await waitFor(() => expect(screen.queryByText(/Todas las tareas/i)).toBeTruthy());
 
     fireEvent.click(screen.getByRole('button', { name: /\+ Tarea/i }));
     fireEvent.change(screen.getByPlaceholderText(/Título de la tarea/), { target: { value: 'New Modal Task' } });
@@ -268,7 +284,7 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
   it('creates tags with real ids so they reconcile without refresh hacks', async () => {
     const repository = new InMemoryTaskRepository();
     renderWithRepo(repository);
-    await waitFor(() => expect(screen.queryByText(/Tablero/i)).toBeTruthy());
+    await waitFor(() => expect(screen.queryByText(/Todas las tareas/i)).toBeTruthy());
 
     fireEvent.click(screen.getByRole('button', { name: /\+ Tarea/i }));
     fireEvent.change(screen.getByPlaceholderText(/Nueva etiqueta/), { target: { value: 'NewTag' } });

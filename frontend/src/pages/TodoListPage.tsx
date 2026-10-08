@@ -12,6 +12,7 @@ import { Task, TaskInput, TaskStatus, TaskSort, SortDir, Priority } from '../ser
 import { useBoard } from './useBoard';
 import KanbanColumn from '../components/KanbanColumn';
 import AddTaskModal from '../components/AddTaskModal';
+import ManageProjectsModal from '../components/ManageProjectsModal';
 import ErrorBanner from '../components/ErrorBanner';
 import UserMenu from '../components/UserMenu';
 import styles from './TodoListPage.module.css';
@@ -31,9 +32,17 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
 
   const { tasks, grouped, tags, projects, filters, error, loading: isLoading, total, lastDeleted, actions } = useBoard(repository);
   const { view, query, tagFilter, projectFilter } = filters;
+  const activeProject = projects.find(p => String(p.id) === projectFilter);
+  const activeProjectId = activeProject?.id;
+  const scopeTitle = projectFilter === 'none'
+    ? t('board.scope.none')
+    : activeProject
+      ? activeProject.name
+      : t('board.scope.all');
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [projectsOpen, setProjectsOpen] = useState(false);
   const undoRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -93,10 +102,41 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
       )}
       <header className={styles.header}>
         <div className={styles.headerTop}>
-          <h1>{t('app.title')} <span className={styles.count}>{formatNumber(tasks.length, lang)}</span></h1>
-          <div className={styles.actions}>
-            <button className={styles.newTaskBtn} onClick={() => { setEditingTask(null); setModalOpen(true); }}>{t('board.newTask')}</button>
-            <UserMenu email={user} onLogout={handleLogout} />
+          <div className={styles.titleBlock}>
+            <h1>{scopeTitle} <span className={styles.count}>{formatNumber(tasks.length, lang)}</span></h1>
+            {activeProject?.description && <p className={styles.subtitle}>{activeProject.description}</p>}
+          </div>
+          <div className={styles.headerRight}>
+            <div className={styles.actions}>
+              <button className={styles.newTaskBtn} onClick={() => { setEditingTask(null); setModalOpen(true); }}>{t('board.newTask')}</button>
+              <UserMenu email={user} onLogout={handleLogout} />
+            </div>
+            <div className={styles.appearance}>
+              <label className={styles.themeLabel}>
+                {t('board.language')}
+                <select
+                  aria-label={t('board.language')}
+                  className={styles.themeSelect}
+                  value={lang}
+                  onChange={e => setLang(e.target.value)}
+                >
+                  {AVAILABLE_LANGS.map(l => (<option key={l.code} value={l.code}>{l.label}</option>))}
+                </select>
+              </label>
+              <label className={styles.themeLabel}>
+                {t('board.theme')}
+                <select
+                  aria-label={t('board.theme')}
+                  value={theme}
+                  onChange={e => setTheme(e.target.value as typeof theme)}
+                  className={styles.themeSelect}
+                >
+                  {AVAILABLE_THEMES.map(themeOption => (
+                    <option key={themeOption.name} value={themeOption.name}>{t(`theme.${themeOption.name}` as TranslationKey)}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
           </div>
         </div>
         <div className={styles.filters}>
@@ -126,10 +166,16 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
               aria-label={t('board.filterProject')}
               className={styles.themeSelect}
               value={projectFilter}
-              onChange={e => actions.setProjectFilter(e.target.value)}
+              onChange={e => {
+                const value = e.target.value;
+                if (value === '__new__') { setProjectsOpen(true); return; }
+                actions.setProjectFilter(value);
+              }}
             >
               <option value="">{t('board.allProjects')}</option>
+              <option value="none">{t('board.scope.none')}</option>
               {projects.map(p => (<option key={p.id} value={String(p.id)}>{p.name}</option>))}
+              <option value="__new__">{t('board.newProject')}</option>
             </select>
           </label>
           <label className={styles.themeLabel}>
@@ -169,30 +215,6 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
               <option value="title:asc">{t('board.sort.title')}</option>
             </select>
           </label>
-          <label className={styles.themeLabel}>
-            {t('board.language')}
-            <select
-              aria-label={t('board.language')}
-              className={styles.themeSelect}
-              value={lang}
-              onChange={e => setLang(e.target.value)}
-            >
-              {AVAILABLE_LANGS.map(l => (<option key={l.code} value={l.code}>{l.label}</option>))}
-            </select>
-          </label>
-          <label className={styles.themeLabel}>
-            {t('board.theme')}
-            <select
-              aria-label={t('board.theme')}
-              value={theme}
-              onChange={e => setTheme(e.target.value as typeof theme)}
-              className={styles.themeSelect}
-            >
-              {AVAILABLE_THEMES.map(themeOption => (
-                <option key={themeOption.name} value={themeOption.name}>{t(`theme.${themeOption.name}` as TranslationKey)}</option>
-              ))}
-            </select>
-          </label>
         </div>
       </header>
 
@@ -223,6 +245,11 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
         ) : tasks.length === 0 ? (
           <div className={styles.emptyBoard}>
             <p>{t('board.empty')}</p>
+            {projects.length === 0 && (
+              <button className={styles.newTaskBtn} onClick={() => setProjectsOpen(true)}>
+                {t('board.createProject')}
+              </button>
+            )}
             <button className={styles.newTaskBtn} onClick={() => { setEditingTask(null); setModalOpen(true); }}>
               {t('board.create')}
             </button>
@@ -262,8 +289,18 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
         projects={projects}
         editingTask={editingTask}
         countTagTasks={countTagTasks}
+        activeProjectId={activeProjectId}
         onTagCreated={(tag) => actions.addTag(tag)}
         onTagDeleted={(id) => { void actions.removeTag(id); }}
+      />
+
+      <ManageProjectsModal
+        isOpen={projectsOpen}
+        onClose={() => setProjectsOpen(false)}
+        projects={projects}
+        onCreate={async (name, description) => { await actions.createProject(name, description); }}
+        onRename={async (id, name, description) => { await actions.renameProject(id, name, description); }}
+        onDelete={async (id) => { await actions.deleteProject(id); }}
       />
     </div>
   );
