@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, waitFor, fireEvent, cleanup, within } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, cleanup, within, act } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import TodoListPage from '../pages/TodoListPage';
 import { ThemeProvider } from '../context/ThemeContext';
@@ -447,6 +447,33 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
     renderWithRepo(repository);
 
     await waitFor(() => expect(screen.getByRole('main').getAttribute('aria-busy')).toBe('true'));
+  });
+
+  it('pauses the auto-dismiss while the undo button is focused', async () => {
+    const { repository } = await seedBoard();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy(), { timeout: 5000 });
+
+    const card = screen.getByText(/Task Alpha/i).closest('[data-task]') as HTMLElement;
+
+    vi.useFakeTimers();
+    await act(async () => {
+      fireEvent.click(within(card).getByRole('button', { name: /Borrar tarea/i }));
+      await Promise.resolve();
+    });
+
+    const undo = screen.getByRole('button', { name: /Deshacer/i });
+    // Focused: the timer is paused, so it survives beyond the 5s window.
+    act(() => { vi.advanceTimersByTime(10000); });
+    expect(screen.queryByRole('button', { name: /Deshacer/i })).toBeTruthy();
+
+    // Blurred: the timer resumes and dismisses it.
+    act(() => { fireEvent.blur(undo); });
+    act(() => { vi.advanceTimersByTime(10000); });
+    expect(screen.queryByRole('button', { name: /Deshacer/i })).toBeNull();
+
+    vi.useRealTimers();
   });
 
   it('loads more pages of tasks', async () => {
