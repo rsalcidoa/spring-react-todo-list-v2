@@ -27,7 +27,7 @@ const LoginPage: React.FC = () => {
     try {
       await login(email, password, () => navigate('/tasks'));
     } catch {
-      showError('Email o contraseña inválidos');
+      showError(t('auth.login.error'));
     }
   };
 

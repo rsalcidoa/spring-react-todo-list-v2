@@ -4,6 +4,7 @@ import { MoveDirection } from '../services/boardKeyboard';
 import KanbanCard from './KanbanCard';
 import QuickAddTask from './QuickAddTask';
 import { useT } from '../i18n';
+import { formatNumber } from '../services/format';
 import styles from './KanbanColumn.module.css';
 
 interface KanbanColumnProps {
@@ -25,7 +26,7 @@ const STATUS_DOT_VAR: Record<string, string> = {
 };
 
 const KanbanColumn: React.FC<KanbanColumnProps> = ({status, label, tasks, onCardClick, onDrop, onDelete, onQuickAdd, onMove, onReorder}) => {
-  const { t } = useT();
+  const { t, lang } = useT();
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.currentTarget.classList.add(styles.dragover);
@@ -61,7 +62,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({status, label, tasks, onCard
     <div className={styles.column}>
       <h3 className={styles.header}>
         <span className={styles.dot} style={{ backgroundColor: STATUS_DOT_VAR[status] ?? 'var(--color-text-muted)' }} />
-        {label} <span className={styles.count}>{tasks.length}</span>
+        {label} <span className={styles.count}>{formatNumber(tasks.length, lang)}</span>
       </h3>
       <div className={`${styles.body}`}
            onDragOver={handleDragOver}

@@ -3,6 +3,8 @@ import { Task, Priority } from '../services/types/task';
 import { MoveDirection } from '../services/boardKeyboard';
 import { getDueState } from '../services/dueState';
 import styles from './KanbanCard.module.css';
+import { useT } from '../i18n';
+import { formatDate } from '../services/format';
 
 const PRIORITY_LABELS: Record<Priority, string> = {
   [Priority.LOW]: 'Baja',
@@ -18,12 +20,13 @@ interface KanbanCardProps {
 }
 
 const KanbanCard: React.FC<KanbanCardProps> = ({task, onClick, onDelete, onMove}) => {
+  const { t, lang } = useT();
   const dueState = getDueState(task.dueDate);
   const dueClass = dueState === 'overdue' ? styles.dueOverdue : dueState === 'today' ? styles.dueToday : '';
   const dueLabel =
-    dueState === 'overdue' ? `Vencida: ${task.dueDate}` :
-    dueState === 'today' ? `Hoy: ${task.dueDate}` :
-    task.dueDate;
+    dueState === 'overdue' ? `${t('board.overdue')}: ${formatDate(task.dueDate, lang)}` :
+    dueState === 'today' ? `${t('board.today')}: ${formatDate(task.dueDate, lang)}` :
+    task.dueDate ? formatDate(task.dueDate, lang) : undefined;
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Enter') {

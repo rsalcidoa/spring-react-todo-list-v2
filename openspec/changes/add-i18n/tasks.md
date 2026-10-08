@@ -18,8 +18,8 @@
 
 ## 4. Modal y errores (TDD)
 
-- [ ] 4.1 Extraer las cadenas de `AddTaskModal`/`ErrorBanner` y mapear los errores de API a mensajes localizados; verificar `npx vitest run src/__tests__/AddTaskModal.test.tsx src/__tests__/ErrorBanner.test.tsx`. Skills: `tdd`.
-- [ ] 4.2 Formatear fechas/counts con `Intl` (reemplazar concatenaciones); verificar `npx vitest run src/__tests__/dueState.test.ts src/__tests__/TodoListPage.test.tsx`. Skills: `tdd`.
+- [x] 4.1 Extraer las cadenas de `AddTaskModal`/`ErrorBanner` y mapear los errores de API a mensajes localizados; verificar `npx vitest run src/__tests__/AddTaskModal.test.tsx src/__tests__/ErrorBanner.test.tsx`. Skills: `tdd`.
+- [x] 4.2 Formatear fechas/counts con `Intl` (reemplazar concatenaciones); verificar `npx vitest run src/__tests__/dueState.test.ts src/__tests__/TodoListPage.test.tsx`. Skills: `tdd`.
 
 ## 5. Verificacion
 

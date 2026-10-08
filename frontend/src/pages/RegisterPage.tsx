@@ -33,9 +33,9 @@ export default function RegisterPage() {
     } catch (error: unknown) {
       if (getApiStatus(error) === 409) {
         const message = getApiMessage(error);
-        showError(message === 'Error' ? 'Este email ya está registrado' : message);
+        showError(message === 'Error' ? t('auth.register.duplicate') : message);
       } else {
-        showError('Error en registro');
+        showError(t('auth.register.error'));
       }
     }
   };

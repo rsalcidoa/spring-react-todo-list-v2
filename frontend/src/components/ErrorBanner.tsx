@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import styles from './ErrorBanner.module.css';
+import { useT } from '../i18n';
 
 interface ErrorBannerProps {
   message: string;
@@ -9,6 +10,7 @@ interface ErrorBannerProps {
 let nextId = 0;
 
 const ErrorBanner: React.FC<ErrorBannerProps> = ({ message, onDismiss }) => {
+  const { t } = useT();
   const [visible, setVisible] = useState(true);
   const idRef = React.useRef(++nextId);
 
@@ -27,7 +29,7 @@ const ErrorBanner: React.FC<ErrorBannerProps> = ({ message, onDismiss }) => {
   return (
     <div className={styles.banner} role="alert" data-banner-id={idRef.current}>
       <span className={styles.message}>{message}</span>
-      <button className={styles.closeBtn} onClick={dismiss} aria-label="Cerrar">×</button>
+      <button className={styles.closeBtn} onClick={dismiss} aria-label={t('common.close')}>×</button>
     </div>
   );
 };

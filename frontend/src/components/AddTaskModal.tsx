@@ -3,6 +3,7 @@ import styles from './AddTaskModal.module.css';
 import { TaskStatus, Priority, Task, Tag, Project, TaskInput, Recurrence } from '../services/types/task';
 import { toDisplayMessage, type TaskRepository } from '../data/TaskRepository';
 import ErrorBanner from './ErrorBanner';
+import { useT } from '../i18n';
 
 interface AddTaskModalProps {
   isOpen: boolean;
@@ -17,13 +18,8 @@ interface AddTaskModalProps {
   countTagTasks?: (id: number) => number;
 }
 
-const TAG_ERROR_FALLBACKS = {
-  conflict: 'Esta etiqueta ya existe',
-  badRequest: 'Nombre de etiqueta inválido',
-  notFound: 'La etiqueta ya no existe',
-};
-
 const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, repository, existingTags=[], projects=[], editingTask=null, onTagCreated, onTagDeleted, countTagTasks}) => {
+  const { t } = useT();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState(Priority.LOW);
@@ -102,8 +98,12 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
   };
 
   const friendlyTagError = (e: unknown) => {
-    const message = toDisplayMessage(e, TAG_ERROR_FALLBACKS);
-    return message === 'Error' ? 'Algo salió mal' : message;
+    const message = toDisplayMessage(e, {
+      conflict: t('tagError.duplicate'),
+      badRequest: t('tagError.invalid'),
+      notFound: t('tagError.missing'),
+    });
+    return message === 'Error' ? t('tagError.invalid') : message;
   };
 
   const handleCreateTag = async () => {
@@ -172,7 +172,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
 
   const handleSubmit = () => {
     if (!title.trim()) {
-      setTitleError('El título es obligatorio');
+      setTitleError(t('task.titleRequired'));
       return;
     }
     setTitleError(null);
@@ -186,97 +186,97 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
 
   return (
     <div className={styles.overlay} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className={styles.modal} role="dialog" aria-modal="true" aria-label={editingTask ? 'Editar tarea' : 'Nueva tarea'}>
-        <h2 className={styles.header}>{editingTask ? 'Editar tarea' : 'Nueva tarea'}</h2>
+      <div className={styles.modal} role="dialog" aria-modal="true" aria-label={editingTask ? t('task.editTitle') : t('task.newTitle')}>
+        <h2 className={styles.header}>{editingTask ? t('task.editTitle') : t('task.newTitle')}</h2>
         <div className={styles.formGroup}>
-          <label className={styles.formLabel}>Título *</label>
-          <input className={styles.input} ref={titleRef} placeholder="Título de la tarea" value={title} onChange={e=>setTitle(e.target.value)} />
+          <label className={styles.formLabel}>{t('task.title')} *</label>
+          <input className={styles.input} ref={titleRef} placeholder={t('task.titlePlaceholder')} value={title} onChange={e=>setTitle(e.target.value)} />
           {titleError && <span className={styles.requiredMsg} role="alert">{titleError}</span>}
         </div>
         <div className={styles.formGroup}>
-          <label className={styles.formLabel}>Descripción</label>
-          <textarea className={styles.textarea} placeholder="Descripción" value={description} onChange={e=>setDescription(e.target.value)} />
+          <label className={styles.formLabel}>{t('task.description')}</label>
+          <textarea className={styles.textarea} placeholder={t('task.description')} value={description} onChange={e=>setDescription(e.target.value)} />
         </div>
         <div className={`${styles.row}`}>
           <div className={styles.formGroupFlex}>
-            <label className={styles.formLabel}>Prioridad</label>
+            <label className={styles.formLabel}>{t('task.priority')}</label>
             <select className={styles.select} value={priority} onChange={e=>setPriority(e.target.value as Priority)}>
-              {[{v:'LOW',l:'Baja'},{v:'MEDIUM',l:'Media'},{v:'HIGH',l:'Alta'}].map(o => (<option key={o.v} value={o.v}>{o.l}</option>))}
+              {[{v:'LOW',l:t('priority.low')},{v:'MEDIUM',l:t('priority.medium')},{v:'HIGH',l:t('priority.high')}].map(o => (<option key={o.v} value={o.v}>{o.l}</option>))}
             </select>
           </div>
           <div className={styles.formGroupFlex}>
-            <label className={styles.formLabel}>Estado</label>
+            <label className={styles.formLabel}>{t('task.status')}</label>
             <select className={styles.select} value={status} disabled={editingTask === null} onChange={e=>setStatus(e.target.value as TaskStatus)}>
-              {[{v:'PENDING',l:'Pendiente'},{v:'ACTIVE',l:'En progreso'},{v:'COMPLETED',l:'Completada'}].map(o => (<option key={o.v} value={o.v}>{o.l}</option>))}
+              {[{v:'PENDING',l:t('status.pending')},{v:'ACTIVE',l:t('status.active')},{v:'COMPLETED',l:t('status.completed')}].map(o => (<option key={o.v} value={o.v}>{o.l}</option>))}
             </select>
           </div>
         </div>
         <div className={styles.formGroup}>
-          <label className={styles.formLabel}>Vencimiento</label>
+          <label className={styles.formLabel}>{t('task.dueDate')}</label>
           <input type="date" className={styles.input} value={dueDate} onChange={e=>setDueDate(e.target.value)} />
         </div>
         <div className={styles.formGroup}>
-          <label className={styles.formLabel}>Recordatorio</label>
-          <input type="datetime-local" className={styles.input} aria-label="Recordatorio" value={reminderAt} onChange={e=>setReminderAt(e.target.value)} />
+          <label className={styles.formLabel}>{t('task.reminder')}</label>
+          <input type="datetime-local" className={styles.input} aria-label={t('task.reminder')} value={reminderAt} onChange={e=>setReminderAt(e.target.value)} />
         </div>
         <div className={styles.formGroup}>
-          <label className={styles.formLabel}>Recurrencia</label>
-          <select className={styles.select} aria-label="Recurrencia" value={recurrence} onChange={e=>setRecurrence(e.target.value as Recurrence)}>
-            <option value="NONE">No se repite</option>
-            <option value="DAILY">Diario</option>
-            <option value="WEEKLY">Semanal</option>
-            <option value="MONTHLY">Mensual</option>
+          <label className={styles.formLabel}>{t('task.recurrence')}</label>
+          <select className={styles.select} aria-label={t('task.recurrence')} value={recurrence} onChange={e=>setRecurrence(e.target.value as Recurrence)}>
+            <option value="NONE">{t('recurrence.none')}</option>
+            <option value="DAILY">{t('recurrence.daily')}</option>
+            <option value="WEEKLY">{t('recurrence.weekly')}</option>
+            <option value="MONTHLY">{t('recurrence.monthly')}</option>
           </select>
         </div>
         <div className={styles.formGroup}>
-          <label className={styles.formLabel}>Proyecto</label>
+          <label className={styles.formLabel}>{t('task.project')}</label>
           <select className={styles.select} aria-label="Proyecto de la tarea" value={projectId} onChange={e=>setProjectId(e.target.value)}>
-            <option value="">Sin proyecto</option>
+            <option value="">{t('common.none')}</option>
             {projects.map(p => (<option key={p.id} value={String(p.id)}>{p.name}</option>))}
           </select>
         </div>
         <div className={styles.tagSection}>
-          <span className={styles.sectionLabel}>Etiquetas:</span>
+          <span className={styles.sectionLabel}>{t('task.tags')}</span>
           <div className={styles.existingTags}>
             {existingTags.map((tag) => (
               <span key={tag.id}
                 className={`${styles.tagPill} ${tags.includes(tag.name) ? styles.selected : ''}`}>
                 <button type="button" onClick={()=>toggleTag(tag.name)}>{tag.name}</button>
-                <button type="button" className={styles.tagDeleteBtn} aria-label={`Borrar etiqueta ${tag.name}`}
+                <button type="button" className={styles.tagDeleteBtn} aria-label={`${t('task.deleteTag')} ${tag.name}`}
                   onClick={()=>handleDeleteTag(tag.id)}>×</button>
               </span>
             ))}
           </div>
           <div className={styles.newTagRow}>
-            <input className={styles.tagInput} placeholder="Nueva etiqueta" value={newTagName}
+            <input className={styles.tagInput} placeholder={t('task.newTag')} value={newTagName}
               onChange={e=>setNewTagName(e.target.value)} maxLength={50} />
-            <button type="button" className={styles.tagCreateBtn} onClick={handleCreateTag}>Crear</button>
+            <button type="button" className={styles.tagCreateBtn} onClick={handleCreateTag}>{t('common.create')}</button>
           </div>
         </div>
         {editingTask && (
           <div className={styles.tagSection}>
-            <span className={styles.sectionLabel}>Subtareas:</span>
+            <span className={styles.sectionLabel}>{t('task.subtasks')}</span>
             <ul className={styles.subtaskList}>
               {subtasks.map(s => (
                 <li key={s.id} className={styles.subtaskItem}>
-                  <button type="button" onClick={() => toggleSubtask(s)} aria-label={`Alternar ${s.title}`}>
+                  <button type="button" onClick={() => toggleSubtask(s)} aria-label={`${t('task.toggleSubtask')} ${s.title}`}>
                     {s.status === TaskStatus.COMPLETED ? '[x]' : '[ ]'}
                   </button>
                   <span>{s.title}</span>
-                  <button type="button" aria-label={`Borrar subtarea ${s.title}`} onClick={() => handleDeleteSubtask(s.id)}>×</button>
+                  <button type="button" aria-label={`${t('task.deleteSubtask')} ${s.title}`} onClick={() => handleDeleteSubtask(s.id)}>×</button>
                 </li>
               ))}
             </ul>
             <div className={styles.newTagRow}>
-              <input className={styles.tagInput} aria-label="Nueva subtarea" placeholder="Nueva subtarea" value={newSubtask} onChange={e => setNewSubtask(e.target.value)} />
-              <button type="button" className={styles.tagCreateBtn} onClick={handleAddSubtask}>Añadir</button>
+              <input className={styles.tagInput} aria-label={t('task.newSubtask')} placeholder={t('task.newSubtask')} value={newSubtask} onChange={e => setNewSubtask(e.target.value)} />
+              <button type="button" className={styles.tagCreateBtn} onClick={handleAddSubtask}>{t('common.add')}</button>
             </div>
           </div>
         )}
         {tagError && <ErrorBanner key={tagError.id} message={tagError.message} onDismiss={() => setTagError(null)} />}
         <div className={styles.actions}>
-          <button className={styles.cancelBtn} onClick={onClose}>Cancelar</button>
-          <button className={styles.saveBtn} onClick={handleSubmit}>Guardar</button>
+          <button className={styles.cancelBtn} onClick={onClose}>{t('common.cancel')}</button>
+          <button className={styles.saveBtn} onClick={handleSubmit}>{t('common.save')}</button>
         </div>
       </div>
     </div>

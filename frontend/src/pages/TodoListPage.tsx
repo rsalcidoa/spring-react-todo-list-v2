@@ -8,6 +8,7 @@ import { nextStatus, type MoveDirection } from '../services/boardKeyboard';
 import { positionBetween } from '../services/taskOrdering';
 import { startReminderPolling, browserNotify } from '../services/reminders';
 import { useT, AVAILABLE_LANGS } from '../i18n';
+import { formatNumber } from '../services/format';
 import { Task, Tag, Project, TaskInput, TaskStatus, TaskQuery, TaskSort, SortDir, Priority } from '../services/types/task';
 import KanbanColumn from '../components/KanbanColumn';
 import AddTaskModal from '../components/AddTaskModal';
@@ -271,7 +272,7 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
         </div>
       )}
       <header className={styles.header}>
-        <h1>{t('app.title')} <span className={styles.count}>{tasks.length}</span></h1>
+        <h1>{t('app.title')} <span className={styles.count}>{formatNumber(tasks.length, lang)}</span></h1>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <input
             className={styles.searchInput}
