@@ -6,7 +6,7 @@ Provides React frontend integration with the REST API for task management.
 ## Requirements
 
 ### Requirement: Task List View
-The system SHALL display all tasks grouped by status with per-column counts (tabular numerals) and a board total. Each task SHALL show its due-state derived from `dueDate` against the local date: `overdue` (past), `today`, `future`, or `none` (no date). A tag filter in the board header SHALL narrow visible tasks to those carrying any selected tag. Loading SHALL show skeletons; an empty board SHALL show an actionable empty state (with a create CTA) while empty columns show a plain "Sin tareas" text. Failed moves SHALL roll back visibly and surface the failure through the transient error banner.
+The system SHALL display all tasks grouped by status with per-column counts (tabular numerals) and a board total. Each task SHALL show its due-state derived from `dueDate` against the local date: `overdue` (past), `today`, `future`, or `none` (no date). The board header SHALL provide a debounced search box (title/description), a sort control (field `createdAt|dueDate|priority|title` and direction `asc|desc`), a priority filter, and the existing tag filter; these controls SHALL narrow/order the visible tasks through the repository query. Loading SHALL show skeletons; an empty board SHALL show an actionable empty state (with a create CTA) while empty columns show a plain "Sin tareas" text. Failed moves SHALL roll back visibly and surface the failure through the transient error banner.
 
 #### Scenario: User Views Task List
 - **WHEN** user navigates to /tasks page
@@ -15,6 +15,18 @@ The system SHALL display all tasks grouped by status with per-column counts (tab
 #### Scenario: User sees counts and due-states at a glance
 - **WHEN** user opens `/tasks` with tasks across statuses and dates
 - **THEN** each column shows its count, the header shows the total, overdue tasks carry the `overdue` treatment, today's the `today` treatment, and dateless tasks show no due chip
+
+#### Scenario: User searches tasks
+- **WHEN** user types "informe" in the search box
+- **THEN** only tasks whose title or description contains "informe" (case-insensitive) remain on the board, and clearing the box restores all tasks
+
+#### Scenario: User sorts the board
+- **WHEN** user selects sort `dueDate` ascending
+- **THEN** tasks within each column are ordered by dueDate ascending, dateless tasks last
+
+#### Scenario: User filters by priority
+- **WHEN** user selects priority `HIGH`
+- **THEN** only HIGH-priority tasks remain visible; clearing restores all
 
 #### Scenario: User filters by tag
 - **WHEN** user selects one or more tags in the header filter
@@ -65,20 +77,25 @@ The system SHALL allow users to delete tasks. The frontend SHALL extract task da
 - **AND** the delete operation goes through `TaskRepository.remove(id)`
 
 ### Requirement: Board Task Repository Operations
-The frontend task data layer SHALL expose board operations through the `TaskRepository` interface with domain types: `fetchAll(): Promise<Task[]>`, `create(input: TaskInput): Promise<Task>`, `update(id: number, input: TaskInput): Promise<Task>`, `move(id: number, status: TaskStatus): Promise<void>`, `remove(id: number): Promise<void>`, `listTags(): Promise<Tag[]>`, `createTag(name: string): Promise<Tag>`, `deleteTag(id: number): Promise<void>`. `update` SHALL return the updated `Task` so callers do not patch local state by hand. `createTag` SHALL return the backend tag with its real id (no client-generated ids). The wire format MUST be owned exclusively by the repository adapters. Both adapters (`HttpTaskRepository`, `InMemoryTaskRepository`) SHALL share semantics: tag identity trimmed and case-insensitive, and operations on missing ids SHALL reject (no silent no-ops). Error mapping SHALL be shared: one interpretation of the HTTP contract used by page and modal alike. No `any` cast may hide the domain↔wire conversion.
+The frontend task data layer SHALL expose board operations through the `TaskRepository` interface with domain types: `fetchAll(query?: TaskQuery): Promise<Task[]>`, `create(input: TaskInput): Promise<Task>`, `update(id: number, input: TaskInput): Promise<Task>`, `move(id: number, status: TaskStatus): Promise<void>`, `remove(id: number): Promise<void>`, `listTags(): Promise<Tag[]>`, `createTag(name: string): Promise<Tag>`, `deleteTag(id: number): Promise<void>`. `update` SHALL return the updated `Task` so callers do not patch local state by hand. `createTag` SHALL return the backend tag with its real id (no client-generated ids). `fetchAll` SHALL accept an optional domain `TaskQuery` (`q`, `priority`, `tagIds`, `sort`, `dir`, `status`) and the HTTP adapter SHALL own its wire encoding; the in-memory adapter SHALL apply the same semantics. The wire format MUST be owned exclusively by the repository adapters. Both adapters (`HttpTaskRepository`, `InMemoryTaskRepository`) SHALL share semantics: tag identity trimmed and case-insensitive, and operations on missing ids SHALL reject (no silent no-ops). Error mapping SHALL be shared: one interpretation of the HTTP contract used by page and modal alike. No `any` cast may hide the domain<->wire conversion.
 
 **ID**: REQ-FE-009
 **Affected files**:
-- `frontend/src/data/TaskRepository.ts` — deep interface + `HttpTaskRepository` (owns domain↔wire conversion) + `InMemoryTaskRepository`
-- `frontend/src/services/types/task.ts` — `TaskInput` type
-- `frontend/src/services/ApiService.ts` — `updateTask` accepts a typed input instead of `any`
-- `frontend/src/pages/TodoListPage.tsx` — handlers use `TaskInput` (no `as any`)
+- `frontend/src/data/TaskRepository.ts` — deep interface + `HttpTaskRepository` (owns domain<->wire conversion) + `InMemoryTaskRepository`
+- `frontend/src/services/types/task.ts` — `TaskInput` and `TaskQuery` types
+- `frontend/src/services/ApiService.ts` — `getTasks(query?)` forwards query params
+- `frontend/src/pages/TodoListPage.tsx` — owns the query state, passes it to `fetchAll`
 - `frontend/src/components/AddTaskModal.tsx` — `onSave` receives `TaskInput` (no `any`)
 
 #### Scenario: Domain input with tag names reaches the wire
 - **WHEN** a caller invokes `create(input)` with `input.tagNames = ["Work", "Personal"]`
 - **THEN** the wire request body sent to `/v1/tasks` contains `"tagNames": ["Work", "Personal"]`
 - **AND** the task is stored with exactly those tags (no silent tag loss)
+
+#### Scenario: Query reaches the wire
+- **WHEN** a caller invokes `fetchAll({ q: "informe", priority: "HIGH", sort: "dueDate", dir: "asc" })`
+- **THEN** the HTTP adapter issues `GET /v1/tasks` with `q=informe`, `priority=HIGH`, `sort=dueDate` and `dir=asc` as query parameters
+- **AND** the in-memory adapter returns the same filtered/ordered result without a network call
 
 #### Scenario: Wire task responses map to the domain type
 - **WHEN** `fetchAll()` receives wire task objects with `tags: [{id, name}]`
@@ -319,3 +336,266 @@ The system SHALL expose two new routes: `/forgot-password` for requesting a rese
 #### Scenario: Reset errors direct action
 - **WHEN** reset fails for an expired token or a request error
 - **THEN** the message names the fix (request a new code / retry) instead of only describing the failure
+
+### Requirement: Board Smart Views
+The board SHALL provide a view selector with `Todas` (default), `Hoy`, `Vencidas` and `Próximas`. A view SHALL scope the visible tasks as follows, evaluated against the local date and excluding COMPLETED tasks for the time-based views:
+- `Hoy`: `dueDate` equals today
+- `Vencidas`: `dueDate` is before today
+- `Próximas`: `dueDate` is within the next 7 days (today exclusive, +7 inclusive)
+- `Todas`: no date scoping
+
+The active view SHALL compose with the tag, priority and search filters, and SHALL be computed over the already-loaded tasks (no additional request). View logic SHALL live in one pure module so it is unit-testable without rendering.
+
+**ID**: REQ-FE-019
+**Affected files**:
+- `frontend/src/services/boardView.ts` — `BoardView` type + `filterByView(tasks, view, today)` (pure)
+- `frontend/src/pages/TodoListPage.tsx` — view selector and composition with existing filters
+
+#### Scenario: Default view shows all tasks
+- **WHEN** the user opens `/tasks` without choosing a view
+- **THEN** `Todas` is selected and every task is shown (subject to the other filters)
+
+#### Scenario: Today view narrows to tasks due today
+- **WHEN** the user selects `Hoy`
+- **THEN** only non-completed tasks whose `dueDate` is today remain visible
+
+#### Scenario: Overdue view narrows to past-due tasks
+- **WHEN** the user selects `Vencidas`
+- **THEN** only non-completed tasks whose `dueDate` is before today remain visible
+
+#### Scenario: Upcoming view narrows to the next 7 days
+- **WHEN** the user selects `Próximas`
+- **THEN** only non-completed tasks whose `dueDate` is after today and at most 7 days ahead remain visible
+
+#### Scenario: View composes with the other filters
+- **WHEN** a view is active and the user also selects a tag or types a search term
+- **THEN** the board shows the intersection of the view, the tag filter and the search results
+
+### Requirement: Quick Add Task
+Each board column SHALL provide a compact quick-add input that creates a task from a title alone. Submitting SHALL create the task through the repository with the column's status, `priority=LOW` and no tags, and the task SHALL appear in that column without opening the modal. An empty or whitespace-only title SHALL be blocked inline without a request; a backend rejection SHALL surface through the ErrorBanner.
+
+**ID**: REQ-FE-020
+**Affected files**:
+- `frontend/src/components/QuickAddTask.tsx` — new input + submit handling
+- `frontend/src/components/KanbanColumn.tsx` — renders the quick-add with the column status
+- `frontend/src/pages/TodoListPage.tsx` — wires quick-add to `repository.create`
+
+#### Scenario: Quick-add creates a task in the column
+- **WHEN** the user types a title in a column's quick-add input and presses Enter
+- **THEN** a task is created with that column's status, `priority=LOW` and no tags, and appears in the column
+
+#### Scenario: Empty quick-add is blocked inline
+- **WHEN** the user submits an empty or whitespace-only title
+- **THEN** no request is sent and an inline message is shown
+
+#### Scenario: Quick-add failure is surfaced
+- **WHEN** the create request fails
+- **THEN** the ErrorBanner shows the contract message and no phantom task is added
+
+### Requirement: Keyboard Board Navigation
+Task cards SHALL be keyboard-focusable. When a card has focus, `Alt+ArrowLeft` and `Alt+ArrowRight` SHALL move the task to the previous / next status column (order `PENDING -> ACTIVE -> COMPLETED`), reusing the same move operation and optimistic rollback as drag-and-drop; at the ends of the order the key SHALL be a no-op. `Enter` on a focused card SHALL open the edit modal. The move target logic SHALL live in one pure module so it is unit-testable.
+
+**ID**: REQ-FE-021
+**Affected files**:
+- `frontend/src/services/boardKeyboard.ts` — `nextStatus(current, direction)` pure
+- `frontend/src/components/KanbanCard.tsx` — `tabIndex`, `onKeyDown`, `aria-label`
+- `frontend/src/pages/TodoListPage.tsx` — handles the move via the existing status handler
+
+#### Scenario: Move a task forward with the keyboard
+- **WHEN** a focused PENDING task receives `Alt+ArrowRight`
+- **THEN** its status becomes ACTIVE and the card renders in the ACTIVE column
+
+#### Scenario: Move a task backward with the keyboard
+- **WHEN** a focused COMPLETED task receives `Alt+ArrowLeft`
+- **THEN** its status becomes ACTIVE
+
+#### Scenario: No-op at the ends of the order
+- **WHEN** a focused PENDING task receives `Alt+ArrowLeft`, or a COMPLETED task receives `Alt+ArrowRight`
+- **THEN** the status is unchanged and no request is sent
+
+#### Scenario: Keyboard move failure rolls back
+- **WHEN** the move request fails
+- **THEN** the task returns to its previous column and the transient error banner names the failure
+
+#### Scenario: Enter opens the edit modal
+- **WHEN** a focused card receives Enter
+- **THEN** the edit modal opens for that task
+
+### Requirement: Dialog Keyboard Accessibility
+The task modal SHALL close on `Esc` and SHALL move focus to the title field when it opens, so it is operable without a pointer.
+
+**ID**: REQ-FE-022
+**Affected files**:
+- `frontend/src/components/AddTaskModal.tsx` — `Esc` handling and initial focus, trailing the existing `role="dialog"`
+
+#### Scenario: Escape closes the modal
+- **WHEN** the modal is open and the user presses `Esc`
+- **THEN** the modal closes (same as the Cancel/close action)
+
+#### Scenario: Focus starts on the title
+- **WHEN** the modal opens
+- **THEN** the title input receives focus
+
+### Requirement: Manual Ordering
+The board SHALL order each status column by task `position` ascending, breaking ties by `createdAt`, and SHALL let the user reorder tasks by dragging a card to a new position within or across columns. On drop, the page SHALL compute the target position as the midpoint between the new neighbors and call the reorder endpoint optimistically, rolling back and surfacing the error banner on failure.
+
+**ID**: REQ-FE-023
+**Affected files**:
+- `frontend/src/pages/TodoListPage.tsx` — drag within a column, midpoint computation, optimistic update + rollback
+- `frontend/src/components/KanbanColumn.tsx` / `KanbanCard.tsx` — drop targets and index computation
+- `frontend/src/data/TaskRepository.ts` — `reorder(id, status, position)`
+
+#### Scenario: Order a column by position
+- **WHEN** the board renders a column with tasks at positions 0, 1, 2
+- **THEN** the cards appear in that order
+
+#### Scenario: Drag within a column
+- **WHEN** the user drags a card between two others in the same column
+- **THEN** the card lands between them and its new position is the midpoint of the neighbors
+
+#### Scenario: Reorder failure rolls back
+- **WHEN** the reorder request fails
+- **THEN** the card returns to its previous position and the error banner names the failure
+
+### Requirement: Undo Task Deletion
+After a successful task deletion the board SHALL show a transient "Deshacer" affordance for a short window; activating it SHALL call `TaskRepository.restore(id)` and re-insert the task in its column. Dismissing or waiting out the window SHALL leave the task deleted. A failed restore SHALL surface through the ErrorBanner.
+
+**ID**: REQ-FE-024
+**Affected files**:
+- `frontend/src/pages/TodoListPage.tsx` — undo affordance + re-insert
+- `frontend/src/data/TaskRepository.ts` — `restore(id): Promise<Task>`
+- `frontend/src/services/ApiService.ts` — `restoreTask(id)`
+
+#### Scenario: Undo restores the task
+- **WHEN** the user deletes a task and activates "Deshacer"
+- **THEN** the task reappears in its column
+
+#### Scenario: Window expires
+- **WHEN** the user does not activate "Deshacer" before the window ends
+- **THEN** the affordance disappears and the task stays deleted
+
+#### Scenario: Restore failure is surfaced
+- **WHEN** the restore request fails
+- **THEN** the ErrorBanner shows the contract message and the task stays deleted
+
+### Requirement: Silent Token Refresh on 401
+The session module SHALL persist the refresh token alongside the access token. On a `401` for a non-login request, the shared Axios instance SHALL attempt exactly one silent refresh via `POST /v1/auth/refresh`, and on success retry the original request with the new access token. Concurrent `401`s SHALL trigger a single refresh (single-flight). If the refresh fails, the session SHALL be cleared and the user redirected to `/login` (existing behavior). The login request itself SHALL never trigger a refresh.
+
+**ID**: REQ-FE-025
+**Affected files**:
+- `frontend/src/services/session.ts` — store/get/clear the refresh token
+- `frontend/src/services/ApiService.ts` — response interceptor: single-flight refresh + one retry
+- `frontend/src/context/AuthContext.tsx` — persists both tokens on login
+
+#### Scenario: Expired access token is refreshed transparently
+- **WHEN** a request fails with 401 because the access token expired and a valid refresh token exists
+- **THEN** the client refreshes once, retries the request, and the caller receives the successful response
+
+#### Scenario: Refresh failure logs out
+- **WHEN** the refresh request fails (expired/rotated)
+- **THEN** the session is cleared and the user is redirected to `/login`
+
+#### Scenario: Single refresh under concurrency
+- **WHEN** several requests receive 401 at the same time
+- **THEN** only one refresh request is sent and the others wait for its result
+
+#### Scenario: Login is not refreshed
+- **WHEN** `/auth/login` returns 401
+- **THEN** no refresh is attempted and the error propagates to the caller
+
+### Requirement: Responsive Board Layout
+The board SHALL remain usable from a 360px-wide viewport up to desktop. On narrow viewports the columns SHALL be reachable without horizontal page overflow (horizontal scroll within the board or stacking), the header controls SHALL wrap without overlap, and the task modal SHALL occupy the full viewport. Interactive targets (buttons, cards) SHALL be at least ~40px in their smallest dimension on touch viewports. Breakpoint values SHALL be documented as tokens in `styles/theme.css` and the `@media` literals SHALL match those tokens (CSS cannot use `var()` inside media queries).
+
+**ID**: REQ-FE-026
+**Affected files**:
+- `frontend/src/styles/theme.css` — breakpoint tokens
+- `frontend/src/pages/TodoListPage.module.css` — board + header responsive rules
+- `frontend/src/components/KanbanColumn.module.css`, `AddTaskModal.module.css` — column + modal responsive rules
+- `frontend/src/components/KanbanCard.module.css` — touch target sizing
+
+#### Scenario: Board fits a phone width
+- **WHEN** the app is viewed at 360px wide with several tasks
+- **THEN** the columns are reachable (horizontal scroll within the board or stacked) and the page itself does not overflow horizontally
+
+#### Scenario: Header controls wrap
+- **WHEN** the viewport is narrow
+- **THEN** the header controls wrap onto multiple rows instead of overlapping or clipping
+
+#### Scenario: Modal is full-screen on mobile
+- **WHEN** the task modal opens on a narrow viewport
+- **THEN** it fills the viewport and its fields remain reachable
+
+#### Scenario: Breakpoints come from tokens
+- **WHEN** a component needs a breakpoint
+- **THEN** the `@media` value matches the documented token in `styles/theme.css` (literals, since CSS media queries cannot use `var()`)
+
+### Requirement: Paginated Board Loading
+The board SHALL load tasks one page at a time through `TaskRepository.fetchPage(query, page, size)`, appending results and offering a "Cargar más" action while more pages remain (using the envelope's `total`). Any change to the query (search/sort/filter) SHALL reset to the first page. Manual ordering and optimistic updates from the current page SHALL keep working.
+
+**ID**: REQ-FE-027
+**Affected files**:
+- `frontend/src/data/TaskRepository.ts` — `fetchPage(query, page, size): Promise<Page<Task>>` in both adapters
+- `frontend/src/services/ApiService.ts` — `getTasks(query, page, size)`
+- `frontend/src/pages/TodoListPage.tsx` — page state + "Cargar más"
+
+#### Scenario: Load more appends the next page
+- **WHEN** the user has loaded the first page and more remain
+- **THEN** "Cargar más" loads and appends the next page without dropping existing tasks
+
+#### Scenario: Query change resets pagination
+- **WHEN** the user changes the search, sort or a filter
+- **THEN** the board reloads from page 0
+
+#### Scenario: In-memory adapter pages too
+- **WHEN** a test calls `fetchPage` on `InMemoryTaskRepository`
+- **THEN** it returns the same page/`total` semantics without network
+
+### Requirement: UI Localization
+The system SHALL render user-facing strings through a central i18n layer with at least `es` (default) and `en` locales. A language selector SHALL let the user change locale; the choice SHALL persist in `localStorage` and SHALL default to `es` when there is no stored preference (Spanish-first product). Translation keys SHALL be typed so a missing key is a compile-time error. Dates and counts SHALL be formatted with `Intl`.
+
+**ID**: REQ-FE-028
+**Affected files**:
+- `frontend/src/i18n/index.tsx` — provider + `useT()` + typed `TranslationKey`
+- `frontend/src/i18n/es.ts`, `frontend/src/i18n/en.ts` — locale dictionaries
+- `frontend/src/App.tsx` — wrap the app in the provider
+- `frontend/src/pages/*`, `frontend/src/components/*` — replace literals with `t(...)`
+
+#### Scenario: Default language is Spanish
+- **WHEN** the app loads with no stored preference
+- **THEN** the UI renders in Spanish
+
+#### Scenario: Switch language
+- **WHEN** the user selects English in the selector
+- **THEN** the visible strings render in English immediately and the choice persists across reloads
+
+#### Scenario: Missing key is a compile error
+- **WHEN** a component uses a key absent from the dictionaries
+- **THEN** TypeScript fails the build (no runtime "key not found")
+
+#### Scenario: Dates and counts use Intl
+- **WHEN** a due date or count is rendered
+- **THEN** it is formatted per the active locale, not by string concatenation
+
+### Requirement: Accessible Status Announcements
+The board SHALL announce transient status through a non-interactive polite live region (`role="status"` / `aria-live="polite"`). Any interactive control offered alongside a status message (the "Deshacer" action) SHALL live outside the live region, SHALL receive focus when it appears, and SHALL NOT be removed by the auto-dismiss timer while it retains focus. The board region SHALL expose `aria-busy="true"` while tasks are loading.
+
+**ID**: REQ-FE-029
+**Affected files**:
+- `frontend/src/pages/TodoListPage.tsx` — separate live announcement, focusable undo button, focus-aware dismiss, `aria-busy`
+- `frontend/src/pages/TodoListPage.module.css` — `.srOnly` visually-hidden helper
+
+#### Scenario: Deletion is announced without embedding a control
+- **WHEN** the user deletes a task
+- **THEN** a polite live region announces the deletion and contains no interactive elements
+
+#### Scenario: Undo button receives focus
+- **WHEN** the undo affordance appears after a deletion
+- **THEN** focus moves to the "Deshacer" button so it is operable from the keyboard
+
+#### Scenario: Auto-dismiss pauses while focused
+- **WHEN** the undo button has focus
+- **THEN** the transient affordance is not removed by the timer until focus leaves
+
+#### Scenario: Board reports busy while loading
+- **WHEN** the board is loading tasks
+- **THEN** the board region exposes `aria-busy="true"`
