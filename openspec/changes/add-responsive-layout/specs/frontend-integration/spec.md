@@ -3,7 +3,7 @@
 ## ADDED Requirements
 
 ### Requirement: Responsive Board Layout
-The board SHALL remain usable from a 360px-wide viewport up to desktop. On narrow viewports the columns SHALL be reachable without horizontal page overflow (horizontal scroll within the board or stacking), the header controls SHALL wrap without overlap, and the task modal SHALL occupy the full viewport. Interactive targets (buttons, cards) SHALL be at least ~40px in their smallest dimension on touch viewports. Layout SHALL consume breakpoint tokens from `styles/theme.css` rather than literal widths.
+The board SHALL remain usable from a 360px-wide viewport up to desktop. On narrow viewports the columns SHALL be reachable without horizontal page overflow (horizontal scroll within the board or stacking), the header controls SHALL wrap without overlap, and the task modal SHALL occupy the full viewport. Interactive targets (buttons, cards) SHALL be at least ~40px in their smallest dimension on touch viewports. Breakpoint values SHALL be documented as tokens in `styles/theme.css` and the `@media` literals SHALL match those tokens (CSS cannot use `var()` inside media queries).
 
 **ID**: REQ-FE-026
 **Affected files**:
@@ -26,4 +26,4 @@ The board SHALL remain usable from a 360px-wide viewport up to desktop. On narro
 
 #### Scenario: Breakpoints come from tokens
 - **WHEN** a component needs a breakpoint
-- **THEN** it uses the shared token rather than a literal pixel value
+- **THEN** the `@media` value matches the documented token in `styles/theme.css` (literals, since CSS media queries cannot use `var()`)

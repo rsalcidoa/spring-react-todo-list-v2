@@ -42,3 +42,7 @@ Frontend-only; no API or data change. Rollback removes the inputs and handlers.
 - **Unit (frontend):** `boardKeyboard.test.ts` for `nextStatus` (forward, backward, both ends).
 - **Component (frontend):** quick-add creates with the right status and blocks empty; `Alt+Arrow` moves and rolls back on failure; `Enter` opens the modal; `Esc` closes; title autofocus.
 - **E2E (Playwright):** quick-add a task, focus it, move it forward with the keyboard, assert the column.
+
+## Non-Goal: quick-add on an empty board
+
+The board renders the empty state (with the create CTA) instead of columns when there are no tasks, so the per-column quick-add is only available once the first task exists. Creating the first task goes through the modal (empty-state CTA); quick-add covers subsequent captures. Making quick-add available on an empty board would require rendering empty columns alongside the empty state and is intentionally out of scope.

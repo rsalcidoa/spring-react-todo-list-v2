@@ -1,7 +1,6 @@
 package com.example.todo.controller;
 
 import com.example.todo.dto.LoginRequest;
-import com.example.todo.dto.LoginResponse;
 import com.example.todo.dto.RefreshRequest;
 import com.example.todo.dto.TokenPairResponse;
 import jakarta.validation.Valid;

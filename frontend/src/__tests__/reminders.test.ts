@@ -13,7 +13,7 @@ function task(id: number, title: string): Task {
 }
 
 describe('reminders poller', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => { vi.clearAllMocks(); });
 
   it('notifies and acknowledges each due reminder', async () => {
     vi.mocked(ApiService.getDueReminders).mockResolvedValueOnce({ data: [task(1, 'A'), task(2, 'B')] } as never);

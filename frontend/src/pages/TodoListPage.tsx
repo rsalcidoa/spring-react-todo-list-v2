@@ -200,21 +200,6 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
     });
   };
 
-  const handleDrop = async (e: React.DragEvent<HTMLDivElement>, status: string) => {
-    e.preventDefault();
-    if (e.currentTarget.classList.contains('dragover')) {
-      e.currentTarget.classList.remove('dragover');
-    }
-    const taskIdStr = (e.dataTransfer as DataTransfer).getData('text/plain');
-    const taskId = parseInt(taskIdStr);
-    if (!taskId || isNaN(taskId)) return;
-
-    const task = tasks.find(t => t.id === taskId);
-    if (task && String(task.status) !== status) {
-      await handleStatusChange(taskId, status);
-    }
-  };
-
   const handleReorder = async (taskId: number, status: string, index: number) => {
     const previous = tasks.find(t => t.id === taskId);
     if (!previous) return;

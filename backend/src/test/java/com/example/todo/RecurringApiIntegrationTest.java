@@ -108,4 +108,20 @@ class RecurringApiIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.recurrence[0]").exists());
     }
+
+    @Test
+    void recurringReminderIsShifted() throws Exception {
+        registerAndLogin();
+        long id = createTask("{\"title\": \"Weekly\", \"priority\": \"LOW\", \"dueDate\": \"2026-01-01\", \"recurrence\": \"WEEKLY\", \"reminderAt\": \"2026-01-01T09:00:00\"}");
+        complete(id);
+
+        JsonNode child = null;
+        for (JsonNode node : listAll()) {
+            if ("PENDING".equals(node.path("status").asText())) child = node;
+        }
+        assertTrue(child != null);
+        assertEquals("2026-01-08", child.path("dueDate").asText());
+        assertEquals("2026-01-08T09:00:00", child.path("reminderAt").asText());
+    }
+
 }

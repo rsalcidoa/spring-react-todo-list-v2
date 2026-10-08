@@ -104,4 +104,26 @@ class SubtaskApiIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.parentId[0]").exists());
     }
+
+    @Test
+    void foreignParentRejected() throws Exception {
+        registerAndLogin();
+        long parent = createTask("{\"title\": \"P\", \"priority\": \"LOW\"}");
+
+        String uuid = UUID.randomUUID().toString();
+        String otherJson = String.format("{\"email\": \"%s\", \"password\": \"secret123\"}", uuid + "@example.com");
+        mockMvc.perform(post("/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(otherJson))
+                .andExpect(status().isCreated());
+        String otherLogin = mockMvc.perform(post("/v1/auth/login").contentType(MediaType.APPLICATION_JSON).content(otherJson))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String otherToken = mapper.readTree(otherLogin).path("token").asText();
+
+        mockMvc.perform(post("/v1/tasks")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + otherToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\": \"Child\", \"priority\": \"LOW\", \"parentId\": " + parent + "}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.parentId[0]").exists());
+    }
+
 }

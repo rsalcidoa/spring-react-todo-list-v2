@@ -52,6 +52,16 @@ class ProjectApiIntegrationTest {
         return mapper.readTree(r.getResponse().getContentAsString()).path("id").asLong();
     }
 
+    private String newUserToken() throws Exception {
+        String uuid = UUID.randomUUID().toString();
+        String userJson = String.format("{\"email\": \"%s\", \"password\": \"secret123\"}", uuid + "@example.com");
+        mockMvc.perform(post("/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(userJson))
+                .andExpect(status().isCreated());
+        String login = mockMvc.perform(post("/v1/auth/login").contentType(MediaType.APPLICATION_JSON).content(userJson))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        return mapper.readTree(login).path("token").asText();
+    }
+
     @Test
     void projectCrudAndDuplicateRule() throws Exception {
         registerAndLogin();
@@ -112,5 +122,29 @@ class ProjectApiIntegrationTest {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.projectId").doesNotExist());
+    }
+
+    @Test
+    void crossUserProjectAccessForbidden() throws Exception {
+        registerAndLogin();
+        long projectId = createProject("Mine");
+        String otherToken = newUserToken();
+
+        mockMvc.perform(put("/v1/projects/" + projectId)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + otherToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\": \"Hacked\"}"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(delete("/v1/projects/" + projectId)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + otherToken))
+                .andExpect(status().isForbidden());
+
+        // The other user only sees their own projects.
+        String otherList = mockMvc.perform(get("/v1/projects")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + otherToken))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        assertEquals(0, mapper.readTree(otherList).size());
     }
 }

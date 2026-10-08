@@ -57,8 +57,8 @@ api.interceptors.response.use(
 
 export const getTasks = (query?: TaskQuery, page?: number, size?: number) =>
   api.get('/tasks', { params: { ...query, ...(page != null ? { page } : {}), ...(size != null ? { size } : {}) } });
-export const createTask = (task: TaskInput) => api.post('/tasks', task);
-export const updateTask = (id: number, task: TaskInput) => api.put(`/tasks/${id}`, task);
+export const createTask = (task: unknown) => api.post('/tasks', task);
+export const updateTask = (id: number, task: unknown) => api.put(`/tasks/${id}`, task);
 export const patchStatus = (id: number, status: string) => api.patch(`/tasks/${id}/status`, { status });
 export const deleteTask = (id: number) => api.delete(`/tasks/${id}`);
 export const getDueReminders = () => api.get('/tasks/reminders');

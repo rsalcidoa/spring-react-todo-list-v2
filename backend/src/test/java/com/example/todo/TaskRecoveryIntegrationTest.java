@@ -79,4 +79,25 @@ class TaskRecoveryIntegrationTest {
         mockMvc.perform(post("/v1/tasks/" + id + "/restore").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    void restoreRespectsOwnership() throws Exception {
+        registerAndLogin();
+        long id = createTask();
+        mockMvc.perform(delete("/v1/tasks/" + id).header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isNoContent());
+
+        String uuid = UUID.randomUUID().toString();
+        String otherJson = String.format("{\"email\": \"%s\", \"password\": \"secret123\"}", uuid + "@example.com");
+        mockMvc.perform(post("/v1/auth/register").contentType(MediaType.APPLICATION_JSON).content(otherJson))
+                .andExpect(status().isCreated());
+        String otherLogin = mockMvc.perform(post("/v1/auth/login").contentType(MediaType.APPLICATION_JSON).content(otherJson))
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        String otherToken = mapper.readTree(otherLogin).path("token").asText();
+
+        mockMvc.perform(post("/v1/tasks/" + id + "/restore")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + otherToken))
+                .andExpect(status().isForbidden());
+    }
+
 }

@@ -433,4 +433,35 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
 
     await waitFor(() => expect(screen.queryByText('Task 20')).toBeTruthy());
   });
+
+  it('reorders within a column using the midpoint between neighbors', async () => {
+    const repository = new InMemoryTaskRepository();
+    const a = await repository.create({ title: 'Alpha', priority: Priority.LOW, status: TaskStatus.PENDING, tagNames: [] });
+    const b = await repository.create({ title: 'Beta', priority: Priority.LOW, status: TaskStatus.PENDING, tagNames: [] });
+    const c = await repository.create({ title: 'Gamma', priority: Priority.LOW, status: TaskStatus.PENDING, tagNames: [] });
+    await repository.reorder(a.id, TaskStatus.PENDING, 0);
+    await repository.reorder(b.id, TaskStatus.PENDING, 2);
+    await repository.reorder(c.id, TaskStatus.PENDING, 4);
+    const reorderSpy = vi.spyOn(repository, 'reorder');
+
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.queryByText('Alpha')).toBeTruthy());
+
+    const rect = (top: number) => ({ top, height: 40, bottom: top + 40, left: 0, right: 0, width: 0, x: 0, y: top, toJSON: () => ({}) }) as DOMRect;
+    const cardA = screen.getByText('Alpha').closest('[data-task]') as HTMLElement;
+    const cardB = screen.getByText('Beta').closest('[data-task]') as HTMLElement;
+    const cardC = screen.getByText('Gamma').closest('[data-task]') as HTMLElement;
+    const tops = new Map<Element, number>([[cardA, 0], [cardB, 40], [cardC, 80]]);
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      return rect(tops.get(this) ?? 0);
+    });
+
+    const body = cardA.parentElement as HTMLElement;
+    const dropEvent = new MouseEvent('drop', { bubbles: true, cancelable: true, clientY: 50 });
+    Object.defineProperty(dropEvent, 'dataTransfer', { value: { getData: () => String(b.id) } });
+    body.dispatchEvent(dropEvent);
+
+    // Beta dropped between Alpha (0) and Gamma (4) -> midpoint 2
+    await waitFor(() => expect(reorderSpy).toHaveBeenCalledWith(b.id, 'PENDING', 2));
+  });
 });
