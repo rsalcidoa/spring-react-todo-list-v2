@@ -115,6 +115,8 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
             ariaLabel={t('task.tags')}
             placeholder={t('task.tagSearch')}
             onDeleteTag={tag => form.deleteTag(tag.id)}
+            collapsible
+            showChips
           />
           <div className={styles.newTagRow}>
             <input className={styles.tagInput} placeholder={t('task.newTag')} value={form.newTagName}

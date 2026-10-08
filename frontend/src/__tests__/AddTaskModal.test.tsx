@@ -26,6 +26,8 @@ function renderModal(props: Partial<React.ComponentProps<typeof AddTaskModal>> =
   return { repository, ...utils };
 }
 
+const openTagDropdown = () => fireEvent.click(screen.getByRole('button', { name: /Etiquetas/i }));
+
 describe('AddTaskModal', () => {
   it('renders the modal when isOpen is true', () => {
     renderModal();
@@ -125,6 +127,7 @@ describe('AddTaskModal', () => {
     const { repository } = renderModal({ onTagDeleted, countTagTasks: () => 2 });
     await repository.createTag('Work');
 
+    openTagDropdown();
     fireEvent.click(screen.getByRole('button', { name: /Borrar etiqueta Work/i }));
 
     expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining('2'));
@@ -139,6 +142,7 @@ describe('AddTaskModal', () => {
     const { repository } = renderModal({ onTagDeleted, countTagTasks: () => 0 });
     const created = await repository.createTag('Work');
 
+    openTagDropdown();
     fireEvent.click(screen.getByRole('button', { name: /Borrar etiqueta Work/i }));
 
     await waitFor(() => expect(onTagDeleted).toHaveBeenCalledWith(created.id));
@@ -160,15 +164,13 @@ describe('AddTaskModal', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('toggles tag pills on click', () => {
+  it('toggles tags on click', () => {
     const onSave = vi.fn();
     renderModal({ onSave });
 
-    const workPill = screen.getByText('Work');
-    fireEvent.click(workPill);
-
-    const personalPill = screen.getByText('Personal');
-    fireEvent.click(personalPill);
+    openTagDropdown();
+    fireEvent.click(screen.getByRole('option', { name: 'Work' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Personal' }));
 
     fireEvent.change(screen.getByPlaceholderText(/Título de la tarea/), {
       target: { value: 'Tagged' },
@@ -179,13 +181,13 @@ describe('AddTaskModal', () => {
     expect(input.tagNames).toEqual(['Work', 'Personal']);
   });
 
-  it('deselects a tag pill when clicked again', () => {
+  it('deselects a tag when clicked again', () => {
     const onSave = vi.fn();
     renderModal({ onSave });
 
-    const workPill = screen.getByText('Work');
-    fireEvent.click(workPill);
-    fireEvent.click(workPill);
+    openTagDropdown();
+    fireEvent.click(screen.getByRole('option', { name: 'Work' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Work' }));
 
     fireEvent.change(screen.getByPlaceholderText(/Título de la tarea/), {
       target: { value: 'No Tags' },
@@ -291,6 +293,7 @@ describe('AddTaskModal', () => {
     const { repository } = renderModal({ onTagDeleted });
     const created = await repository.createTag('Work');
 
+    openTagDropdown();
     fireEvent.click(screen.getByRole('button', { name: /Borrar etiqueta Work/i }));
 
     await waitFor(() => expect(onTagDeleted).toHaveBeenCalledWith(created.id));
@@ -312,6 +315,7 @@ describe('AddTaskModal', () => {
     await repository.createTag('Work');
     await repository.createTag('Personal');
 
+    openTagDropdown();
     fireEvent.click(screen.getByRole('button', { name: /Borrar etiqueta Work/i }));
     await waitFor(async () => expect(await repository.listTags()).toHaveLength(1));
 
@@ -327,6 +331,7 @@ describe('AddTaskModal', () => {
     // Repository is empty while existingTags still lists Work: deleteTag rejects as not-found.
     renderModal();
 
+    openTagDropdown();
     fireEvent.click(screen.getByRole('button', { name: /Borrar etiqueta Work/i }));
 
     await waitFor(() => expect(screen.getByText('La etiqueta ya no existe')).toBeTruthy());
@@ -345,7 +350,8 @@ describe('AddTaskModal', () => {
       },
     });
 
-    fireEvent.click(screen.getByText('Personal'));
+    openTagDropdown();
+    fireEvent.click(screen.getByRole('option', { name: 'Personal' }));
     fireEvent.change(screen.getByPlaceholderText(/Título de la tarea/), { target: { value: 'Updated' } });
     fireEvent.click(screen.getByRole('button', { name: /Guardar/i }));
 

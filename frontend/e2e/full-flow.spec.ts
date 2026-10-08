@@ -33,7 +33,7 @@ test.describe('Full E2E Flow (Repository-backed)', () => {
     await page.getByPlaceholder(/Nueva etiqueta/).fill(tagName);
     await page.getByRole('button', { name: 'Crear', exact: true }).click();
     await expect(
-      page.getByRole('dialog').getByRole('option', { name: tagName, exact: true }),
+      page.getByRole('dialog').getByText(tagName),
     ).toBeVisible({ timeout: 5000 });
 
     await page.getByRole('button', { name: /Guardar/i }).click();
