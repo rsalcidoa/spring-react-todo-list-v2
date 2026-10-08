@@ -14,6 +14,7 @@ export interface TaskFormArgs {
   countTagTasks?: (id: number) => number;
   onTagCreated?: (tag: Tag) => void;
   onTagDeleted?: (id: number) => void;
+  defaultProjectId?: number;
 }
 
 export interface TaskFormValues {
@@ -61,7 +62,7 @@ export interface TaskForm {
  * over this interface.
  */
 export function useTaskForm(args: TaskFormArgs): TaskForm {
-  const { isOpen, editingTask, repository, countTagTasks, onTagCreated, onTagDeleted } = args;
+  const { isOpen, editingTask, repository, countTagTasks, onTagCreated, onTagDeleted, defaultProjectId } = args;
   const existingTags = args.existingTags ?? EMPTY_TAGS;
   const { t } = useT();
   const tagErrorText = useTagErrorText();
@@ -114,10 +115,10 @@ export function useTaskForm(args: TaskFormArgs): TaskForm {
       setDueDate('');
       setReminderAt('');
       setRecurrence('NONE');
-      setProjectId('');
+      setProjectId(defaultProjectId != null ? String(defaultProjectId) : '');
       setTitleError(null);
     }
-  }, [isOpen, editingTask]);
+  }, [isOpen, editingTask, defaultProjectId]);
 
   useEffect(() => {
     const validNames = new Set(existingTags.map(tag => tag.name));

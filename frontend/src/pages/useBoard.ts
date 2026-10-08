@@ -32,6 +32,9 @@ export interface BoardActions {
   setProjectFilter(value: string): void;
   addTag(tag: Tag): void;
   removeTag(id: number): Promise<void>;
+  createProject(name: string, description?: string): Promise<Project>;
+  renameProject(id: number, name: string, description?: string): Promise<Project>;
+  deleteProject(id: number): Promise<void>;
   dismissError(): void;
   pauseUndoDismiss(): void;
   resumeUndoDismiss(): void;
@@ -70,7 +73,11 @@ function applyFilters(tasks: Task[], filters: BoardFilters): Task[] {
     priority: filters.query.priority,
     status: filters.query.status,
     tagIds: filters.tagFilter,
-    projectId: filters.projectFilter ? Number(filters.projectFilter) : undefined,
+    projectId: filters.projectFilter === ''
+      ? undefined
+      : filters.projectFilter === 'none'
+        ? 'none'
+        : Number(filters.projectFilter),
   };
   return applyBoardQuery(tasks, query);
 }
@@ -273,6 +280,26 @@ export function useBoard(repository: TaskStore & OrderingStore & TagStore & Proj
     await loadTags();
   };
 
+  const createProject = async (name: string, description?: string): Promise<Project> => {
+    const project = await repository.createProject(name, description);
+    setProjects(prev => [...prev, project]);
+    setProjectFilter(String(project.id));
+    return project;
+  };
+
+  const renameProject = async (id: number, name: string, description?: string): Promise<Project> => {
+    const project = await repository.renameProject(id, name, description);
+    setProjects(prev => prev.map(p => p.id === id ? project : p));
+    return project;
+  };
+
+  const deleteProject = async (id: number): Promise<void> => {
+    await repository.deleteProject(id);
+    setProjects(prev => prev.filter(p => p.id !== id));
+    setProjectFilter(prev => (prev === String(id) ? '' : prev));
+    setTasks(prev => prev.map(t => t.projectId === id ? { ...t, projectId: undefined, projectName: undefined } : t));
+  };
+
   return {
     tasks,
     grouped,
@@ -299,6 +326,9 @@ export function useBoard(repository: TaskStore & OrderingStore & TagStore & Proj
       setProjectFilter,
       addTag,
       removeTag,
+      createProject,
+      renameProject,
+      deleteProject,
       dismissError: () => setError(null),
       pauseUndoDismiss,
       resumeUndoDismiss,

@@ -25,8 +25,8 @@ export interface TagStore {
 
 export interface ProjectStore {
   listProjects(): Promise<Project[]>;
-  createProject(name: string): Promise<Project>;
-  renameProject(id: number, name: string): Promise<Project>;
+  createProject(name: string, description?: string): Promise<Project>;
+  renameProject(id: number, name: string, description?: string): Promise<Project>;
   deleteProject(id: number): Promise<void>;
 }
 
@@ -93,6 +93,11 @@ export function toDisplayMessage(
 }
 
 const normalizeKey = (name: string): string => name.trim().toLowerCase();
+
+function normalizeDescription(value?: string): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
 
 function checkTagName(name: string): string {
   const trimmed = name.trim();
@@ -257,18 +262,18 @@ export class HttpTaskRepository implements TaskRepository {
     }
   }
 
-  async createProject(name: string): Promise<Project> {
+  async createProject(name: string, description?: string): Promise<Project> {
     try {
-      const r = await apiCreateProject(name.trim());
+      const r = await apiCreateProject(name.trim(), description);
       return r.data as Project;
     } catch (e) {
       throw mapApiError(e);
     }
   }
 
-  async renameProject(id: number, name: string): Promise<Project> {
+  async renameProject(id: number, name: string, description?: string): Promise<Project> {
     try {
-      const r = await apiRenameProject(id, name.trim());
+      const r = await apiRenameProject(id, name.trim(), description);
       return r.data as Project;
     } catch (e) {
       throw mapApiError(e);
@@ -443,7 +448,7 @@ export class InMemoryTaskRepository implements TaskRepository {
     return [...this.projects].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
   }
 
-  async createProject(name: string): Promise<Project> {
+  async createProject(name: string, description?: string): Promise<Project> {
     const trimmed = name.trim();
     if (!trimmed) throw new RepositoryError('validation', 'Name must not be blank');
     if (trimmed.length > 50) throw new RepositoryError('validation', 'Name must not exceed 50 characters');
@@ -451,12 +456,12 @@ export class InMemoryTaskRepository implements TaskRepository {
     if (this.projects.some(p => p.name.toLowerCase() === key)) {
       throw new RepositoryError('conflict', 'Project already exists');
     }
-    const project: Project = { id: this.nextProjectId++, name: trimmed };
+    const project: Project = { id: this.nextProjectId++, name: trimmed, description: normalizeDescription(description) };
     this.projects.push(project);
     return { ...project };
   }
 
-  async renameProject(id: number, name: string): Promise<Project> {
+  async renameProject(id: number, name: string, description?: string): Promise<Project> {
     const project = this.projects.find(p => p.id === id);
     if (!project) throw new RepositoryError('not-found', `Project ${id} not found`);
     const trimmed = name.trim();
@@ -465,6 +470,7 @@ export class InMemoryTaskRepository implements TaskRepository {
       throw new RepositoryError('conflict', 'Project already exists');
     }
     project.name = trimmed;
+    project.description = normalizeDescription(description);
     for (const task of this.tasks) {
       if (task.projectId === id) task.projectName = trimmed;
     }

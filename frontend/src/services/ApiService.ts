@@ -58,8 +58,8 @@ export const deleteTag = (id: number) => api.delete(`/tags/${id}`);
 
 // Project endpoints
 export const getProjects = () => api.get('/projects');
-export const createProject = (name: string) => api.post('/projects', { name });
-export const renameProject = (id: number, name: string) => api.put(`/projects/${id}`, { name });
+export const createProject = (name: string, description?: string) => api.post('/projects', { name, description });
+export const renameProject = (id: number, name: string, description?: string) => api.put(`/projects/${id}`, { name, description });
 export const deleteProject = (id: number) => api.delete(`/projects/${id}`);
 
 // Password reset endpoints

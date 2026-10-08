@@ -17,12 +17,13 @@ interface AddTaskModalProps {
   onTagCreated?: (tag: Tag) => void;
   onTagDeleted?: (id: number) => void;
   countTagTasks?: (id: number) => number;
+  activeProjectId?: number;
 }
 
-const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, repository, existingTags, projects, editingTask = null, onTagCreated, onTagDeleted, countTagTasks}) => {
+const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, repository, existingTags, projects, editingTask = null, onTagCreated, onTagDeleted, countTagTasks, activeProjectId}) => {
   const { t } = useT();
   const titleRef = useRef<HTMLInputElement>(null);
-  const form = useTaskForm({ isOpen, editingTask, repository, existingTags, countTagTasks, onTagCreated, onTagDeleted });
+  const form = useTaskForm({ isOpen, editingTask, repository, existingTags, countTagTasks, onTagCreated, onTagDeleted, defaultProjectId: activeProjectId });
 
   const tagList = existingTags ?? [];
   const projectList = projects ?? [];

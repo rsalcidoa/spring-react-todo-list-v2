@@ -6,6 +6,7 @@ export interface Tag {
 export interface Project {
   id: number;
   name: string;
+  description?: string;
 }
 
 export enum TaskStatus {
