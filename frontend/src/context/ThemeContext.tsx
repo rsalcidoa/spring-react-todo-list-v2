@@ -54,6 +54,9 @@ export const useTheme = (): ThemeContextProps => {
   return ctx;
 };
 
+/** Like `useTheme` but returns undefined outside a provider (graceful in isolation). */
+export const useOptionalTheme = (): ThemeContextProps | undefined => useContext(ThemeContext);
+
 export const AVAILABLE_THEMES: { name: ThemeName; label: string }[] = [
   { name: 'ink', label: 'Tinta' },
   { name: 'phosphor', label: 'Fósforo' },
