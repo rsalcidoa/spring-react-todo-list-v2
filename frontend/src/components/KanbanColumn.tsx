@@ -11,7 +11,6 @@ interface KanbanColumnProps {
   status: string;
   label: string;
   tasks: Task[];
-  dragEnabled?: boolean;
   onCardClick?: (task: Task) => void;
   onDrop?: (e: React.DragEvent<HTMLDivElement>) => void;
   onDelete?: (task: Task) => void;
@@ -26,7 +25,7 @@ const STATUS_DOT_VAR: Record<string, string> = {
   COMPLETED: 'var(--color-status-completed)',
 };
 
-const KanbanColumn: React.FC<KanbanColumnProps> = ({status, label, tasks, dragEnabled = true, onCardClick, onDrop, onDelete, onQuickAdd, onMove, onReorder}) => {
+const KanbanColumn: React.FC<KanbanColumnProps> = ({status, label, tasks, onCardClick, onDrop, onDelete, onQuickAdd, onMove, onReorder}) => {
   const { t, lang } = useT();
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -40,7 +39,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({status, label, tasks, dragEn
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    if (onReorder && dragEnabled) {
+    if (onReorder) {
       const taskId = parseInt((e.dataTransfer as DataTransfer).getData('text/plain'));
       if (taskId && !isNaN(taskId)) {
         const body = e.currentTarget as HTMLElement;
@@ -67,7 +66,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({status, label, tasks, dragEn
         )}
         {tasks.length === 0 && <p className={styles.empty}>{t('board.columnEmpty')}</p>}
         {tasks.map(t => (
-          <KanbanCard key={t.id} task={t} dragEnabled={dragEnabled} onClick={() => onCardClick?.(t)} onDelete={() => onDelete?.(t)} onMove={(dir) => onMove?.(t, dir)} />
+          <KanbanCard key={t.id} task={t} onClick={() => onCardClick?.(t)} onDelete={() => onDelete?.(t)} onMove={(dir) => onMove?.(t, dir)} />
         ))}
       </div>
     </div>

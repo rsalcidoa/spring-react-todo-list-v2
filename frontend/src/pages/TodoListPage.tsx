@@ -31,7 +31,6 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
 
   const { tasks, grouped, tags, projects, filters, error, loading: isLoading, total, lastDeleted, actions } = useBoard(repository);
   const { view, query, tagFilter, projectFilter } = filters;
-  const canReorder = !query.sort;
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -93,8 +92,14 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
         </div>
       )}
       <header className={styles.header}>
-        <h1>{t('app.title')} <span className={styles.count}>{formatNumber(tasks.length, lang)}</span></h1>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className={styles.headerTop}>
+          <h1>{t('app.title')} <span className={styles.count}>{formatNumber(tasks.length, lang)}</span></h1>
+          <div className={styles.actions}>
+            <button className={styles.newTaskBtn} onClick={() => { setEditingTask(null); setModalOpen(true); }}>{t('board.newTask')}</button>
+            <UserMenu email={user} onLogout={handleLogout} />
+          </div>
+        </div>
+        <div className={styles.filters}>
           <input
             className={styles.searchInput}
             placeholder={t('board.search')}
@@ -188,8 +193,6 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
               ))}
             </select>
           </label>
-          <button className={styles.newTaskBtn} onClick={() => { setEditingTask(null); setModalOpen(true); }}>{t('board.newTask')}</button>
-          <UserMenu email={user} onLogout={handleLogout} />
         </div>
       </header>
 
@@ -231,9 +234,11 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
               status={status}
               label={t(config.labelKey)}
               tasks={grouped[status] ?? []}
-              dragEnabled={canReorder}
               onCardClick={handleCardClick}
-              onReorder={(taskId, index) => actions.reorder(taskId, status as TaskStatus, index)}
+              onReorder={(taskId, index) => {
+                void actions.reorder(taskId, status as TaskStatus, index);
+                if (query.sort) actions.setQuery({ sort: undefined, dir: undefined });
+              }}
               onDelete={(task) => handleDelete(task.id)}
               onQuickAdd={actions.quickAdd}
               onMove={handleKeyboardMove}
@@ -241,10 +246,6 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
           ))
         )}
       </main>
-
-      {!isLoading && !canReorder && (
-        <p className={styles.sortHint}>{t('board.sortDragHint')}</p>
-      )}
 
       {!isLoading && tasks.length > 0 && tasks.length < total && (
         <div style={{ padding: '0.5rem' }}>

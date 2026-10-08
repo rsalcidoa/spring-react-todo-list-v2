@@ -34,7 +34,6 @@ export const en: Partial<Record<TranslationKey, string>> = {
   'board.sort.dueSoon': 'Due soon',
   'board.sort.priority': 'Priority',
   'board.sort.title': 'Title',
-  'board.sortDragHint': 'Choose "Manual" to reorder',
   'board.theme': 'Theme',
   'board.clear': 'Clear',
   'board.filterByTag': 'Filter by tag',

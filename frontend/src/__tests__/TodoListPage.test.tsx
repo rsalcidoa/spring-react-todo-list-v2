@@ -72,18 +72,37 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
     expect(screen.getByPlaceholderText('Search tasks')).toBeTruthy();
   });
 
-  it('disables drag and hints Manual when a field sort is active', async () => {
+  it('keeps drag enabled while sorted and switches to Manual on drop', async () => {
     const { repository } = await seedBoard();
+    const reorderSpy = vi.spyOn(repository, 'reorder');
     renderWithRepo(repository);
     await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy());
 
     fireEvent.change(screen.getByLabelText('Ordenar'), { target: { value: 'dueDate:asc' } });
+    await waitFor(() => expect((screen.getByLabelText('Ordenar') as HTMLSelectElement).value).toBe('dueDate:asc'));
 
-    await waitFor(() => {
-      const card = screen.getByText(/Task Alpha/i).closest('[data-task]') as HTMLElement;
-      expect(card.getAttribute('draggable')).toBe('false');
-    });
-    expect(screen.getByText(/Elegí "Manual"/i)).toBeTruthy();
+    const card = screen.getByText(/Task Alpha/i).closest('[data-task]') as HTMLElement;
+    expect(card.getAttribute('draggable')).toBe('true');
+
+    const body = screen.getByText('Por hacer').closest('div')!.querySelector('div') as HTMLElement;
+    fireEvent.drop(body, { dataTransfer: { getData: () => '1' }, preventDefault: () => {} });
+
+    await waitFor(() => expect(reorderSpy).toHaveBeenCalled());
+    await waitFor(() => expect((screen.getByLabelText('Ordenar') as HTMLSelectElement).value).toBe('manual'));
+  });
+
+  it('groups the new-task action apart from the filters', async () => {
+    const { repository } = await seedBoard();
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy());
+
+    const newTask = screen.getByRole('button', { name: /\+ Tarea/i });
+    const search = screen.getByPlaceholderText(/Buscar tareas/i);
+
+    const actionsGroup = newTask.parentElement as HTMLElement;
+    expect(actionsGroup.className).toMatch(/actions/);
+    expect(actionsGroup.contains(search)).toBe(false);
+    expect(search.closest('[class*="filters"]')).toBeTruthy();
   });
 
   it('marks completed cards with the completed treatment', async () => {

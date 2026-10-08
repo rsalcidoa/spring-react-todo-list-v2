@@ -32,7 +32,6 @@ export const es = {
   'board.sort.dueSoon': 'Vence pronto',
   'board.sort.priority': 'Prioridad',
   'board.sort.title': 'Título',
-  'board.sortDragHint': 'Elegí "Manual" para reordenar',
   'board.theme': 'Tema',
   'board.clear': 'Limpiar',
   'board.filterByTag': 'Filtrar por etiqueta',

@@ -6,11 +6,15 @@ Provides React frontend integration with the REST API for task management.
 ## Requirements
 
 ### Requirement: Task List View
-The system SHALL display all tasks grouped by status with per-column counts (tabular numerals) and a board total. Each task SHALL show its due-state derived from `dueDate` against the local date: `overdue` (past), `today`, `future`, or `none` (no date). The board header SHALL provide a debounced search box (title/description), a sort control (field `createdAt|dueDate|priority|title` and direction `asc|desc`), a priority filter, and the existing tag filter; these controls SHALL narrow/order the visible tasks through the repository query. Loading SHALL show skeletons; an empty board SHALL show an actionable empty state (with a create CTA) while empty columns show a plain "Sin tareas" text. Failed moves SHALL roll back visibly and surface the failure through the transient error banner.
+The system SHALL display all tasks grouped by status with per-column counts (tabular numerals) and a board total. Each task SHALL show its due-state derived from `dueDate` against the local date: `overdue` (past), `today`, `future`, or `none` (no date). The board header SHALL group **actions** (a primary "New task" button and the user menu) separately from **filters** (a debounced search box, a view selector, a project filter, a priority filter, a sort control with fields `createdAt|dueDate|priority|title`, a language selector and a theme selector); the filter controls SHALL narrow/order the visible tasks through the repository query. Loading SHALL show skeletons; an empty board SHALL show an actionable empty state (with a create CTA) while empty columns show a plain "Sin tareas" text. Failed moves SHALL roll back visibly and surface the failure through the transient error banner.
 
 #### Scenario: User Views Task List
 - **WHEN** user navigates to /tasks page
 - **THEN** system displays the user's tasks grouped into status columns on the Kanban board
+
+#### Scenario: New task is a primary action apart from the filters
+- **WHEN** the board header renders
+- **THEN** the "New task" button appears as a primary action, visually separated from the search/view/project/priority/sort controls
 
 #### Scenario: User sees counts and due-states at a glance
 - **WHEN** user opens `/tasks` with tasks across statuses and dates
@@ -437,7 +441,7 @@ The task modal SHALL close on `Esc` and SHALL move focus to the title field when
 - **THEN** the title input receives focus
 
 ### Requirement: Manual Ordering
-The board SHALL order each status column by task `position` ascending, breaking ties by `createdAt`, whenever no field sort is active (see "Board Sort Control"), and SHALL let the user reorder tasks by dragging a card to a new position within or across columns. On drop, the page SHALL compute the target position as the midpoint between the new neighbors and call the reorder endpoint optimistically, rolling back and surfacing the error banner on failure.
+The board SHALL order each status column by task `position` ascending, breaking ties by `createdAt`, whenever no field sort is active (see "Board Column Sorting"), and SHALL let the user reorder tasks by dragging a card to a new position within or across columns even while a field sort is active — doing so switches the sort to `Manual`. On drop, the page SHALL compute the target position as the midpoint between the new (visible) neighbors and call the reorder endpoint optimistically, rolling back and surfacing the error banner on failure.
 
 **ID**: REQ-FE-023
 **Affected files**:
@@ -604,47 +608,18 @@ The board SHALL announce transient status through a non-interactive polite live 
 - **WHEN** the board is loading tasks
 - **THEN** the board region exposes `aria-busy="true"`
 
-### Requirement: Board Sort Control
-The board header SHALL offer a sort control with `Manual` (default), `Recientes`
-(`createdAt` desc), `Vence pronto` (`dueDate` asc, dateless last), `Prioridad`
-(`priority` desc) and `Título` (`title` asc). When a field sort is selected,
-each status column SHALL be ordered by that field. While a field sort is active,
-card drag-and-drop SHALL be disabled and the board SHALL indicate that `Manual`
-must be selected to reorder.
-
-**ID**: REQ-FE-030
-**Affected files**:
-- `frontend/src/pages/useBoard.ts` — pass `sort`/`dir` into the per-column ordering
-- `frontend/src/services/boardQuery.ts` — apply the sort within a column
-- `frontend/src/pages/TodoListPage.tsx` — sort options and default `Manual`
-- `frontend/src/components/KanbanColumn.tsx` / `KanbanCard.tsx` — disable drag when sorted
-
-#### Scenario: Field sort orders each column
-- **WHEN** the user selects `Vence pronto`
-- **THEN** every column shows its tasks ordered by `dueDate` ascending with dateless tasks last
-
-#### Scenario: Manual keeps position ordering
-- **WHEN** the sort is `Manual`
-- **THEN** each column is ordered by `position` ascending, tie-break `createdAt`
-
-#### Scenario: Drag disabled while sorted
-- **WHEN** a field sort is active
-- **THEN** cards are not draggable and the board tells the user to choose `Manual` to reorder
-
 ### Requirement: Visible Active User
-The board header SHALL show the signed-in user as an avatar with the initial of
-their email and a tooltip naming the email. Activating the avatar SHALL open a
-menu that shows the email and a "Log out" action; logging out SHALL end the
-session and navigate to the login screen.
+The board header SHALL show the signed-in user as an avatar with the initial of their email and a tooltip naming the email, styled to stand out from the surrounding controls (accent-filled). Activating the avatar SHALL open a menu that shows the email and a "Log out" action; logging out SHALL end the session and navigate to the login screen.
 
 **ID**: REQ-FE-031
 **Affected files**:
 - `frontend/src/components/UserMenu.tsx` — avatar, tooltip and menu
+- `frontend/src/components/UserMenu.module.css` — accent-filled avatar
 - `frontend/src/pages/TodoListPage.tsx` — replaces the standalone logout button
 
 #### Scenario: Avatar shows the user's initial
 - **WHEN** the board renders for `ana@example.com`
-- **THEN** the header shows an avatar with `A` and the tooltip names `ana@example.com`
+- **THEN** the header shows an accent-filled avatar with `A` and the tooltip names `ana@example.com`
 
 #### Scenario: Menu exposes identity and logout
 - **WHEN** the user opens the avatar menu
@@ -703,3 +678,30 @@ reloads.
 #### Scenario: Change language before login
 - **WHEN** the user selects English on the login screen
 - **THEN** the auth screen strings render in English and the choice persists
+
+### Requirement: Board Column Sorting
+The board header SHALL offer a sort control with `Manual` (default), `Recientes`
+(`createdAt` desc), `Vence pronto` (`dueDate` asc, dateless last), `Prioridad`
+(`priority` desc) and `Título` (`title` asc). When a field sort is selected,
+each status column SHALL be ordered by that field. Card drag-and-drop SHALL
+remain enabled while a field sort is active; dropping a card SHALL reorder it
+against the visible neighbors and then switch the sort control to `Manual`.
+
+**ID**: REQ-FE-035
+**Affected files**:
+- `frontend/src/pages/useBoard.ts` — pass `sort`/`dir` into the per-column ordering
+- `frontend/src/services/boardQuery.ts` — apply the sort within a column
+- `frontend/src/pages/TodoListPage.tsx` — sort options and the auto-switch on drop
+- `frontend/src/components/KanbanColumn.tsx` / `KanbanCard.tsx` — drop handling
+
+#### Scenario: Field sort orders each column
+- **WHEN** the user selects `Vence pronto`
+- **THEN** every column shows its tasks ordered by `dueDate` ascending with dateless tasks last
+
+#### Scenario: Manual keeps position ordering
+- **WHEN** the sort is `Manual`
+- **THEN** each column is ordered by `position` ascending, tie-break `createdAt`
+
+#### Scenario: Dragging while sorted switches to Manual
+- **WHEN** a field sort is active and the user drops a card between two visible neighbors
+- **THEN** the card takes the midpoint position and the sort control switches to `Manual`
