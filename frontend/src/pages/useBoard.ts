@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toDisplayMessage, type TaskStore, type OrderingStore, type TagStore, type ProjectStore } from '../data/TaskRepository';
 import { positionBetween, type BoardView } from '../services/boardInteraction';
-import { applyBoardQuery, type BoardQuery } from '../services/boardQuery';
+import { applyBoardQuery, compareTasks, type BoardQuery } from '../services/boardQuery';
 import { Task, Tag, Project, TaskInput, TaskStatus, TaskQuery, Priority } from '../services/types/task';
 
 const PAGE_SIZE = 20;
@@ -50,14 +50,16 @@ export interface BoardState {
   actions: BoardActions;
 }
 
-function groupByStatus(tasks: Task[]): Record<string, Task[]> {
+function groupByStatus(tasks: Task[], sort?: TaskQuery['sort'], dir?: TaskQuery['dir']): Record<string, Task[]> {
   const grouped = tasks.reduce((acc, task) => {
     const status = task.status || TaskStatus.PENDING;
     (acc[status] ??= []).push(task);
     return acc;
   }, {} as Record<string, Task[]>);
   Object.values(grouped).forEach(list =>
-    list.sort((a, b) => ((a.position ?? 0) - (b.position ?? 0)) || (a.createdAt ?? '').localeCompare(b.createdAt ?? '')));
+    list.sort(sort
+      ? (a, b) => compareTasks(a, b, sort, dir)
+      : (a, b) => ((a.position ?? 0) - (b.position ?? 0)) || (a.createdAt ?? '').localeCompare(b.createdAt ?? '')));
   return grouped;
 }
 
@@ -94,7 +96,7 @@ export function useBoard(repository: TaskStore & OrderingStore & TagStore & Proj
 
   const filters: BoardFilters = { view, query, tagFilter, projectFilter };
   const grouped = useMemo(
-    () => groupByStatus(applyFilters(tasks, filters)),
+    () => groupByStatus(applyFilters(tasks, filters), query.sort, query.dir),
     [tasks, view, query, tagFilter, projectFilter],
   );
 

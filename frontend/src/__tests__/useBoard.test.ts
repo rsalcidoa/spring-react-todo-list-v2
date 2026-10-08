@@ -66,4 +66,31 @@ describe('useBoard (optimistic board controller seam)', () => {
     await act(async () => { await result.current.actions.loadMore(); });
     await waitFor(() => expect(result.current.tasks).toHaveLength(21));
   });
+
+  it('orders each column by the active field sort, dateless last', async () => {
+    const repository = new InMemoryTaskRepository();
+    const later = await repository.create({ title: 'Later', priority: Priority.LOW, status: TaskStatus.PENDING, tagNames: [], dueDate: '2026-03-01' });
+    const sooner = await repository.create({ title: 'Sooner', priority: Priority.LOW, status: TaskStatus.PENDING, tagNames: [], dueDate: '2026-01-01' });
+    const none = await repository.create({ title: 'None', priority: Priority.LOW, status: TaskStatus.PENDING, tagNames: [] });
+
+    const { result } = renderHook(() => useBoard(repository));
+    await waitFor(() => expect(result.current.tasks).toHaveLength(3));
+
+    act(() => { result.current.actions.setQuery({ sort: 'dueDate', dir: 'asc' }); });
+
+    await waitFor(() => expect(result.current.grouped.PENDING.map(t => t.id)).toEqual([sooner.id, later.id, none.id]));
+  });
+
+  it('keeps manual position ordering when no field sort is active', async () => {
+    const repository = new InMemoryTaskRepository();
+    const a = await repository.create({ title: 'A', priority: Priority.LOW, status: TaskStatus.PENDING, tagNames: [] });
+    const b = await repository.create({ title: 'B', priority: Priority.LOW, status: TaskStatus.PENDING, tagNames: [] });
+    await repository.reorder(b.id, TaskStatus.PENDING, 0);
+    await repository.reorder(a.id, TaskStatus.PENDING, 1);
+
+    const { result } = renderHook(() => useBoard(repository));
+    await waitFor(() => expect(result.current.tasks).toHaveLength(2));
+
+    await waitFor(() => expect(result.current.grouped.PENDING.map(t => t.id)).toEqual([b.id, a.id]));
+  });
 });
