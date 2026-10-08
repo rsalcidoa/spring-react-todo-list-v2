@@ -2,14 +2,14 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { AVAILABLE_THEMES, useTheme } from '../context/ThemeContext';
-import { HttpTaskRepository, toDisplayMessage, type TaskRepository } from '../data/TaskRepository';
-import { filterByView, type BoardView } from '../services/boardView';
-import { nextStatus, type MoveDirection } from '../services/boardKeyboard';
-import { positionBetween } from '../services/taskOrdering';
+import { HttpTaskRepository, type TaskRepository } from '../data/TaskRepository';
+import type { BoardView, MoveDirection } from '../services/boardInteraction';
+import { keyboardTarget, restoreFocus } from '../services/boardInteraction';
 import { startReminderPolling, browserNotify } from '../services/reminders';
 import { useT, AVAILABLE_LANGS } from '../i18n';
 import { formatNumber } from '../services/format';
-import { Task, Tag, Project, TaskInput, TaskStatus, TaskQuery, TaskSort, SortDir, Priority } from '../services/types/task';
+import { Task, TaskInput, TaskStatus, TaskSort, SortDir, Priority } from '../services/types/task';
+import { useBoard } from './useBoard';
 import KanbanColumn from '../components/KanbanColumn';
 import AddTaskModal from '../components/AddTaskModal';
 import ErrorBanner from '../components/ErrorBanner';
@@ -21,105 +21,28 @@ const COLUMN_CONFIG: Record<string, { label: string; status: string }> = {
   COMPLETED: { label: 'Hecho', status: 'COMPLETED' },
 };
 
-const PAGE_SIZE = 20;
-
 export default function TodoListPage({ repository: repositoryProp }: { repository?: TaskRepository } = {}) {
   const { t, lang, setLang } = useT();
   const { logout } = useAuth();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const repository = useMemo(() => repositoryProp ?? new HttpTaskRepository(), [repositoryProp]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [tags, setTags] = useState<Tag[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [projectFilter, setProjectFilter] = useState<string>('');
+
+  const { tasks, grouped, tags, projects, filters, error, loading: isLoading, total, lastDeleted, actions } = useBoard(repository);
+  const { view, query, tagFilter, projectFilter } = filters;
+
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [tagsLoading, setTagsLoading] = useState(true);
-  const [tagFilter, setTagFilter] = useState<number[]>([]);
-  const [view, setView] = useState<BoardView>('all');
-  const [query, setQuery] = useState<TaskQuery>({});
-  const [error, setError] = useState<{ message: string; id: number } | null>(null);
-  const [lastDeleted, setLastDeleted] = useState<{ id: number; title: string } | null>(null);
-  const [pageState, setPageState] = useState(0);
-  const [total, setTotal] = useState(0);
-  const undoTimer = useRef<number | null>(null);
   const undoRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (lastDeleted) undoRef.current?.focus();
   }, [lastDeleted]);
 
-  useEffect(() => { loadTasks(); loadTags(); loadProjects(); }, []);
-
   useEffect(() => {
     const handle = startReminderPolling(browserNotify);
     return () => handle.stop();
   }, []);
-
-  const firstQueryRun = useRef(true);
-  useEffect(() => {
-    if (firstQueryRun.current) {
-      firstQueryRun.current = false;
-      return;
-    }
-    const timer = window.setTimeout(() => { void loadTasks(); }, 250);
-    return () => window.clearTimeout(timer);
-  }, [query]);
-
-  const showError = (message: string) => {
-    setError({ message, id: Date.now() });
-  };
-
-  const dismissError = () => {
-    setError(null);
-  };
-
-  const showTransientError = (message: string) => {
-    showError(message);
-    window.setTimeout(() => {
-      setError(prev => (prev && prev.message === message ? null : prev));
-    }, 5000);
-  };
-
-  const errorMessage = (e: unknown) => toDisplayMessage(e);
-
-  const loadTasks = async () => {
-    try {
-      const result = await repository.fetchPage(query, 0, PAGE_SIZE);
-      setTasks(result.items);
-      setPageState(result.page);
-      setTotal(result.total);
-    } catch (e) { showTransientError(errorMessage(e)); }
-    finally { setLoading(false); }
-  };
-
-  const loadMore = async () => {
-    try {
-      const result = await repository.fetchPage(query, pageState + 1, PAGE_SIZE);
-      setTasks(prev => [...prev, ...result.items]);
-      setPageState(result.page);
-      setTotal(result.total);
-    } catch (e) { showTransientError(errorMessage(e)); }
-  };
-
-  const loadProjects = async () => {
-    try { setProjects(await repository.listProjects()); } catch (e) { showTransientError(errorMessage(e)); }
-  };
-
-  const loadTags = async (): Promise<Tag[] | null> => {
-    try {
-      const data = await repository.listTags();
-      setTags(data);
-      return data;
-    } catch (e) {
-      showTransientError(errorMessage(e));
-      return null;
-    } finally {
-      setTagsLoading(false);
-    }
-  };
 
   const handleCardClick = (task: Task) => {
     const validTags = task.tags.filter(t => tags.some(x => x.id === t.id));
@@ -127,131 +50,20 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
     setModalOpen(true);
   };
 
-  const handleStatusChange = async (taskId: number, newStatus: string) => {
-    const previous = tasks.find(t => t.id === taskId)?.status;
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus as Task['status'] } : t));
-    try {
-      await repository.move(taskId, newStatus as TaskStatus);
-    } catch (e) {
-      if (previous !== undefined) {
-        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: previous } : t));
-      }
-      showTransientError(`No se pudo mover: ${errorMessage(e)}`);
-    }
-  };
-
-  const handleSave = async (data: TaskInput) => {
-    if (editingTask) {
-      try {
-        const saved = await repository.update(editingTask.id, data);
-        setTasks(prev => prev.map(t => t.id === editingTask.id ? saved : t));
-        setEditingTask(null);
-        await loadTags();
-      } catch (e) { showTransientError(errorMessage(e)); }
-    } else {
-      try {
-        const created = await repository.create(data);
-        setTasks(prev => [...prev, created]);
-        await loadTags();
-      } catch (e) { showTransientError(errorMessage(e)); }
-    }
+  const handleSave = (data: TaskInput) => {
+    void actions.save(data, editingTask?.id ?? undefined);
   };
 
   const handleDelete = async (id: number) => {
     if (!window.confirm('Eliminar esta tarea?')) return;
-    const task = tasks.find(t => t.id === id);
-    try {
-      await repository.remove(id);
-      setTasks(prev => prev.filter(t => t.id !== id));
-      if (task) {
-        setLastDeleted({ id, title: task.title });
-        if (undoTimer.current) window.clearTimeout(undoTimer.current);
-        undoTimer.current = window.setTimeout(() => setLastDeleted(null), 5000);
-      }
-    } catch (e) { showTransientError(errorMessage(e)); }
-  };
-
-  const handleUndo = async () => {
-    if (!lastDeleted) return;
-    try {
-      const restored = await repository.restore(lastDeleted.id);
-      setTasks(prev => [...prev, restored]);
-    } catch (e) {
-      showTransientError(errorMessage(e));
-    } finally {
-      if (undoTimer.current) window.clearTimeout(undoTimer.current);
-      setLastDeleted(null);
-    }
-  };
-
-  const pauseUndoDismiss = () => {
-    if (undoTimer.current) {
-      window.clearTimeout(undoTimer.current);
-      undoTimer.current = null;
-    }
-  };
-
-  const resumeUndoDismiss = () => {
-    if (lastDeleted) undoTimer.current = window.setTimeout(() => setLastDeleted(null), 5000);
-  };
-
-  const handleQuickAdd = async (title: string, status: TaskStatus): Promise<boolean> => {
-    try {
-      const created = await repository.create({ title, priority: Priority.LOW, status, tagNames: [] });
-      setTasks(prev => [...prev, created]);
-      return true;
-    } catch (e) {
-      showTransientError(errorMessage(e));
-      return false;
-    }
+    await actions.delete(id);
   };
 
   const handleKeyboardMove = async (task: Task, direction: MoveDirection) => {
-    const target = nextStatus(task.status, direction);
+    const target = keyboardTarget(task.status, direction);
     if (!target) return;
-    await handleStatusChange(task.id, target);
-    requestAnimationFrame(() => {
-      const el = document.querySelector(`[data-task="${task.id}"]`) as HTMLElement | null;
-      el?.focus();
-    });
-  };
-
-  const handleReorder = async (taskId: number, status: string, index: number) => {
-    const previous = tasks.find(t => t.id === taskId);
-    if (!previous) return;
-    const column = (grouped[status] ?? []).filter(t => t.id !== taskId);
-    const clamped = Math.max(0, Math.min(index, column.length));
-    const before = clamped > 0 ? column[clamped - 1].position : undefined;
-    const after = clamped < column.length ? column[clamped].position : undefined;
-    const position = positionBetween(before, after);
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: status as Task['status'], position } : t));
-    try {
-      await repository.reorder(taskId, status as TaskStatus, position);
-    } catch (e) {
-      setTasks(prev => prev.map(t => t.id === taskId ? previous : t));
-      showTransientError(`No se pudo mover: ${errorMessage(e)}`);
-    }
-  };
-
-  const viewTasks = filterByView(tasks, view);
-  let visibleTasks = tagFilter.length === 0
-    ? viewTasks
-    : viewTasks.filter(t => t.tags.some(tag => tagFilter.includes(tag.id)));
-  if (projectFilter) {
-    visibleTasks = visibleTasks.filter(t => String(t.projectId) === projectFilter);
-  }
-
-  const grouped = visibleTasks.reduce((acc, task) => {
-    const status = task.status || 'PENDING';
-    if (!acc[status]) acc[status] = [];
-    acc[status].push(task);
-    return acc;
-  }, {} as Record<string, Task[]>);
-  Object.values(grouped).forEach(list =>
-    list.sort((a, b) => ((a.position ?? 0) - (b.position ?? 0)) || (a.createdAt ?? '').localeCompare(b.createdAt ?? '')));
-
-  const toggleTagFilter = (id: number) => {
-    setTagFilter(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    await actions.move(task.id, target);
+    requestAnimationFrame(() => restoreFocus(task.id));
   };
 
   const countTagTasks = (id: number) => tasks.filter(t => t.tags.some(tag => tag.id === id)).length;
@@ -261,11 +73,9 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
     navigate('/login');
   };
 
-  const isLoading = loading || tagsLoading;
-
   return (
     <div className={styles.page}>
-      {error && <ErrorBanner key={error.id} message={error.message} onDismiss={dismissError} />}
+      {error && <ErrorBanner key={error.id} message={error.message} onDismiss={actions.dismissError} />}
       <span role="status" className={styles.srOnly}>{lastDeleted ? t('board.undo') : ''}</span>
       {lastDeleted && (
         <div className={styles.undoBar}>
@@ -274,9 +84,9 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
             ref={undoRef}
             type="button"
             className={styles.newTaskBtn}
-            onClick={handleUndo}
-            onFocus={pauseUndoDismiss}
-            onBlur={resumeUndoDismiss}
+            onClick={actions.undo}
+            onFocus={actions.pauseUndoDismiss}
+            onBlur={actions.resumeUndoDismiss}
           >{t('board.undoAction')}</button>
         </div>
       )}
@@ -287,7 +97,7 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
             className={styles.searchInput}
             placeholder="Buscar tareas"
             value={query.q ?? ''}
-            onChange={e => setQuery(prev => ({ ...prev, q: e.target.value || undefined }))}
+            onChange={e => actions.setQuery({ q: e.target.value || undefined })}
           />
           <label className={styles.themeLabel}>
             Vista
@@ -295,7 +105,7 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
               aria-label="Vista"
               className={styles.themeSelect}
               value={view}
-              onChange={e => setView(e.target.value as BoardView)}
+              onChange={e => actions.setView(e.target.value as BoardView)}
             >
               <option value="all">Todas</option>
               <option value="today">Hoy</option>
@@ -309,7 +119,7 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
               aria-label="Filtrar por proyecto"
               className={styles.themeSelect}
               value={projectFilter}
-              onChange={e => setProjectFilter(e.target.value)}
+              onChange={e => actions.setProjectFilter(e.target.value)}
             >
               <option value="">Todos</option>
               {projects.map(p => (<option key={p.id} value={String(p.id)}>{p.name}</option>))}
@@ -321,7 +131,7 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
               aria-label="Prioridad"
               className={styles.themeSelect}
               value={query.priority ?? ''}
-              onChange={e => setQuery(prev => ({ ...prev, priority: (e.target.value || undefined) as Priority | undefined }))}
+              onChange={e => actions.setQuery({ priority: (e.target.value || undefined) as Priority | undefined })}
             >
               <option value="">Todas</option>
               <option value={Priority.LOW}>Baja</option>
@@ -337,7 +147,7 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
               value={`${query.sort ?? 'createdAt'}:${query.dir ?? (query.sort && query.sort !== 'createdAt' ? 'asc' : 'desc')}`}
               onChange={e => {
                 const [sort, dir] = e.target.value.split(':');
-                setQuery(prev => ({ ...prev, sort: sort as TaskSort, dir: dir as SortDir }));
+                actions.setQuery({ sort: sort as TaskSort, dir: dir as SortDir });
               }}
             >
               <option value="createdAt:desc">Recientes</option>
@@ -382,13 +192,13 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
             type="button"
             aria-pressed={tagFilter.includes(tag.id)}
             className={`${styles.filterPill} ${tagFilter.includes(tag.id) ? styles.filterActive : ''}`}
-            onClick={() => toggleTagFilter(tag.id)}
+            onClick={() => actions.toggleTagFilter(tag.id)}
           >
             {tag.name}
           </button>
         ))}
         {tagFilter.length > 0 && (
-          <button type="button" className={styles.filterClear} onClick={() => setTagFilter([])}>
+          <button type="button" className={styles.filterClear} onClick={() => actions.clearTagFilter()}>
             Limpiar
           </button>
         )}
@@ -414,9 +224,9 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
               label={config.label}
               tasks={grouped[status] ?? []}
               onCardClick={handleCardClick}
-              onReorder={(taskId, index) => handleReorder(taskId, status, index)}
+              onReorder={(taskId, index) => actions.reorder(taskId, status as TaskStatus, index)}
               onDelete={(task) => handleDelete(task.id)}
-              onQuickAdd={handleQuickAdd}
+              onQuickAdd={actions.quickAdd}
               onMove={handleKeyboardMove}
             />
           ))
@@ -425,7 +235,7 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
 
       {!isLoading && tasks.length > 0 && tasks.length < total && (
         <div style={{ padding: '0.5rem' }}>
-          <button className={styles.newTaskBtn} onClick={loadMore}>{t('board.more')}</button>
+          <button className={styles.newTaskBtn} onClick={actions.loadMore}>{t('board.more')}</button>
         </div>
       )}
 
@@ -438,12 +248,8 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
         projects={projects}
         editingTask={editingTask}
         countTagTasks={countTagTasks}
-        onTagCreated={(tag) => setTags(prev => [...prev, tag])}
-        onTagDeleted={(id) => {
-          setTags(prev => prev.filter(t => t.id !== id));
-          setTasks(prev => prev.map(t => ({ ...t, tags: t.tags.filter(tag => tag.id !== id) })));
-          loadTags();
-        }}
+        onTagCreated={(tag) => actions.addTag(tag)}
+        onTagDeleted={(id) => { void actions.removeTag(id); }}
       />
     </div>
   );
