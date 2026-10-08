@@ -215,6 +215,11 @@ export function useTaskForm(args: TaskFormArgs): TaskForm {
     };
   };
 
+  const updateTitle = (value: string) => {
+    setTitle(value);
+    if (titleError) setTitleError(null);
+  };
+
   return {
     values: { title, description, priority, status, tagNames: tags, dueDate, reminderAt, recurrence, projectId },
     newTagName,
@@ -222,7 +227,6 @@ export function useTaskForm(args: TaskFormArgs): TaskForm {
     titleError,
     tagError,
     subtasks,
-    setTitle,
     setDescription,
     setPriority,
     setStatus,
@@ -240,5 +244,6 @@ export function useTaskForm(args: TaskFormArgs): TaskForm {
     toggleSubtask,
     dismissTagError: () => setTagError(null),
     buildInput,
+    setTitle: updateTitle,
   };
 }

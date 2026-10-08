@@ -161,3 +161,11 @@
     min-height: 44px;
   }
 }
+
+.completed {
+  opacity: 0.6;
+}
+
+.completedTitle {
+  text-decoration: line-through;
+}

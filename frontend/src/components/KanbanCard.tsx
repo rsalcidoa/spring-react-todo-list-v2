@@ -1,5 +1,5 @@
 import React from 'react';
-import { Task, Priority } from '../services/types/task';
+import { Task, Priority, TaskStatus } from '../services/types/task';
 import { getDueState, type MoveDirection } from '../services/boardInteraction';
 import styles from './KanbanCard.module.css';
 import { useT } from '../i18n';
@@ -13,13 +13,15 @@ const PRIORITY_LABELS: Record<Priority, string> = {
 
 interface KanbanCardProps {
   task: Task;
+  dragEnabled?: boolean;
   onClick?: () => void;
   onDelete?: () => void;
   onMove?: (direction: MoveDirection) => void;
 }
 
-const KanbanCard: React.FC<KanbanCardProps> = ({task, onClick, onDelete, onMove}) => {
+const KanbanCard: React.FC<KanbanCardProps> = ({task, dragEnabled = true, onClick, onDelete, onMove}) => {
   const { t, lang } = useT();
+  const completed = task.status === TaskStatus.COMPLETED;
   const dueState = getDueState(task.dueDate);
   const dueClass = dueState === 'overdue' ? styles.dueOverdue : dueState === 'today' ? styles.dueToday : '';
   const dueLabel =
@@ -40,7 +42,7 @@ const KanbanCard: React.FC<KanbanCardProps> = ({task, onClick, onDelete, onMove}
   };
 
   return (
-  <div className={`${styles.card} ${task.priority ? styles[`edge-${task.priority.toLowerCase()}`] : ''}`}
+  <div className={`${styles.card} ${task.priority ? styles[`edge-${task.priority.toLowerCase()}`] : ''} ${completed ? styles.completed : ''}`}
        data-task={String(task.id)}
        tabIndex={0}
        role="button"
@@ -48,9 +50,9 @@ const KanbanCard: React.FC<KanbanCardProps> = ({task, onClick, onDelete, onMove}
        onKeyDown={handleKeyDown}
        onClick={(e) => { if ((e.target as HTMLElement).dataset.dragging !== 'true') onClick?.(); }}
        onDragStart={(e: React.DragEvent<HTMLDivElement>) => { (e.dataTransfer as DataTransfer).setData('text/plain', String(task.id)); }}
-       draggable>
+       draggable={dragEnabled}>
     <div className={styles.cardHeader}>
-      <span className={styles.title}>{task.title}</span>
+      <span className={`${styles.title} ${completed ? styles.completedTitle : ''}`}>{task.title}</span>
       {task.priority && (
         <span className={`${styles.badge} ${styles[`priority-${task.priority.toLowerCase()}`]}`}>
           {PRIORITY_LABELS[task.priority] ?? task.priority}

@@ -32,7 +32,7 @@ const QuickAddTask: React.FC<QuickAddTaskProps> = ({ status, onCreate }) => {
         placeholder={t('quickAdd.placeholder')}
         aria-label={t('quickAdd.placeholder')}
         value={value}
-        onChange={e => setValue(e.target.value)}
+        onChange={e => { setValue(e.target.value); if (error) setError(null); }}
       />
       <button type="submit" className={styles.addBtn} aria-label={t('quickAdd.add')}>+</button>
       {error && <span className={styles.error} role="alert">{error}</span>}

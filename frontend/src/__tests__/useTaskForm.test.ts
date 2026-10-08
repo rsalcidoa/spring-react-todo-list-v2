@@ -55,6 +55,17 @@ describe('useTaskForm parsing', () => {
     expect(result.current.titleError).toBeTruthy();
   });
 
+  it('clears the title error when the user edits the title', () => {
+    const { result } = renderForm();
+
+    act(() => result.current.setTitle('   '));
+    act(() => { result.current.buildInput(); });
+    expect(result.current.titleError).toBeTruthy();
+
+    act(() => result.current.setTitle('Task'));
+    expect(result.current.titleError).toBeNull();
+  });
+
   it('pre-fills from the editing task, then resets when it becomes null', async () => {
     const repository = new InMemoryTaskRepository();
     const task = await repository.create({

@@ -30,6 +30,19 @@ describe('QuickAddTask', () => {
     expect(onCreate).not.toHaveBeenCalled();
   });
 
+  it('clears the inline error when the user types', async () => {
+    const onCreate = vi.fn().mockResolvedValue(true);
+    render(<QuickAddTask status={TaskStatus.PENDING} onCreate={onCreate} />);
+
+    const input = screen.getByPlaceholderText(/Añadir tarea/i);
+    fireEvent.submit(input.closest('form')!);
+    await waitFor(() => expect(screen.getByRole('alert')).toBeTruthy());
+
+    fireEvent.change(input, { target: { value: 'Now typed' } });
+
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+  });
+
   it('keeps the value when creation fails', async () => {
     const onCreate = vi.fn().mockResolvedValue(false);
     render(<QuickAddTask status={TaskStatus.PENDING} onCreate={onCreate} />);
