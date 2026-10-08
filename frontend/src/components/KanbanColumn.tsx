@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Task, TaskStatus } from '../services/types/task';
 import { dropIndex, type MoveDirection } from '../services/boardInteraction';
 import KanbanCard from './KanbanCard';
@@ -27,18 +27,21 @@ const STATUS_DOT_VAR: Record<string, string> = {
 
 const KanbanColumn: React.FC<KanbanColumnProps> = ({status, label, tasks, onCardClick, onDrop, onDelete, onQuickAdd, onMove, onReorder}) => {
   const { t, lang } = useT();
+  const [dragOver, setDragOver] = useState(false);
+
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    e.currentTarget.classList.add(styles.dragover);
+    setDragOver(true);
   };
 
   const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    e.currentTarget.classList.remove(styles.dragover);
+    setDragOver(false);
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    setDragOver(false);
     if (onReorder) {
       const taskId = parseInt((e.dataTransfer as DataTransfer).getData('text/plain'));
       if (taskId && !isNaN(taskId)) {
@@ -57,7 +60,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({status, label, tasks, onCard
         <span className={styles.dot} style={{ backgroundColor: STATUS_DOT_VAR[status] ?? 'var(--color-text-muted)' }} />
         {label} <span className={styles.count}>{formatNumber(tasks.length, lang)}</span>
       </h3>
-      <div className={`${styles.body}`}
+      <div className={`${styles.body} ${dragOver ? styles.dragover : ''}`}
            onDragOver={handleDragOver}
            onDragLeave={handleDragLeave}
            onDrop={handleDrop}>
