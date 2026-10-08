@@ -3,6 +3,7 @@ import styles from './AddTaskModal.module.css';
 import { TaskStatus, Priority, Task, Tag, Project, TaskInput } from '../services/types/task';
 import { type TaskStore, type TagStore, type SubtaskStore } from '../data/TaskRepository';
 import { useTaskForm } from './useTaskForm';
+import TagSelect from './TagSelect';
 import ErrorBanner from './ErrorBanner';
 import { useT } from '../i18n';
 
@@ -103,16 +104,18 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
         </div>
         <div className={styles.tagSection}>
           <span className={styles.sectionLabel}>{t('task.tags')}</span>
-          <div className={styles.existingTags}>
-            {tagList.map((tag) => (
-              <span key={tag.id}
-                className={`${styles.tagPill} ${form.values.tagNames.includes(tag.name) ? styles.selected : ''}`}>
-                <button type="button" onClick={()=>form.toggleTag(tag.name)}>{tag.name}</button>
-                <button type="button" className={styles.tagDeleteBtn} aria-label={`${t('task.deleteTag')} ${tag.name}`}
-                  onClick={()=>form.deleteTag(tag.id)}>×</button>
-              </span>
-            ))}
-          </div>
+          <TagSelect
+            tags={tagList}
+            selectedIds={form.values.tagNames
+              .map(name => tagList.find(x => x.name === name)?.id)
+              .filter((id): id is number => id != null)}
+            onChange={ids => form.setTagNames(
+              ids.map(id => tagList.find(x => x.id === id)?.name).filter((name): name is string => name != null),
+            )}
+            ariaLabel={t('task.tags')}
+            placeholder={t('task.tagSearch')}
+            onDeleteTag={tag => form.deleteTag(tag.id)}
+          />
           <div className={styles.newTagRow}>
             <input className={styles.tagInput} placeholder={t('task.newTag')} value={form.newTagName}
               onChange={e=>form.setNewTagName(e.target.value)} maxLength={50} />

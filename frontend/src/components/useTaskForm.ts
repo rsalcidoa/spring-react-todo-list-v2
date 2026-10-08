@@ -45,6 +45,7 @@ export interface TaskForm {
   setRecurrence: (value: Recurrence) => void;
   setProjectId: (value: string) => void;
   toggleTag: (name: string) => void;
+  setTagNames: (names: string[]) => void;
   setNewTagName: (value: string) => void;
   setNewSubtask: (value: string) => void;
   createTag: () => Promise<void>;
@@ -236,6 +237,7 @@ export function useTaskForm(args: TaskFormArgs): TaskForm {
     setRecurrence,
     setProjectId,
     toggleTag,
+    setTagNames: setTags,
     setNewTagName,
     setNewSubtask,
     createTag,

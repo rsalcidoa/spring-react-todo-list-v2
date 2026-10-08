@@ -15,6 +15,8 @@ import AddTaskModal from '../components/AddTaskModal';
 import ManageProjectsModal from '../components/ManageProjectsModal';
 import ErrorBanner from '../components/ErrorBanner';
 import UserMenu from '../components/UserMenu';
+import TagSelect from '../components/TagSelect';
+import AppFooter from '../components/AppFooter';
 import styles from './TodoListPage.module.css';
 
 const COLUMN_CONFIG: Record<string, { labelKey: TranslationKey; status: string }> = {
@@ -109,6 +111,7 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
           <div className={styles.headerRight}>
             <div className={styles.actions}>
               <button className={styles.newTaskBtn} onClick={() => { setEditingTask(null); setModalOpen(true); }}>{t('board.newTask')}</button>
+              <button className={styles.projectBtn} onClick={() => setProjectsOpen(true)}>{t('board.newProject')}</button>
               <UserMenu email={user} onLogout={handleLogout} />
             </div>
             <div className={styles.appearance}>
@@ -218,23 +221,16 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
         </div>
       </header>
 
-      <div className={styles.filterRow} role="group" aria-label={t('board.filterByTag')}>
-        {tags.map(tag => (
-          <button
-            key={tag.id}
-            type="button"
-            aria-pressed={tagFilter.includes(tag.id)}
-            className={`${styles.filterPill} ${tagFilter.includes(tag.id) ? styles.filterActive : ''}`}
-            onClick={() => actions.toggleTagFilter(tag.id)}
-          >
-            {tag.name}
-          </button>
-        ))}
-        {tagFilter.length > 0 && (
-          <button type="button" className={styles.filterClear} onClick={() => actions.clearTagFilter()}>
-            {t('board.clear')}
-          </button>
-        )}
+      <div className={styles.filterRow}>
+        <TagSelect
+          tags={tags}
+          selectedIds={tagFilter}
+          onChange={actions.setTagFilter}
+          ariaLabel={t('board.filterByTag')}
+          placeholder={t('board.filterByTag')}
+          collapsible
+          showChips
+        />
       </div>
 
       <main className={styles.board} aria-busy={isLoading}>
@@ -302,6 +298,8 @@ export default function TodoListPage({ repository: repositoryProp }: { repositor
         onRename={async (id, name, description) => { await actions.renameProject(id, name, description); }}
         onDelete={async (id) => { await actions.deleteProject(id); }}
       />
+
+      <AppFooter />
     </div>
   );
 }

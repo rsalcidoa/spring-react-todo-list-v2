@@ -91,6 +91,28 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
     await waitFor(() => expect((screen.getByLabelText('Ordenar') as HTMLSelectElement).value).toBe('manual'));
   });
 
+  it('clears the drag-over highlight after a drop', async () => {
+    const { repository } = await seedBoard();
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy());
+
+    const body = screen.getByText('Por hacer').closest('div')!.querySelector('div') as HTMLElement;
+    fireEvent.dragOver(body);
+    expect(body.className).toMatch(/dragover/);
+
+    fireEvent.drop(body, { dataTransfer: { getData: () => '1' }, preventDefault: () => {} });
+    await waitFor(() => expect(body.className).not.toMatch(/dragover/));
+  });
+
+  it('opens the manage projects dialog from the header action', async () => {
+    renderWithRepo(new InMemoryTaskRepository());
+    await waitFor(() => expect(screen.getByText(/Todas las tareas/i)).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: /Nuevo proyecto/i }));
+
+    await waitFor(() => expect(screen.getByRole('dialog', { name: /Gestionar proyectos/i })).toBeTruthy());
+  });
+
   it('groups the new-task action apart from the filters', async () => {
     const { repository } = await seedBoard();
     renderWithRepo(repository);
@@ -326,7 +348,8 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
     await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy(), { timeout: 5000 });
     expect(screen.queryByText(/Task Beta/i)).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Work', pressed: false }));
+    fireEvent.click(screen.getByRole('button', { name: /Filtrar por etiqueta/i }));
+    fireEvent.click(screen.getByRole('option', { name: 'Work' }));
     await waitFor(() => {
       expect(screen.queryByText(/Task Alpha/i)).toBeTruthy();
       expect(screen.queryByText(/Task Beta/i)).toBeNull();
