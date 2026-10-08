@@ -124,9 +124,9 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
-    void illegalArgumentMapsTo400WithMessage() {
-        ResponseEntity<Map<String, String>> response =
-                handler.handleIllegalArgument(new IllegalArgumentException("Passwords do not match"));
+    void domainExceptionMapsToItsTaxonomyBody() {
+        ResponseEntity<Map<String, Object>> response = handler.handleDomainException(
+                new DomainException(ErrorKind.PASSWORD_MISMATCH, "confirmPassword", "Passwords do not match"));
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
         assertEquals("Passwords do not match", response.getBody().get("error"));

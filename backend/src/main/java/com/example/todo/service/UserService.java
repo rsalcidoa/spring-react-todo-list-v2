@@ -11,6 +11,8 @@ import com.example.todo.model.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Transactional;
+import com.example.todo.exception.DomainException;
+import com.example.todo.exception.ErrorKind;
 import com.example.todo.exception.InvalidResetTokenException;
 import com.example.todo.exception.ResetTokenExpiredException;
 import com.example.todo.exception.UserAlreadyExistsException;
@@ -70,7 +72,7 @@ public class UserService {
     @Transactional
     public void changePasswordViaReset(String token, String newPassword, String confirmPassword) {
         if (!newPassword.equals(confirmPassword)) {
-            throw new IllegalArgumentException("Passwords do not match");
+            throw new DomainException(ErrorKind.PASSWORD_MISMATCH, "confirmPassword", "Passwords do not match");
         }
         User user = requireValidToken(token);
         user.setPassword(passwordEncoder.encode(newPassword));

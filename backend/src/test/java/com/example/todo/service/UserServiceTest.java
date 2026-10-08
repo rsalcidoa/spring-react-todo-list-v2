@@ -1,5 +1,6 @@
 package com.example.todo.service;
 
+import com.example.todo.exception.DomainException;
 import com.example.todo.exception.InvalidResetTokenException;
 import com.example.todo.exception.ResetTokenExpiredException;
 import com.example.todo.model.User;
@@ -133,7 +134,7 @@ class UserServiceTest {
         user.setResetExpires(LocalDateTime.now(clock).plusHours(1));
         when(userRepository.findByResetToken("ABC123")).thenReturn(Optional.of(user));
 
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+        DomainException ex = assertThrows(DomainException.class,
                 () -> service.changePasswordViaReset("ABC123", "newpass1", "otherpass"));
         assertEquals("Passwords do not match", ex.getMessage());
         assertEquals("ABC123", user.getResetToken(), "token must survive a mismatch");
