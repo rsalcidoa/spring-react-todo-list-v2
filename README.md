@@ -123,6 +123,20 @@ All routes are under `/v1` and require a `Bearer` token except the auth routes.
 Errors use a single envelope: `{error}` for simple errors and
 `{error, errors}` for validation failures.
 
+## Password reset
+
+There is no email delivery in this app: `POST /v1/auth/reset-request` returns the
+6-character code in its response, and the forgot-password page displays it.
+
+To try it manually:
+
+1. Register and sign in, then log out.
+2. Open `/forgot-password`, enter your email and click **Enviar código** — the code appears on the page.
+3. Click **Continuar** (goes to `/reset/<code>`), set a new password twice and submit.
+4. Sign in with the new password.
+
+This flow is covered end to end by `frontend/e2e/password-reset.spec.ts`.
+
 ## Architecture and decisions
 
 - `CONTEXT.md` — the domain glossary (what each term means).
