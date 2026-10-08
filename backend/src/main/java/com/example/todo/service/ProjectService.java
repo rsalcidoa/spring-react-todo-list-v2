@@ -26,21 +26,23 @@ public class ProjectService {
 
     public List<ProjectResponse> list(User me) {
         return projectRepository.findByUser(me).stream()
-                .map(p -> new ProjectResponse(p.getId(), p.getName()))
+                .map(p -> new ProjectResponse(p.getId(), p.getName(), p.getDescription()))
                 .sorted(Comparator.comparing(ProjectResponse::name, String.CASE_INSENSITIVE_ORDER))
                 .collect(Collectors.toList());
     }
 
-    public ProjectResponse create(User me, String rawName) {
+    public ProjectResponse create(User me, String rawName, String rawDescription) {
         String name = rawName.trim();
         if (projectRepository.findByUserIdAndNameIgnoreCase(me.getId(), name).isPresent()) {
             throw new ProjectAlreadyExistsException();
         }
-        Project saved = projectRepository.save(new Project(name, me));
-        return new ProjectResponse(saved.getId(), saved.getName());
+        Project project = new Project(name, me);
+        project.setDescription(normalizeDescription(rawDescription));
+        Project saved = projectRepository.save(project);
+        return new ProjectResponse(saved.getId(), saved.getName(), saved.getDescription());
     }
 
-    public ProjectResponse rename(Long id, String rawName) {
+    public ProjectResponse rename(Long id, String rawName, String rawDescription) {
         Project project = projectRepository.findById(id).orElseThrow(ResourceNotFoundException::new);
         currentUser.requireOwned(project.getUser().getId());
         String name = rawName.trim();
@@ -48,8 +50,16 @@ public class ProjectService {
                 .filter(other -> !other.getId().equals(id))
                 .ifPresent(other -> { throw new ProjectAlreadyExistsException(); });
         project.setName(name);
+        project.setDescription(normalizeDescription(rawDescription));
         projectRepository.save(project);
-        return new ProjectResponse(project.getId(), project.getName());
+        return new ProjectResponse(project.getId(), project.getName(), project.getDescription());
+    }
+
+    private String normalizeDescription(String rawDescription) {
+        if (rawDescription == null || rawDescription.isBlank()) {
+            return null;
+        }
+        return rawDescription.trim();
     }
 
     public void delete(Long id) {

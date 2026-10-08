@@ -14,6 +14,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -122,6 +123,46 @@ class ProjectApiIntegrationTest {
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.projectId").doesNotExist());
+    }
+
+    @Test
+    void projectDescriptionIsOptionalAndEchoed() throws Exception {
+        registerAndLogin();
+
+        MvcResult created = mockMvc.perform(post("/v1/projects")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\": \"Casa\", \"description\": \"Remodelación de la cocina\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.description").value("Remodelación de la cocina"))
+                .andReturn();
+        long id = mapper.readTree(created.getResponse().getContentAsString()).path("id").asLong();
+
+        mockMvc.perform(get("/v1/projects").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].description").value("Remodelación de la cocina"));
+
+        mockMvc.perform(put("/v1/projects/" + id)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\": \"Casa\", \"description\": \"Nueva descripción\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.description").value("Nueva descripción"));
+
+        mockMvc.perform(post("/v1/projects")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\": \"SinDesc\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.description").value(nullValue()));
+
+        String longDescription = "x".repeat(501);
+        mockMvc.perform(post("/v1/projects")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\": \"Grande\", \"description\": \"" + longDescription + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.description[0]").exists());
     }
 
     @Test

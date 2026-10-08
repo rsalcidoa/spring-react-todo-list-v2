@@ -31,12 +31,12 @@ public class ProjectController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ProjectResponse createProject(@Valid @RequestBody ProjectRequest request) {
-        return projectService.create(currentUser.requireCurrent(), request.getName());
+        return projectService.create(currentUser.requireCurrent(), request.getName(), request.getDescription());
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<ProjectResponse> renameProject(@PathVariable Long id, @Valid @RequestBody ProjectRequest request) {
-        return ResponseEntity.ok(projectService.rename(id, request.getName()));
+        return ResponseEntity.ok(projectService.rename(id, request.getName(), request.getDescription()));
     }
 
     @DeleteMapping("/{id}")

@@ -1,26 +1,6 @@
-# projects Specification
+# Spec Delta
 
-## Purpose
-Gives users user-scoped project containers so tasks can be separated by area of work, independent of tags.
-
-## Requirements
-
-### Requirement: Project Identity Per User
-The system SHALL enforce project-name uniqueness within a user's scope using normalized identity (trimmed, case-insensitive), at both the module and the database (functional unique index on `(user_id, lower(name))`). A duplicate SHALL return 409 Conflict.
-
-**ID**: REQ-PRJ-001
-**Affected files**:
-- `com.example.todo.service.ProjectService` — normalized create-or-reject
-- `com.example.todo.repository.ProjectRepository` — case-insensitive lookup
-- `backend/src/main/resources/db/migration/V7__add_projects.sql` — unique index
-
-#### Scenario: Create a unique project
-- **WHEN** an authenticated user creates a project named "Casa"
-- **THEN** system returns 201 Created with `id` and `name`
-
-#### Scenario: Case-insensitive duplicate rejected
-- **WHEN** "Casa" exists and the user creates " casa "
-- **THEN** system returns 409 Conflict and creates no row
+## MODIFIED Requirements
 
 ### Requirement: List User Projects
 The system SHALL return the authenticated user's projects via `GET /v1/projects`, each containing exactly `id`, `name` and `description`, sorted case-insensitively by name. `description` SHALL be `null` when not set.
@@ -68,23 +48,3 @@ The system SHALL update an owned project via `PUT /v1/projects/{id}`, accepting 
 #### Scenario: Edit the description
 - **WHEN** the user updates a project with a new description
 - **THEN** system returns 200 OK echoing the new `description`
-
-### Requirement: Delete User Project
-The system SHALL delete an owned project via `DELETE /v1/projects/{id}` and unassign it from every task that referenced it, leaving those tasks intact. Deleting another user's project returns 403; a missing id returns 404.
-
-**ID**: REQ-PRJ-005
-**Affected files**: `com.example.todo.controller.ProjectController.deleteProject()`, `com.example.todo.service.ProjectService.delete(...)`
-
-#### Scenario: Delete unassigns tasks
-- **WHEN** the user deletes a project assigned to tasks
-- **THEN** the project is removed and its tasks remain, now without a project
-
-### Requirement: Project Ownership Enforcement
-Every project operation SHALL verify the authenticated user is the owner, through `CurrentUserProvider.requireOwned`, so project and task ownership decisions cannot drift.
-
-**ID**: REQ-PRJ-006
-**Affected files**: `com.example.todo.service.ProjectService`, `com.example.todo.controller.ProjectController`
-
-#### Scenario: Cross-user access forbidden
-- **WHEN** a user tries to read, rename or delete another user's project
-- **THEN** system returns 403 Forbidden (or lists only their own projects)
