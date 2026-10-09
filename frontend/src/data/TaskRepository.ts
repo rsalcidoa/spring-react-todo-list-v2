@@ -320,6 +320,10 @@ export class InMemoryTaskRepository implements TaskRepository {
   private nextProjectId = 1;
 
   async fetchAll(query?: TaskQuery): Promise<Task[]> {
+    // Applies only the server-supported subset (search/priority/status/tags and
+    // ordering) to mirror the API. Project scope and date Views are client-side
+    // over the loaded tasks (REQ-FE-019 / REQ-FE-037), so they are not part of
+    // TaskQuery and are intentionally absent here.
     const items = applyBoardQuery(
       this.tasks.map(t => ({ ...t, tags: [...t.tags] })),
       {

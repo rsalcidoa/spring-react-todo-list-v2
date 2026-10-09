@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { type TaskStore, type OrderingStore, type TagStore, type ProjectStore } from '../data/TaskRepository';
 import { presentError } from '../services/errorPresenter';
 import { useT } from '../i18n';
-import { positionBetween, type BoardView } from '../services/boardInteraction';
-import { applyBoardQuery, compareTasks, type BoardQuery } from '../services/boardQuery';
+import { positionBetween } from '../services/boardInteraction';
+import { applyBoardQuery, boardQueryFrom, compareTasks, type BoardFilters, type BoardView } from '../services/boardQuery';
 import { Task, Tag, Project, TaskInput, TaskStatus, TaskQuery, Priority } from '../services/types/task';
 
 const PAGE_SIZE = 20;
@@ -11,12 +11,7 @@ const QUERY_DEBOUNCE_MS = 250;
 const ERROR_DISMISS_MS = 5000;
 const UNDO_DISMISS_MS = 5000;
 
-export interface BoardFilters {
-  view: BoardView;
-  query: TaskQuery;
-  tagFilter: number[];
-  projectFilter: string;
-}
+export type { BoardFilters };
 
 export interface BoardActions {
   move(taskId: number, status: TaskStatus): Promise<void>;
@@ -69,19 +64,7 @@ function groupByStatus(tasks: Task[], sort?: TaskQuery['sort'], dir?: TaskQuery[
 }
 
 function applyFilters(tasks: Task[], filters: BoardFilters): Task[] {
-  const query: BoardQuery = {
-    view: filters.view,
-    q: filters.query.q,
-    priority: filters.query.priority,
-    status: filters.query.status,
-    tagIds: filters.tagFilter,
-    projectId: filters.projectFilter === ''
-      ? undefined
-      : filters.projectFilter === 'none'
-        ? 'none'
-        : Number(filters.projectFilter),
-  };
-  return applyBoardQuery(tasks, query);
+  return applyBoardQuery(tasks, boardQueryFrom(filters));
 }
 
 /** Deep module owning the board's read state and optimistic mutation policy. */
