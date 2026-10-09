@@ -142,13 +142,14 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
               <input className={styles.tagInput} aria-label={t('task.newSubtask')} placeholder={t('task.newSubtask')} value={form.newSubtask} onChange={e => form.setNewSubtask(e.target.value)} />
               <button type="button" className={styles.tagCreateBtn} onClick={form.addSubtask}>{t('common.add')}</button>
             </div>
+            {form.subtaskError && <span className={styles.requiredMsg} role="alert">{form.subtaskError}</span>}
           </div>
         )}
         {form.tagError && <ErrorBanner key={form.tagError.id} message={form.tagError.message} onDismiss={form.dismissTagError} />}
         </div>
         <div className={styles.actions}>
           <button className={styles.cancelBtn} onClick={onClose}>{t('common.cancel')}</button>
-          <button className={styles.saveBtn} onClick={handleSubmit}>{t('common.save')}</button>
+          <button className={styles.saveBtn} onClick={handleSubmit} disabled={!form.values.title.trim()}>{t('common.save')}</button>
         </div>
       </div>
     </div>

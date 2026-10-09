@@ -52,6 +52,16 @@ describe('ManageProjectsModal', () => {
     await waitFor(() => expect(onRename).toHaveBeenCalledWith(1, 'Hogar', 'Remodelación de la cocina'));
   });
 
+  it('flags a blank project name instead of silently ignoring it', () => {
+    const onCreate = vi.fn().mockResolvedValue(undefined);
+    renderModal({ onCreate });
+
+    fireEvent.click(screen.getByRole('button', { name: /Crear proyecto/i }));
+
+    expect(screen.getByText('El nombre es obligatorio')).toBeTruthy();
+    expect(onCreate).not.toHaveBeenCalled();
+  });
+
   it('deletes a project after confirmation', async () => {
     const onDelete = vi.fn().mockResolvedValue(undefined);
     vi.spyOn(window, 'confirm').mockReturnValue(true);

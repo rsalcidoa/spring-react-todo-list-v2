@@ -19,6 +19,7 @@ const ManageProjectsModal: React.FC<ManageProjectsModalProps> = ({ isOpen, onClo
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [nameError, setNameError] = useState<string | null>(null);
   const [error, setError] = useState<{ message: string; id: number } | null>(null);
 
   useEffect(() => {
@@ -34,11 +35,15 @@ const ManageProjectsModal: React.FC<ManageProjectsModalProps> = ({ isOpen, onClo
 
   if (!isOpen) return null;
 
-  const resetForm = () => { setName(''); setDescription(''); setEditingId(null); };
+  const resetForm = () => { setName(''); setDescription(''); setEditingId(null); setNameError(null); };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim()) {
+      setNameError(t('project.nameRequired'));
+      return;
+    }
+    setNameError(null);
     try {
       if (editingId != null) {
         await onRename(editingId, name, description || undefined);
@@ -55,6 +60,7 @@ const ManageProjectsModal: React.FC<ManageProjectsModalProps> = ({ isOpen, onClo
     setEditingId(project.id);
     setName(project.name);
     setDescription(project.description ?? '');
+    setNameError(null);
   };
 
   const remove = async (project: Project) => {
@@ -75,7 +81,9 @@ const ManageProjectsModal: React.FC<ManageProjectsModalProps> = ({ isOpen, onClo
         <form className={styles.form} onSubmit={submit}>
           <label className={styles.label}>
             {t('project.name')}
-            <input className={styles.input} value={name} onChange={e => setName(e.target.value)} maxLength={50} />
+            <input className={styles.input} value={name}
+              onChange={e => { setName(e.target.value); if (nameError) setNameError(null); }} maxLength={50} />
+            {nameError && <span className={styles.requiredMsg} role="alert">{nameError}</span>}
           </label>
           <label className={styles.label}>
             {t('project.description')}

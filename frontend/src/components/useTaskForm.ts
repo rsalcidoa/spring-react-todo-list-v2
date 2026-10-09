@@ -35,6 +35,7 @@ export interface TaskForm {
   newSubtask: string;
   titleError: string | null;
   tagError: { message: string; id: number } | null;
+  subtaskError: string | null;
   subtasks: Task[];
   setTitle: (value: string) => void;
   setDescription: (value: string) => void;
@@ -81,6 +82,7 @@ export function useTaskForm(args: TaskFormArgs): TaskForm {
   const [newSubtask, setNewSubtask] = useState('');
   const [tagError, setTagError] = useState<{ message: string; id: number } | null>(null);
   const [titleError, setTitleError] = useState<string | null>(null);
+  const [subtaskError, setSubtaskError] = useState<string | null>(null);
   const [subtasks, setSubtasks] = useState<Task[]>([]);
 
   useEffect(() => {
@@ -107,6 +109,7 @@ export function useTaskForm(args: TaskFormArgs): TaskForm {
       setReminderAt(editingTask.reminderAt ? editingTask.reminderAt.slice(0, 16) : '');
       setRecurrence((editingTask.recurrence as Recurrence) || 'NONE');
       setProjectId(editingTask.projectId != null ? String(editingTask.projectId) : '');
+      setSubtaskError(null);
     } else if (isOpen && !editingTask) {
       setTitle('');
       setDescription('');
@@ -118,6 +121,7 @@ export function useTaskForm(args: TaskFormArgs): TaskForm {
       setRecurrence('NONE');
       setProjectId(defaultProjectId != null ? String(defaultProjectId) : '');
       setTitleError(null);
+      setSubtaskError(null);
     }
   }, [isOpen, editingTask, defaultProjectId]);
 
@@ -169,7 +173,11 @@ export function useTaskForm(args: TaskFormArgs): TaskForm {
   const addSubtask = async () => {
     if (!editingTask) return;
     const title = newSubtask.trim();
-    if (!title) return;
+    if (!title) {
+      setSubtaskError(t('task.subtaskRequired'));
+      return;
+    }
+    setSubtaskError(null);
     try {
       const created = await repository.createSubtask(editingTask.id, title);
       setSubtasks(prev => [...prev, created]);
@@ -177,6 +185,11 @@ export function useTaskForm(args: TaskFormArgs): TaskForm {
     } catch (e) {
       showTagError(e);
     }
+  };
+
+  const updateSubtask = (value: string) => {
+    setNewSubtask(value);
+    if (subtaskError) setSubtaskError(null);
   };
 
   const deleteSubtask = async (id: number) => {
@@ -228,6 +241,7 @@ export function useTaskForm(args: TaskFormArgs): TaskForm {
     newSubtask,
     titleError,
     tagError,
+    subtaskError,
     subtasks,
     setDescription,
     setPriority,
@@ -239,7 +253,7 @@ export function useTaskForm(args: TaskFormArgs): TaskForm {
     toggleTag,
     setTagNames: setTags,
     setNewTagName,
-    setNewSubtask,
+    setNewSubtask: updateSubtask,
     createTag,
     deleteTag,
     addSubtask,

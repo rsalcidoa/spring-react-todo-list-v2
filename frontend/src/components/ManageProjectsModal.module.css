@@ -40,6 +40,11 @@
   color: var(--color-text-muted);
 }
 
+.requiredMsg {
+  color: var(--color-danger);
+  font-size: 0.8rem;
+}
+
 .input,
 .textarea {
   padding: 0.5rem;

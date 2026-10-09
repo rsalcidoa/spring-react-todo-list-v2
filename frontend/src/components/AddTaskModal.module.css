@@ -197,6 +197,11 @@
   font-size: 0.9rem;
 }
 
+.saveBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .requiredMsg {
   color: var(--color-danger);
   font-size: 0.8rem;

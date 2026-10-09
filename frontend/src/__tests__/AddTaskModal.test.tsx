@@ -96,6 +96,19 @@ describe('AddTaskModal', () => {
     await waitFor(() => expect(screen.getByText('Child')).toBeTruthy());
   });
 
+  it('flags a blank subtask instead of silently ignoring it', async () => {
+    const repository = new InMemoryTaskRepository();
+    const parent = await repository.create({
+      title: 'Parent', priority: Priority.LOW, status: TaskStatus.PENDING, tagNames: [],
+    });
+    renderModal({ repository, editingTask: { ...parent } });
+
+    await waitFor(() => expect(screen.getByLabelText(/Nueva subtarea/i)).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: /^Añadir$/i }));
+
+    expect(screen.getByText('La subtarea no puede estar vacía')).toBeTruthy();
+  });
+
   it('does not render when isOpen is false', () => {
     renderModal({ isOpen: false });
     expect(screen.queryByText(/Nueva tarea/i)).toBeNull();
@@ -119,14 +132,14 @@ describe('AddTaskModal', () => {
     expect(input.status).toBe(TaskStatus.PENDING);
   });
 
-  it('blocks save with an inline message when the title is empty', () => {
-    const onSave = vi.fn();
-    renderModal({ onSave });
+  it('disables Save until the title is present', () => {
+    renderModal();
 
-    fireEvent.click(screen.getByRole('button', { name: /Guardar/i }));
+    const save = () => screen.getByRole('button', { name: /Guardar/i }) as HTMLButtonElement;
+    expect(save().disabled).toBe(true);
 
-    expect(onSave).not.toHaveBeenCalled();
-    expect(screen.getByText('El título es obligatorio')).toBeTruthy();
+    fireEvent.change(screen.getByPlaceholderText(/Título de la tarea/i), { target: { value: 'Task' } });
+    expect(save().disabled).toBe(false);
   });
 
   it('asks for confirmation naming the impact when deleting a used tag', async () => {
