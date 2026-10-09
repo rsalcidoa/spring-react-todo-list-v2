@@ -3,6 +3,7 @@ import { type TaskStore, type OrderingStore, type TagStore, type ProjectStore } 
 import { presentError } from '../services/errorPresenter';
 import { useT } from '../i18n';
 import { positionBetween } from '../services/boardInteraction';
+import { addTask, patchTask, removeTask, replaceTask, runOptimistic } from '../services/boardMutations';
 import { applyBoardQuery, boardQueryFrom, compareTasks, type BoardFilters, type BoardView } from '../services/boardQuery';
 import { Task, Tag, Project, TaskInput, TaskStatus, TaskQuery, Priority } from '../services/types/task';
 
@@ -161,15 +162,15 @@ export function useBoard(repository: TaskStore & OrderingStore & TagStore & Proj
 
   const move = async (taskId: number, status: TaskStatus) => {
     const previous = tasks.find(t => t.id === taskId)?.status;
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status } : t));
-    try {
-      await repository.move(taskId, status);
-    } catch (e) {
-      if (previous !== undefined) {
-        setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: previous } : t));
-      }
-      showTransientError(`${t('board.error.move')}: ${errorMessage(e)}`);
-    }
+    await runOptimistic({
+      before: previous,
+      apply: () => setTasks(prev => patchTask(prev, taskId, { status })),
+      action: () => repository.move(taskId, status),
+      rollback: (prevStatus) => {
+        if (prevStatus !== undefined) setTasks(prev => patchTask(prev, taskId, { status: prevStatus }));
+      },
+      onError: (e) => showTransientError(`${t('board.error.move')}: ${errorMessage(e)}`),
+    });
   };
 
   const reorder = async (taskId: number, status: TaskStatus, index: number) => {
@@ -180,26 +181,26 @@ export function useBoard(repository: TaskStore & OrderingStore & TagStore & Proj
     const before = clamped > 0 ? column[clamped - 1].position : undefined;
     const after = clamped < column.length ? column[clamped].position : undefined;
     const position = positionBetween(before, after);
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status, position } : t));
-    try {
-      await repository.reorder(taskId, status, position);
-    } catch (e) {
-      setTasks(prev => prev.map(t => t.id === taskId ? previous : t));
-      showTransientError(`${t('board.error.move')}: ${errorMessage(e)}`);
-    }
+    await runOptimistic({
+      before: previous,
+      apply: () => setTasks(prev => patchTask(prev, taskId, { status, position })),
+      action: () => repository.reorder(taskId, status, position),
+      rollback: (prevTask) => setTasks(prev => replaceTask(prev, prevTask)),
+      onError: (e) => showTransientError(`${t('board.error.move')}: ${errorMessage(e)}`),
+    });
   };
 
   const save = async (input: TaskInput, editingId?: number) => {
     if (editingId != null) {
       try {
         const saved = await repository.update(editingId, input);
-        setTasks(prev => prev.map(t => t.id === editingId ? saved : t));
+        setTasks(prev => replaceTask(prev, saved));
         await loadTags();
       } catch (e) { showTransientError(errorMessage(e)); }
     } else {
       try {
         const created = await repository.create(input);
-        setTasks(prev => [...prev, created]);
+        setTasks(prev => addTask(prev, created));
         await loadTags();
       } catch (e) { showTransientError(errorMessage(e)); }
     }
@@ -209,7 +210,7 @@ export function useBoard(repository: TaskStore & OrderingStore & TagStore & Proj
     const task = tasks.find(t => t.id === id);
     try {
       await repository.remove(id);
-      setTasks(prev => prev.filter(t => t.id !== id));
+      setTasks(prev => removeTask(prev, id));
       if (task) {
         setLastDeleted({ id, title: task.title });
         if (undoTimer.current) window.clearTimeout(undoTimer.current);
@@ -222,7 +223,7 @@ export function useBoard(repository: TaskStore & OrderingStore & TagStore & Proj
     if (!lastDeleted) return;
     try {
       const restored = await repository.restore(lastDeleted.id);
-      setTasks(prev => [...prev, restored]);
+      setTasks(prev => addTask(prev, restored));
     } catch (e) {
       showTransientError(errorMessage(e));
     } finally {
@@ -245,7 +246,7 @@ export function useBoard(repository: TaskStore & OrderingStore & TagStore & Proj
   const quickAdd = async (title: string, status: TaskStatus): Promise<boolean> => {
     try {
       const created = await repository.create({ title, priority: Priority.LOW, status, tagNames: [] });
-      setTasks(prev => [...prev, created]);
+      setTasks(prev => addTask(prev, created));
       return true;
     } catch (e) {
       showTransientError(errorMessage(e));
