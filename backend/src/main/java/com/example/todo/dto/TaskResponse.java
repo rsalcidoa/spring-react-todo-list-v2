@@ -25,6 +25,7 @@ public class TaskResponse {
     private Long parentId;
     private Progress subtaskProgress;
     private double position;
+    private LocalDateTime completedAt;
 
     public record Progress(int done, int total) {}
 
@@ -33,7 +34,8 @@ public class TaskResponse {
     public TaskResponse(Long id, String title, String description, Priority priority, LocalDate dueDate,
                         TaskStatus status, java.util.List<TagResponse> tags, LocalDateTime createdAt, LocalDateTime updatedAt,
                         LocalDateTime reminderAt, com.example.todo.model.Recurrence recurrence,
-                        Long projectId, String projectName, Long parentId, Progress subtaskProgress, double position) {
+                        Long projectId, String projectName, Long parentId, Progress subtaskProgress, double position,
+                        LocalDateTime completedAt) {
         this.id = id;
         this.title = title;
         this.description = description;
@@ -50,6 +52,7 @@ public class TaskResponse {
         this.parentId = parentId;
         this.subtaskProgress = subtaskProgress;
         this.position = position;
+        this.completedAt = completedAt;
     }
 
     /** Maps a task entity to its response, exposing only tag values and no entity internals. */
@@ -81,7 +84,8 @@ public class TaskResponse {
                 project != null ? project.getName() : null,
                 parent != null ? parent.getId() : null,
                 new Progress(done, total),
-                task.getPosition());
+                task.getPosition(),
+                task.getCompletedAt());
     }
 
     // getters and setters
@@ -118,4 +122,6 @@ public class TaskResponse {
     public void setSubtaskProgress(Progress subtaskProgress) { this.subtaskProgress = subtaskProgress; }
     public double getPosition() { return position; }
     public void setPosition(double position) { this.position = position; }
+    public LocalDateTime getCompletedAt() { return completedAt; }
+    public void setCompletedAt(LocalDateTime completedAt) { this.completedAt = completedAt; }
 }

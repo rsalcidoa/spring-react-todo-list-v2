@@ -1,0 +1,34 @@
+# Spec Delta
+
+## ADDED Requirements
+
+### Requirement: Task Completion Timestamp
+A task SHALL expose a nullable `completedAt` timestamp. It SHALL be set to the
+moment the task transitions to `COMPLETED` and SHALL be cleared (null) when the
+task leaves `COMPLETED` for `PENDING` or `ACTIVE`. A task that is created already
+`COMPLETED` SHALL have a completion timestamp; a task that has never been
+completed SHALL have a null one. The value SHALL be echoed in every task response
+(create, update, status change and listing).
+
+**ID**: REQ-TM-012
+**Affected files**:
+- `com.example.todo.model.Task` — `completedAt` column
+- `com.example.todo.service.TaskService` — set on the transition to COMPLETED, clear when leaving it
+- `com.example.todo.dto.TaskResponse` — echoes `completedAt`
+- `backend/src/main/resources/db/migration/V13__add_task_completed_at.sql`
+
+#### Scenario: Completing a task records the timestamp
+- **WHEN** a Pending or Active task transitions to `COMPLETED`
+- **THEN** the response carries a non-null `completedAt`
+
+#### Scenario: Reopening clears the timestamp
+- **WHEN** a Completed task is set back to `PENDING` or `ACTIVE`
+- **THEN** its `completedAt` becomes null
+
+#### Scenario: An untouched task has no timestamp
+- **WHEN** a task has never been completed
+- **THEN** its `completedAt` is null
+
+#### Scenario: Re-saving a completed task keeps the timestamp
+- **WHEN** a Completed task is updated without changing its status
+- **THEN** its `completedAt` is unchanged

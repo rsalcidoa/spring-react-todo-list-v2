@@ -60,4 +60,15 @@ describe('presentTask', () => {
   it('has no progress label without subtasks', () => {
     expect(presentTask({ ...base, subtaskProgress: { done: 0, total: 0 } }, tEs, 'es').progressLabel).toBeUndefined();
   });
+
+  it('builds a completion label for a completed task', () => {
+    const p = presentTask({ ...base, status: TaskStatus.COMPLETED, completedAt: '2026-10-08T20:30:00' }, tEs, 'es');
+    expect(p.completedLabel?.startsWith(es['task.completedOn'])).toBe(true);
+    expect(p.completedLabel).toContain('2026');
+  });
+
+  it('has no completion label without a timestamp or when not completed', () => {
+    expect(presentTask({ ...base, status: TaskStatus.COMPLETED }, tEs, 'es').completedLabel).toBeUndefined();
+    expect(presentTask({ ...base, completedAt: '2026-10-08T20:30:00' }, tEs, 'es').completedLabel).toBeUndefined();
+  });
 });

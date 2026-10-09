@@ -18,6 +18,7 @@ export interface TaskPresentation {
   recurrenceLabel?: string;
   deleteLabel: string;
   progressLabel?: string;
+  completedLabel?: string;
 }
 
 const PRIORITY_KEYS: Record<Priority, TranslationKey> = {
@@ -47,6 +48,9 @@ export function presentTask(task: Task, t: Translate, lang: string): TaskPresent
     deleteLabel: t('task.delete'),
     progressLabel: task.subtaskProgress && task.subtaskProgress.total > 0
       ? `${task.subtaskProgress.done}/${task.subtaskProgress.total}`
+      : undefined,
+    completedLabel: completed && task.completedAt
+      ? `${t('task.completedOn')}: ${formatDate(task.completedAt.slice(0, 10), lang)}`
       : undefined,
   };
 }

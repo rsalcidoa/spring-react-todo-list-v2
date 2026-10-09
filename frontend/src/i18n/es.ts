@@ -102,6 +102,7 @@ export const es = {
   'task.deleteSubtask': 'Borrar subtarea',
   'task.toggleSubtask': 'Alternar',
   'task.recurring': 'Se repite',
+  'task.completedOn': 'Completada',
   'task.delete': 'Borrar tarea',
   'task.subtaskRequired': 'La subtarea no puede estar vacía',
   'task.titleRequired': 'El título es obligatorio',

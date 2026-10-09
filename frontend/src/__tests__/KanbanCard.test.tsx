@@ -43,6 +43,17 @@ describe('KanbanCard', () => {
     expect(card.className).toMatch(/completed/);
   });
 
+  it('shows the completion date for a completed task', () => {
+    renderCard({ status: TaskStatus.COMPLETED, completedAt: '2026-10-08T20:30:00' });
+    expect(screen.getByText(/Completada/)).toBeTruthy();
+  });
+
+  it('shows both the overdue chip and the completion date', () => {
+    renderCard({ status: TaskStatus.COMPLETED, dueDate: '2020-01-01', completedAt: '2026-10-08T20:30:00' });
+    expect(screen.getByText(/Vencida/)).toBeTruthy();
+    expect(screen.getByText(/Completada/)).toBeTruthy();
+  });
+
   it('exposes the title as the accessible name', () => {
     renderCard();
     expect(screen.getByRole('button', { name: 'Write report' })).toBeTruthy();

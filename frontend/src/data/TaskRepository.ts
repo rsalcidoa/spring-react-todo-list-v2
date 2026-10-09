@@ -152,6 +152,7 @@ function fromWire(wire: Partial<Task> & { id?: number }): Task {
     parentId: wire.parentId,
     subtaskProgress: wire.subtaskProgress,
     position: wire.position,
+    completedAt: wire.completedAt,
   };
 }
 

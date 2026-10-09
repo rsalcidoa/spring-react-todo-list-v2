@@ -83,6 +83,9 @@ public class Task {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
+
     public Task() {
         this.status = TaskStatus.PENDING;
         this.createdAt = LocalDateTime.now();
@@ -128,4 +131,6 @@ public class Task {
     public void setPosition(double position) { this.position = position; }
     public LocalDateTime getDeletedAt() { return deletedAt; }
     public void setDeletedAt(LocalDateTime deletedAt) { this.deletedAt = deletedAt; }
+    public LocalDateTime getCompletedAt() { return completedAt; }
+    public void setCompletedAt(LocalDateTime completedAt) { this.completedAt = completedAt; }
 }

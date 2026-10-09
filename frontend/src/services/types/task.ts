@@ -42,6 +42,7 @@ export interface Task {
   parentId?: number;
   subtaskProgress?: { done: number; total: number };
   position?: number;
+  completedAt?: string;
 }
 
 export interface TaskInput {

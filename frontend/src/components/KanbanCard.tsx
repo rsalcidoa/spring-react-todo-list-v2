@@ -62,6 +62,7 @@ const KanbanCard: React.FC<KanbanCardProps> = ({task, onClick, onDelete, onMove}
     {view.dueLabel && (
       <span className={styles.meta}><span className={`${styles.dueDate} ${dueClass}`}>{view.dueLabel}</span></span>
     )}
+    {view.completedLabel && <span className={styles.completedAt}>{view.completedLabel}</span>}
     <div className={styles.tagList}>
       {task.tags?.map(tag => (
         <span key={tag.id} className={styles.tag}>{tag.name}</span>
