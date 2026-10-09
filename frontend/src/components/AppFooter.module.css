@@ -34,6 +34,28 @@
   text-decoration: none;
 }
 
+.helpBtn {
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface-raised);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-family: inherit;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.helpBtn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
 .link:hover {
   color: var(--color-primary);
   text-decoration: underline;
@@ -44,7 +66,17 @@
 }
 
 @media (max-width: 640px) {
+  .footer {
+    row-gap: 0.35rem;
+  }
+
   .hints {
     display: none;
+  }
+
+  .right {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    row-gap: 0.25rem;
   }
 }

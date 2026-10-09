@@ -77,6 +77,19 @@ npm run dev
 
 The app is served at `http://localhost:5173`; Vite proxies `/v1` to the backend on port 8080.
 
+## Keyboard shortcuts
+
+The board is operable without a pointer. Open the in-app help with the **?**
+control in the footer, or use the list below:
+
+| Key | Action |
+|-----|--------|
+| `Tab` | Move focus to a task card |
+| `Enter` | Open the focused card for editing |
+| `Alt` + `←` / `→` | Move the focused card to the previous / next status column |
+| `Esc` | Close an open dialog |
+| `Enter` | Create a task from a column's quick-add input |
+
 ## Configuration
 
 The backend reads environment variables, all with defaults for local development

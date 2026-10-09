@@ -103,7 +103,6 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
           </select>
         </div>
         <div className={styles.tagSection}>
-          <span className={styles.sectionLabel}>{t('task.tags')}</span>
           <TagSelect
             tags={tagList}
             selectedIds={form.values.tagNames

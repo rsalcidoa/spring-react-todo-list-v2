@@ -74,22 +74,25 @@
   cursor: pointer;
   font-size: 0.85rem;
   font-family: inherit;
+  line-height: 1.2;
 }
 
 .newTaskBtn {
   background-color: var(--color-primary);
+  border: 1px solid var(--color-primary);
   color: var(--color-on-primary);
 }
 
 .projectBtn {
   background-color: var(--color-surface-raised);
-  color: var(--color-text);
+  color: var(--color-text-muted);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   padding: 0.4rem 0.75rem;
   cursor: pointer;
   font-size: 0.85rem;
   font-family: inherit;
+  line-height: 1.2;
 }
 
 .projectBtn:hover {
@@ -145,9 +148,9 @@
 
 .filterRow {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: stretch;
   gap: 0.35rem;
-  align-items: center;
   padding: 0.75rem 1.5rem 0;
 }
 

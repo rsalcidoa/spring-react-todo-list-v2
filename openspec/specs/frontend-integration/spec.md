@@ -779,12 +779,12 @@ preselect the active project for new tasks.
 - **THEN** that project is preselected in the modal
 
 ### Requirement: Header Project Action and Drag Feedback
-The board header actions SHALL include a styled secondary "New project" button **before** the "New task" button, with the user avatar after them, opening the Manage projects dialog. A board column SHALL show its drag-over highlight only while a card is dragged over it, and the highlight SHALL clear when the card leaves or is dropped (no stale highlight after a drop or when the board content changes).
+The board header actions SHALL include a "New project" button **before** the "New task" button, with the user avatar after them, opening the Manage projects dialog. The two action buttons SHALL share the same box model (padding, font size, line height, border width and border radius) so they render at the same size. "New task" SHALL be the primary action (filled with the accent color) and "New project" SHALL be a secondary action (muted outline), without shortening its label. A board column SHALL show its drag-over highlight only while a card is dragged over it, and the highlight SHALL clear when the card leaves or is dropped (no stale highlight after a drop or when the board content changes).
 
 **ID**: REQ-FE-039
 **Affected files**:
 - `frontend/src/pages/TodoListPage.tsx` — header action order and "New project" button
-- `frontend/src/pages/TodoListPage.module.css` — secondary button style
+- `frontend/src/pages/TodoListPage.module.css` — shared action button box model and primary/secondary emphasis
 - `frontend/src/components/KanbanColumn.tsx` — state-driven drag-over highlight
 
 #### Scenario: New project from the header
@@ -793,7 +793,15 @@ The board header actions SHALL include a styled secondary "New project" button *
 
 #### Scenario: Project action precedes the task action
 - **WHEN** the board header renders
-- **THEN** the "New project" button appears before the "New task" button, styled as a visible secondary button
+- **THEN** the "New project" button appears before the "New task" button
+
+#### Scenario: Header actions render at the same size
+- **WHEN** the board header renders both action buttons
+- **THEN** "Nuevo proyecto" and "+ Tarea" have the same height and box model
+
+#### Scenario: The task action is the primary emphasis
+- **WHEN** the board header renders both action buttons
+- **THEN** "New task" is filled with the accent color and "New project" is a muted outline
 
 #### Scenario: Highlight clears after a drop
 - **WHEN** a card is dropped on a column
@@ -804,13 +812,13 @@ The board header actions SHALL include a styled secondary "New project" button *
 - **THEN** no column remains highlighted
 
 ### Requirement: Tag Filter and Picker
-Tag selection SHALL use a searchable, collapsible dropdown that never renders the full tag list at once. It SHALL show a toggle, a text input that filters tags by name (case-insensitive), a bounded list of matching tags, and a chip per selected tag with a way to clear the selection. The board header SHALL expose it as a "Filter by tag" control whose selection narrows the visible tasks (a task matches when it carries any selected tag). The task modal SHALL use the same collapsible dropdown for a task's tags, showing the selected tags as chips, keeping the ability to create and delete tags.
+Tag selection SHALL use a searchable, collapsible dropdown that never renders the full tag list at once. It SHALL show a toggle, a text input that filters tags by name (case-insensitive), a bounded list of matching tags, and a chip per selected tag with a way to clear the selection. The board header SHALL expose it as a "Filter by tag" control whose selection narrows the visible tasks (a task matches when it carries any selected tag). The task modal SHALL use the same collapsible dropdown for a task's tags, showing the selected tags as chips, keeping the ability to create and delete tags. In the task modal, the dropdown toggle SHALL be the single visible label for the control (its `aria-label` stays "Etiquetas"); the modal SHALL NOT render a separate heading that repeats that label. The dropdown SHALL present its toggle, search input, option list and selected chips with consistent vertical spacing in both the board filter and the task modal, and the control SHALL span the width of its row.
 
 **ID**: REQ-FE-038
 **Affected files**:
 - `frontend/src/components/TagSelect.tsx` — searchable, collapsible tag control
 - `frontend/src/pages/TodoListPage.tsx` — board "Filter by tag"
-- `frontend/src/components/AddTaskModal.tsx` / `useTaskForm.ts` — task tag dropdown
+- `frontend/src/components/AddTaskModal.tsx` / `useTaskForm.ts` — task tag dropdown and its single visible label
 
 #### Scenario: Filter tags by name
 - **WHEN** the user types part of a tag name in the control
@@ -828,18 +836,38 @@ Tag selection SHALL use a searchable, collapsible dropdown that never renders th
 - **WHEN** the user opens the tag dropdown, searches and selects tags
 - **THEN** the selected tags show as chips and are applied to the saved task, and the full tag list is never rendered at once
 
+#### Scenario: The task modal shows one tag label
+- **WHEN** the task modal renders the tags control
+- **THEN** the "Etiquetas" label appears exactly once, on the dropdown toggle
+
+#### Scenario: Consistent dropdown spacing
+- **WHEN** the tag dropdown is used on the board or in the task modal
+- **THEN** its toggle, search input, option list and selected chips are separated by the same spacing
+
+#### Scenario: The tag control spans its row
+- **WHEN** the tag dropdown renders on the board or in the task modal
+- **THEN** the control spans the full width of its row
+
 ### Requirement: Application Footer
-The board SHALL render a footer showing the application name and version, the keyboard hints (`Alt+←/→` move, `Enter` edit, `Esc` close), a link to the project repository, and a copyright line. The footer SHALL use the active locale and theme tokens and SHALL NOT appear on the authentication screens. The footer SHALL stay visible at the bottom of the viewport while the board scrolls.
+The board SHALL render a footer showing the application name and version, the keyboard hints (`Alt+←/→` move, `Enter` edit, `Esc` close), a help control that opens the keyboard shortcuts dialog, a link to the project repository, and a copyright line. The footer SHALL use the active locale and theme tokens and SHALL NOT appear on the authentication screens. The footer SHALL stay visible at the bottom of the viewport while the board scrolls. The help control SHALL remain reachable on every viewport, including the small-screen layout where the text hints are hidden.
 
 **ID**: REQ-FE-040
 **Affected files**:
-- `frontend/src/components/AppFooter.tsx` — the footer
-- `frontend/src/components/AppFooter.module.css` — sticky positioning
+- `frontend/src/components/AppFooter.tsx` — the footer and the help trigger
+- `frontend/src/components/AppFooter.module.css` — sticky positioning and the help control
 - `frontend/src/pages/TodoListPage.tsx` — mounts the footer on the board
 
 #### Scenario: Board shows the footer
 - **WHEN** the board renders
-- **THEN** the footer shows the app name and version, the keyboard hints, the repository link and the copyright line
+- **THEN** the footer shows the app name and version, the keyboard hints, the help control, the repository link and the copyright line
+
+#### Scenario: Open the shortcuts help from the footer
+- **WHEN** the user activates the footer help control
+- **THEN** the keyboard shortcuts dialog opens
+
+#### Scenario: Help is reachable on small screens
+- **WHEN** the viewport is narrow and the footer text hints are hidden
+- **THEN** the help control is still visible and operable
 
 #### Scenario: Footer stays visible while scrolling
 - **WHEN** the board content is taller than the viewport and the user scrolls
@@ -848,3 +876,52 @@ The board SHALL render a footer showing the application name and version, the ke
 #### Scenario: Localized footer
 - **WHEN** the locale is English
 - **THEN** the footer text renders in English
+
+### Requirement: Modal Form Layout
+In the task and project dialogs, each field label SHALL render above its control with a consistent vertical gap, so labels never sit flush against or overlap their inputs, selects or textareas. Fields laid out side by side SHALL stack their label over their control within their own column rather than flowing inline. Inline validation messages SHALL render below their field without overlapping it. The tags block SHALL stack the tag dropdown (dropdown toggle, search input and option list) above the create-new-tag row with a visible vertical gap, so the search input, the option pills and the create input never pile up.
+
+**ID**: REQ-FE-041
+**Affected files**:
+- `frontend/src/components/AddTaskModal.module.css` — stacked label layout, tag block spacing and validation spacing
+- `frontend/src/components/AddTaskModal.tsx` — removes the duplicated tags heading
+
+#### Scenario: Priority and status stack their labels
+- **WHEN** the task dialog renders the priority and status fields
+- **THEN** each label appears above its own select with a visible gap
+
+#### Scenario: Inline validation does not overlap
+- **WHEN** the title is required and the validation message appears
+- **THEN** the message renders below the title input without covering it
+
+#### Scenario: Labels are spaced consistently
+- **WHEN** two dialogs render their fields
+- **THEN** each label and its control are separated by the same vertical gap
+
+#### Scenario: The tags block is not piled up
+- **WHEN** the task dialog renders the tags block with the dropdown open
+- **THEN** the dropdown toggle, search input and option list are separated from the create-new-tag row by a visible gap, and none of them overlap the create input
+
+### Requirement: Keyboard Shortcuts Help
+The board SHALL provide a keyboard shortcuts dialog that lists the supported shortcuts: focus a task card, open the focused card for editing (`Enter`), move the focused card between status columns (`Alt+ArrowLeft` / `Alt+ArrowRight`), close a dialog (`Esc`), and create a task from a column's quick-add input. The dialog SHALL be a modal (`role="dialog"` with `aria-modal="true"`), SHALL close on `Esc` and on an overlay click, and SHALL use the active locale. The shortcut list SHALL match the shortcuts the board actually implements.
+
+**ID**: REQ-FE-042
+**Affected files**:
+- `frontend/src/components/ShortcutsModal.tsx` — the shortcuts dialog
+- `frontend/src/components/ShortcutsModal.module.css` — dialog styling
+- `frontend/src/i18n/es.ts`, `frontend/src/i18n/en.ts` — shortcut labels
+
+#### Scenario: View the shortcuts
+- **WHEN** the user opens the shortcuts dialog
+- **THEN** it lists focusing a card, editing with `Enter`, moving with `Alt+ArrowLeft`/`Alt+ArrowRight`, closing with `Esc`, and quick-add
+
+#### Scenario: Close the shortcuts dialog with Escape
+- **WHEN** the shortcuts dialog is open and the user presses `Esc`
+- **THEN** the dialog closes
+
+#### Scenario: Close the shortcuts dialog from the overlay
+- **WHEN** the shortcuts dialog is open and the user clicks the overlay outside the dialog
+- **THEN** the dialog closes
+
+#### Scenario: Shortcuts are localized
+- **WHEN** the locale is English
+- **THEN** the shortcut labels render in English

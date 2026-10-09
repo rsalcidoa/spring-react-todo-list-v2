@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 import AppFooter from '../components/AppFooter';
 import pkg from '../../package.json';
 
@@ -17,4 +17,15 @@ describe('AppFooter', () => {
 
     expect(screen.getByText(/derechos reservados|all rights reserved/i)).toBeTruthy();
   });
+
+  it('opens the shortcuts dialog from the help control', () => {
+    render(<AppFooter />);
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: /Atajos de teclado/i }));
+
+    expect(screen.getByRole('dialog', { name: /Atajos de teclado/i })).toBeTruthy();
+  });
 });
+

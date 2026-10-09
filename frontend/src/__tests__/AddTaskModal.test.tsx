@@ -50,6 +50,14 @@ describe('AddTaskModal', () => {
     expect(document.activeElement).toBe(title);
   });
 
+  it('shows the Etiquetas label exactly once', () => {
+    renderModal();
+
+    const labels = screen.getAllByText(/Etiquetas/i);
+    expect(labels).toHaveLength(1);
+    expect(labels[0].tagName).toBe('BUTTON');
+  });
+
   it('includes reminderAt in the saved input', () => {
     const onSave = vi.fn();
     renderModal({ onSave });
