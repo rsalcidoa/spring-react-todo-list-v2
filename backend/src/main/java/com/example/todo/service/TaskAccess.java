@@ -2,6 +2,7 @@ package com.example.todo.service;
 
 import com.example.todo.exception.ResourceNotFoundException;
 import com.example.todo.model.Task;
+import com.example.todo.model.TaskStatus;
 import com.example.todo.repository.TaskRepository;
 import org.springframework.stereotype.Service;
 
@@ -58,5 +59,16 @@ public class TaskAccess {
             child.setDeletedAt(null);
         }
         taskRepository.save(task);
+    }
+
+    /** Records when a task becomes COMPLETED and clears it when it leaves COMPLETED. */
+    public void applyCompletionTimestamp(Task task, TaskStatus previousStatus) {
+        if (task.getStatus() == TaskStatus.COMPLETED) {
+            if (previousStatus != TaskStatus.COMPLETED) {
+                task.setCompletedAt(LocalDateTime.now());
+            }
+        } else {
+            task.setCompletedAt(null);
+        }
     }
 }

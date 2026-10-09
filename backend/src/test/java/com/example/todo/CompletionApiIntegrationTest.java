@@ -61,6 +61,14 @@ class CompletionApiIntegrationTest {
                 .andExpect(status().isOk());
     }
 
+    private void reorder(long id, String status, double position) throws Exception {
+        mockMvc.perform(patch("/v1/tasks/" + id + "/position")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"status\": \"" + status + "\", \"position\": " + position + "}"))
+                .andExpect(status().isOk());
+    }
+
     private JsonNode getTask(long id) throws Exception {
         MvcResult r = mockMvc.perform(get("/v1/tasks/" + id)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
@@ -82,6 +90,24 @@ class CompletionApiIntegrationTest {
         long id = createTask("{\"title\": \"T\", \"priority\": \"LOW\"}");
         setStatus(id, "COMPLETED");
         assertTrue(getTask(id).hasNonNull("completedAt"));
+    }
+
+    @Test
+    void reorderingToCompletedSetsTheTimestamp() throws Exception {
+        registerAndLogin();
+        long id = createTask("{\"title\": \"T\", \"priority\": \"LOW\"}");
+        reorder(id, "COMPLETED", 1.0);
+        assertTrue(getTask(id).hasNonNull("completedAt"));
+    }
+
+    @Test
+    void reorderingOutOfCompletedClearsTheTimestamp() throws Exception {
+        registerAndLogin();
+        long id = createTask("{\"title\": \"T\", \"priority\": \"LOW\"}");
+        reorder(id, "COMPLETED", 1.0);
+        assertTrue(getTask(id).hasNonNull("completedAt"));
+        reorder(id, "PENDING", 1.0);
+        assertFalse(getTask(id).hasNonNull("completedAt"));
     }
 
     @Test

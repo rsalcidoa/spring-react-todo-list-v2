@@ -139,7 +139,7 @@ public class TaskService {
         applyProject(task, request);
         applyParent(task, request);
         validateRecurrence(task);
-        applyCompletionTimestamp(task, null);
+        taskAccess.applyCompletionTimestamp(task, null);
         task.setUser(me);
         Set<String> tagNames = request.getTagNames();
         return withTagRetry(() -> {
@@ -159,7 +159,7 @@ public class TaskService {
         applyProject(task, request);
         applyParent(task, request);
         validateRecurrence(task);
-        applyCompletionTimestamp(task, previousStatus);
+        taskAccess.applyCompletionTimestamp(task, previousStatus);
         Set<String> tagNames = request.getTagNames();
         return withTagRetry(() -> {
             if (tagNames != null) {
@@ -299,21 +299,10 @@ public class TaskService {
         Task task = taskAccess.owned(id);
         TaskStatus previousStatus = task.getStatus();
         task.setStatus(TaskStatus.parse(rawStatus));
-        applyCompletionTimestamp(task, previousStatus);
+        taskAccess.applyCompletionTimestamp(task, previousStatus);
         taskRepository.save(task);
         generateNextOccurrence(task, me);
         return toResponse(task);
-    }
-
-    /** Records when a task becomes COMPLETED and clears it when it leaves COMPLETED. */
-    private void applyCompletionTimestamp(Task task, TaskStatus previousStatus) {
-        if (task.getStatus() == TaskStatus.COMPLETED) {
-            if (previousStatus != TaskStatus.COMPLETED) {
-                task.setCompletedAt(LocalDateTime.now());
-            }
-        } else {
-            task.setCompletedAt(null);
-        }
     }
 
     private void assignTags(Task task, User me, Set<String> tagNames) {

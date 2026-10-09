@@ -169,6 +169,7 @@ export function useBoard(repository: TaskStore & OrderingStore & TagStore & Proj
       rollback: (prevStatus) => {
         if (prevStatus !== undefined) setTasks(prev => patchTask(prev, taskId, { status: prevStatus }));
       },
+      onSuccess: (updated) => setTasks(prev => replaceTask(prev, updated as Task)),
       onError: (e) => showTransientError(`${t('board.error.move')}: ${errorMessage(e)}`),
     });
   };
@@ -186,6 +187,7 @@ export function useBoard(repository: TaskStore & OrderingStore & TagStore & Proj
       apply: () => setTasks(prev => patchTask(prev, taskId, { status, position })),
       action: () => repository.reorder(taskId, status, position),
       rollback: (prevTask) => setTasks(prev => replaceTask(prev, prevTask)),
+      onSuccess: (updated) => setTasks(prev => replaceTask(prev, updated as Task)),
       onError: (e) => showTransientError(`${t('board.error.move')}: ${errorMessage(e)}`),
     });
   };

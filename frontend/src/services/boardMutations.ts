@@ -29,6 +29,8 @@ export interface OptimisticUpdate<T> {
   rollback: (before: T) => void;
   /** Surfaces the failure after the rollback. */
   onError?: (error: unknown) => void;
+  /** Reconciles the local state with the server result after success. */
+  onSuccess?: (result: unknown) => void;
 }
 
 /**
@@ -38,7 +40,8 @@ export interface OptimisticUpdate<T> {
 export async function runOptimistic<T>(update: OptimisticUpdate<T>): Promise<void> {
   update.apply();
   try {
-    await update.action();
+    const result = await update.action();
+    update.onSuccess?.(result);
   } catch (error) {
     update.rollback(update.before);
     update.onError?.(error);

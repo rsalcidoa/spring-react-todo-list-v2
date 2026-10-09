@@ -28,8 +28,10 @@ public class TaskOrderingService {
             throw new InvalidQueryValueException("position", "Position must be a finite number");
         }
         Task task = taskAccess.owned(id);
+        TaskStatus previousStatus = task.getStatus();
         task.setStatus(TaskStatus.parse(rawStatus));
         task.setPosition(position);
+        taskAccess.applyCompletionTimestamp(task, previousStatus);
         taskRepository.save(task);
         return TaskResponse.of(task);
     }

@@ -54,10 +54,10 @@ function httpBackedBy(backend: InMemoryTaskRepository): TaskRepository {
     return { data: await backend.create(wireInput(body)) };
   });
   m.updateTask.mockImplementation(async (id: number, body: any) => ({ data: await backend.update(id, wireInput(body)) }));
-  m.patchStatus.mockImplementation(async (id: number, status: any) => { await backend.move(id, status); return {}; });
+  m.patchStatus.mockImplementation(async (id: number, status: any) => ({ data: await backend.move(id, status) }));
   m.deleteTask.mockImplementation(async (id: number) => { await backend.remove(id); return {}; });
   m.restoreTask.mockImplementation(async (id: number) => ({ data: await backend.restore(id) }));
-  m.reorderPosition.mockImplementation(async (id: number, status: any, position: number) => { await backend.reorder(id, status, position); return {}; });
+  m.reorderPosition.mockImplementation(async (id: number, status: any, position: number) => ({ data: await backend.reorder(id, status, position) }));
   m.getSubtasks.mockImplementation(async (parentId: number) => ({ data: await backend.listSubtasks(parentId) }));
   m.getTags.mockImplementation(async () => ({ data: await backend.listTags() }));
   m.createTag.mockImplementation(async (name: string) => ({ data: await backend.createTag(name) }));
@@ -140,6 +140,23 @@ describe.each(adapters)('TaskRepository contract: %s', (_label, makeRepo) => {
     const restored = await repo.restore(task.id);
     expect(restored.id).toBe(task.id);
     expect(await repo.fetchAll()).toHaveLength(1);
+  });
+
+  it('records and clears the completion timestamp on a status move', async () => {
+    const task = await repo.create(input('Complete me'));
+
+    const completed = await repo.move(task.id, TaskStatus.COMPLETED);
+    expect(completed.completedAt).toBeTruthy();
+
+    const reopened = await repo.move(task.id, TaskStatus.PENDING);
+    expect(reopened.completedAt).toBeFalsy();
+  });
+
+  it('records the completion timestamp on a reorder into Completed', async () => {
+    const task = await repo.create(input('Complete me'));
+
+    const reordered = await repo.reorder(task.id, TaskStatus.COMPLETED, 1);
+    expect(reordered.completedAt).toBeTruthy();
   });
 
   it('creates, renames and deletes projects with case-insensitive uniqueness', async () => {

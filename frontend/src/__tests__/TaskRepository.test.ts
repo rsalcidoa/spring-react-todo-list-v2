@@ -144,11 +144,14 @@ describe('HttpTaskRepository wire mapping', () => {
     expect(updated.title).toBe('Upd');
   });
 
-  it('move() PATCHes the status endpoint', async () => {
-    vi.mocked(ApiService.patchStatus).mockResolvedValueOnce({} as never);
+  it('move() PATCHes the status endpoint and returns the updated task', async () => {
+    vi.mocked(ApiService.patchStatus).mockResolvedValueOnce({
+      data: { id: 1, title: 'T', status: 'COMPLETED', priority: 'LOW', tags: [] },
+    } as never);
     const repo = new HttpTaskRepository();
-    await repo.move(1, TaskStatus.COMPLETED);
+    const moved = await repo.move(1, TaskStatus.COMPLETED);
     expect(ApiService.patchStatus).toHaveBeenCalledWith(1, 'COMPLETED');
+    expect(moved.status).toBe(TaskStatus.COMPLETED);
   });
 
   it('remove() DELETEs the task endpoint', async () => {

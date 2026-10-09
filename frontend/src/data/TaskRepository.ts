@@ -8,13 +8,13 @@ export interface TaskStore {
   fetchPage(query: TaskQuery | undefined, page: number, size: number): Promise<Page<Task>>;
   create(input: TaskInput): Promise<Task>;
   update(id: number, input: TaskInput): Promise<Task>;
-  move(id: number, status: TaskStatus): Promise<void>;
+  move(id: number, status: TaskStatus): Promise<Task>;
   remove(id: number): Promise<void>;
   restore(id: number): Promise<Task>;
 }
 
 export interface OrderingStore {
-  reorder(id: number, status: TaskStatus, position: number): Promise<void>;
+  reorder(id: number, status: TaskStatus, position: number): Promise<Task>;
 }
 
 export interface TagStore {
@@ -156,6 +156,17 @@ function fromWire(wire: Partial<Task> & { id?: number }): Task {
   };
 }
 
+/** Mirrors the backend completion-timestamp rule for the in-memory adapter. */
+function applyCompletion(task: Task, previousStatus: TaskStatus): void {
+  if (task.status === TaskStatus.COMPLETED) {
+    if (previousStatus !== TaskStatus.COMPLETED) {
+      task.completedAt = new Date().toISOString();
+    }
+  } else {
+    task.completedAt = undefined;
+  }
+}
+
 export class HttpTaskRepository implements TaskRepository {
   async fetchAll(query?: TaskQuery): Promise<Task[]> {
     try {
@@ -199,9 +210,10 @@ export class HttpTaskRepository implements TaskRepository {
     }
   }
 
-  async move(id: number, status: TaskStatus): Promise<void> {
+  async move(id: number, status: TaskStatus): Promise<Task> {
     try {
-      await patchStatus(id, status);
+      const r = await patchStatus(id, status);
+      return fromWire(r.data);
     } catch (e) {
       throw mapApiError(e);
     }
@@ -293,9 +305,10 @@ export class HttpTaskRepository implements TaskRepository {
     return this.remove(id);
   }
 
-  async reorder(id: number, status: TaskStatus, position: number): Promise<void> {
+  async reorder(id: number, status: TaskStatus, position: number): Promise<Task> {
     try {
-      await reorderPosition(id, status, position);
+      const r = await reorderPosition(id, status, position);
+      return fromWire(r.data);
     } catch (e) {
       throw mapApiError(e);
     }
@@ -367,6 +380,7 @@ export class InMemoryTaskRepository implements TaskRepository {
       parentId: input.parentId,
       tags: [...tags],
     };
+    applyCompletion(task, TaskStatus.PENDING);
     this.tasks.push(task);
     return { ...task, tags: [...task.tags] };
   }
@@ -374,6 +388,7 @@ export class InMemoryTaskRepository implements TaskRepository {
   async update(id: number, input: TaskInput): Promise<Task> {
     const index = this.tasks.findIndex(t => t.id === id);
     if (index === -1) throw new RepositoryError('not-found', `Task ${id} not found`);
+    const previousStatus = this.tasks[index].status;
     const tags = this.registerTags(input.tagNames);
     this.tasks[index] = {
       ...this.tasks[index],
@@ -389,13 +404,17 @@ export class InMemoryTaskRepository implements TaskRepository {
       parentId: input.parentId,
       tags: [...tags],
     };
+    applyCompletion(this.tasks[index], previousStatus);
     return { ...this.tasks[index], tags: [...this.tasks[index].tags] };
   }
 
-  async move(id: number, status: TaskStatus): Promise<void> {
+  async move(id: number, status: TaskStatus): Promise<Task> {
     const task = this.tasks.find(t => t.id === id);
     if (!task) throw new RepositoryError('not-found', `Task ${id} not found`);
+    const previousStatus = task.status;
     task.status = status;
+    applyCompletion(task, previousStatus);
+    return { ...task, tags: [...task.tags] };
   }
 
   async remove(id: number): Promise<void> {
@@ -500,11 +519,14 @@ export class InMemoryTaskRepository implements TaskRepository {
     if (parent.parentId != null) throw new RepositoryError('validation', 'Subtasks cannot be nested');
   }
 
-  async reorder(id: number, status: TaskStatus, position: number): Promise<void> {
+  async reorder(id: number, status: TaskStatus, position: number): Promise<Task> {
     const task = this.tasks.find(t => t.id === id);
     if (!task) throw new RepositoryError('not-found', `Task ${id} not found`);
+    const previousStatus = task.status;
     task.status = status;
     task.position = position;
+    applyCompletion(task, previousStatus);
+    return { ...task, tags: [...task.tags] };
   }
 
   private registerTags(names: string[]): Tag[] {
