@@ -17,9 +17,19 @@
   box-shadow: var(--shadow-md);
   font-family: inherit;
   backdrop-filter: var(--frost-blur);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 1rem);
+}
+
+.modalBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .header {
+  flex: none;
   margin-bottom: 1rem;
   color: var(--color-text);
 }
@@ -157,10 +167,14 @@
 }
 
 .actions {
+  flex: none;
   display: flex;
   gap: 0.75rem;
   justify-content: flex-end;
   margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
+  background-color: var(--color-surface);
 }
 
 .cancelBtn {

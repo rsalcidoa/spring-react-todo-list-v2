@@ -55,6 +55,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
     <div className={styles.overlay} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className={styles.modal} role="dialog" aria-modal="true" aria-label={editingTask ? t('task.editTitle') : t('task.newTitle')}>
         <h2 className={styles.header}>{editingTask ? t('task.editTitle') : t('task.newTitle')}</h2>
+        <div className={styles.modalBody}>
         <div className={styles.formGroup}>
           <label className={styles.formLabel}>{t('task.title')} *</label>
           <input className={styles.input} ref={titleRef} placeholder={t('task.titlePlaceholder')} value={form.values.title} onChange={e=>form.setTitle(e.target.value)} />
@@ -144,6 +145,7 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({isOpen, onClose, onSave, rep
           </div>
         )}
         {form.tagError && <ErrorBanner key={form.tagError.id} message={form.tagError.message} onDismiss={form.dismissTagError} />}
+        </div>
         <div className={styles.actions}>
           <button className={styles.cancelBtn} onClick={onClose}>{t('common.cancel')}</button>
           <button className={styles.saveBtn} onClick={handleSubmit}>{t('common.save')}</button>

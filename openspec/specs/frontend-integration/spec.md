@@ -891,12 +891,12 @@ The board SHALL render a footer showing the application name and version, the ke
 - **THEN** the footer text renders in English
 
 ### Requirement: Modal Form Layout
-In the task and project dialogs, each field label SHALL render above its control with a consistent vertical gap, so labels never sit flush against or overlap their inputs, selects or textareas. Fields laid out side by side SHALL stack their label over their control within their own column rather than flowing inline. Inline validation messages SHALL render below their field without overlapping it. The tags block SHALL stack the tag dropdown (dropdown toggle, search input and option list) above the create-new-tag row with a visible vertical gap, so the search input, the option pills and the create input never pile up.
+In the task and project dialogs, each field label SHALL render above its control with a consistent vertical gap, so labels never sit flush against or overlap their inputs, selects or textareas. Fields laid out side by side SHALL stack their label over their control within their own column rather than flowing inline. Inline validation messages SHALL render below their field without overlapping it. The tags block SHALL stack the tag dropdown (dropdown toggle, search input and option list) above the create-new-tag row with a visible vertical gap, so the search input, the option pills and the create input never pile up. The task dialog SHALL stay within the viewport, scrolling its fields when its content is taller, while its Save and Cancel actions remain visible and reachable.
 
 **ID**: REQ-FE-041
 **Affected files**:
-- `frontend/src/components/AddTaskModal.module.css` — stacked label layout, tag block spacing and validation spacing
-- `frontend/src/components/AddTaskModal.tsx` — removes the duplicated tags heading
+- `frontend/src/components/AddTaskModal.module.css` — stacked label layout, tag block spacing, validation spacing and the bounded, scrollable dialog
+- `frontend/src/components/AddTaskModal.tsx` — removes the duplicated tags heading; wraps the scrollable body
 
 #### Scenario: Priority and status stack their labels
 - **WHEN** the task dialog renders the priority and status fields
@@ -913,6 +913,10 @@ In the task and project dialogs, each field label SHALL render above its control
 #### Scenario: The tags block is not piled up
 - **WHEN** the task dialog renders the tags block with the dropdown open
 - **THEN** the dropdown toggle, search input and option list are separated from the create-new-tag row by a visible gap, and none of them overlap the create input
+
+#### Scenario: The dialog stays within the viewport
+- **WHEN** the task dialog has more content than fits the viewport (for example many Subtasks)
+- **THEN** the dialog does not exceed the viewport height, its fields scroll, and the Save and Cancel actions remain visible
 
 ### Requirement: Keyboard Shortcuts Help
 The board SHALL provide a keyboard shortcuts dialog that lists the supported shortcuts: focus a task card, open the focused card for editing (`Enter`), move the focused card between status columns (`Alt+ArrowLeft` / `Alt+ArrowRight`), close a dialog (`Esc`), and create a task from a column's quick-add input. The dialog SHALL be a modal (`role="dialog"` with `aria-modal="true"`), SHALL close on `Esc` and on an overlay click, and SHALL use the active locale. The shortcut list SHALL match the shortcuts the board actually implements.
