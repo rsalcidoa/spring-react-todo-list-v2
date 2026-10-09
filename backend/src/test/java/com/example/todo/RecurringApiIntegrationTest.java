@@ -61,6 +61,16 @@ class RecurringApiIntegrationTest {
                 .andExpect(status().isOk());
     }
 
+    private long createProject(String name) throws Exception {
+        MvcResult r = mockMvc.perform(post("/v1/projects")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\": \"" + name + "\"}"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return mapper.readTree(r.getResponse().getContentAsString()).path("id").asLong();
+    }
+
     private JsonNode listAll() throws Exception {
         MvcResult r = mockMvc.perform(get("/v1/tasks")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
@@ -122,6 +132,37 @@ class RecurringApiIntegrationTest {
         assertTrue(child != null);
         assertEquals("2026-01-08", child.path("dueDate").asText());
         assertEquals("2026-01-08T09:00:00", child.path("reminderAt").asText());
+    }
+
+    @Test
+    void nextOccurrenceInheritsTheProject() throws Exception {
+        registerAndLogin();
+        long projectId = createProject("Casa");
+        long id = createTask("{\"title\": \"Weekly\", \"priority\": \"LOW\", \"dueDate\": \"2026-01-01\", "
+                + "\"recurrence\": \"WEEKLY\", \"projectId\": " + projectId + "}");
+
+        complete(id);
+
+        JsonNode child = null;
+        for (JsonNode node : listAll()) {
+            if ("PENDING".equals(node.path("status").asText())) child = node;
+        }
+        assertTrue(child != null);
+        assertEquals(projectId, child.path("projectId").asLong());
+    }
+
+    @Test
+    void recurrenceOnSubtaskIsRejected() throws Exception {
+        registerAndLogin();
+        long parent = createTask("{\"title\": \"Parent\", \"priority\": \"LOW\", \"dueDate\": \"2026-01-01\"}");
+
+        mockMvc.perform(post("/v1/tasks")
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"title\": \"Sub\", \"priority\": \"LOW\", \"dueDate\": \"2026-01-01\", "
+                        + "\"recurrence\": \"DAILY\", \"parentId\": " + parent + "}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.recurrence[0]").exists());
     }
 
 }

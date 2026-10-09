@@ -209,6 +209,9 @@ public class TaskService {
         if (task.getRecurrence() != null && task.getRecurrence() != Recurrence.NONE && task.getDueDate() == null) {
             throw new InvalidQueryValueException("recurrence", "Recurrence requires a due date");
         }
+        if (task.getParent() != null && task.getRecurrence() != null && task.getRecurrence() != Recurrence.NONE) {
+            throw new InvalidQueryValueException("recurrence", "A subtask cannot recur");
+        }
     }
 
     private void applyProject(Task task, TaskRequest request) {
@@ -267,6 +270,7 @@ public class TaskService {
         next.setDueDate(RecurrenceRule.nextDueDate(completed.getDueDate(), rule));
         next.setRecurrence(rule);
         next.setUser(me);
+        next.setProject(completed.getProject());
         next.setTags(new java.util.HashSet<>(completed.getTags()));
         if (completed.getReminderAt() != null) {
             long days = java.time.temporal.ChronoUnit.DAYS.between(completed.getDueDate(), next.getDueDate());
