@@ -38,7 +38,7 @@ class TagServiceTest {
     void setUp() {
         tagRepository = mock(TagRepository.class);
         currentUser = mock(CurrentUserProvider.class);
-        service = new TagService(tagRepository, currentUser);
+        service = new TagService(tagRepository, new Ownership(currentUser));
     }
 
     private User userWithId(long id, String email) {
@@ -92,7 +92,7 @@ class TagServiceTest {
     void deleteThrowsNotFoundWhenMissing() {
         when(tagRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThrows(ResourceNotFoundException.class, () -> service.delete(me, 99L));
+        assertThrows(ResourceNotFoundException.class, () -> service.delete(99L));
     }
 
     @Test
@@ -101,7 +101,7 @@ class TagServiceTest {
         when(tagRepository.findById(10L)).thenReturn(Optional.of(foreign));
         when(currentUser.requireOwned(2L)).thenThrow(new OwnershipDeniedException());
 
-        assertThrows(OwnershipDeniedException.class, () -> service.delete(me, 10L));
+        assertThrows(OwnershipDeniedException.class, () -> service.delete(10L));
     }
 
     @Test
@@ -110,7 +110,7 @@ class TagServiceTest {
         when(tagRepository.findById(10L)).thenReturn(Optional.of(mine));
         when(currentUser.requireOwned(1L)).thenReturn(me);
 
-        service.delete(me, 10L);
+        service.delete(10L);
 
         verify(tagRepository).delete(mine);
     }

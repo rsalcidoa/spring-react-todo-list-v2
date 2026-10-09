@@ -57,7 +57,7 @@ class TaskServiceTest {
         transactionManager = mock(PlatformTransactionManager.class);
         transactionTemplate = new TransactionTemplate(transactionManager);
         projectRepository = mock(com.example.todo.repository.ProjectRepository.class);
-        taskAccess = new TaskAccess(taskRepository, currentUser);
+        taskAccess = new TaskAccess(taskRepository, new Ownership(currentUser));
         service = new TaskService(taskRepository, tagRepository, tagService, currentUser, transactionManager, projectRepository, taskAccess);
     }
 

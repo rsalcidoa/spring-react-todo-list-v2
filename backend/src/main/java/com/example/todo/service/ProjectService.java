@@ -2,12 +2,10 @@ package com.example.todo.service;
 
 import com.example.todo.dto.ProjectResponse;
 import com.example.todo.exception.ProjectAlreadyExistsException;
-import com.example.todo.exception.ResourceNotFoundException;
 import com.example.todo.model.Project;
 import com.example.todo.model.User;
 import com.example.todo.repository.ProjectRepository;
 import com.example.todo.repository.TaskRepository;
-import com.example.todo.security.CurrentUserProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,12 +18,12 @@ public class ProjectService {
 
     private final ProjectRepository projectRepository;
     private final TaskRepository taskRepository;
-    private final CurrentUserProvider currentUser;
+    private final Ownership ownership;
 
-    public ProjectService(ProjectRepository projectRepository, TaskRepository taskRepository, CurrentUserProvider currentUser) {
+    public ProjectService(ProjectRepository projectRepository, TaskRepository taskRepository, Ownership ownership) {
         this.projectRepository = projectRepository;
         this.taskRepository = taskRepository;
-        this.currentUser = currentUser;
+        this.ownership = ownership;
     }
 
     public List<ProjectResponse> list(User me) {
@@ -47,8 +45,7 @@ public class ProjectService {
     }
 
     public ProjectResponse rename(Long id, String rawName, String rawDescription) {
-        Project project = projectRepository.findById(id).orElseThrow(ResourceNotFoundException::new);
-        currentUser.requireOwned(project.getUser().getId());
+        Project project = ownership.requireOwned(id, projectRepository::findById, p -> p.getUser().getId());
         String name = rawName.trim();
         projectRepository.findByUserIdAndNameIgnoreCase(project.getUser().getId(), name)
                 .filter(other -> !other.getId().equals(id))
@@ -68,8 +65,7 @@ public class ProjectService {
 
     @Transactional
     public void delete(Long id) {
-        Project project = projectRepository.findById(id).orElseThrow(ResourceNotFoundException::new);
-        currentUser.requireOwned(project.getUser().getId());
+        Project project = ownership.requireOwned(id, projectRepository::findById, p -> p.getUser().getId());
         // Delete the project's tasks (their subtasks cascade via the parent_id FK), then the project.
         taskRepository.deleteByProjectId(id);
         projectRepository.delete(project);

@@ -3,14 +3,13 @@ package com.example.todo.service;
 import com.example.todo.exception.ResourceNotFoundException;
 import com.example.todo.model.Task;
 import com.example.todo.repository.TaskRepository;
-import com.example.todo.security.CurrentUserProvider;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 
 /**
- * Owns the task ownership policy: lookup staying here (404), the forbidden
- * decision living in {@link CurrentUserProvider#requireOwned} (403), plus the
+ * Owns the Task-specific access policy on top of {@link Ownership}: a soft-deleted
+ * Task is treated as absent (404) before the ownership decision, plus the
  * cascade rules for soft delete and restore. Every task-reading service crosses
  * this seam instead of re-implementing {@code findById -> 404 -> requireOwned}.
  */
@@ -18,28 +17,25 @@ import java.time.LocalDateTime;
 public class TaskAccess {
 
     private final TaskRepository taskRepository;
-    private final CurrentUserProvider currentUser;
+    private final Ownership ownership;
 
-    public TaskAccess(TaskRepository taskRepository, CurrentUserProvider currentUser) {
+    public TaskAccess(TaskRepository taskRepository, Ownership ownership) {
         this.taskRepository = taskRepository;
-        this.currentUser = currentUser;
+        this.ownership = ownership;
     }
 
     /** A live (not soft-deleted) task owned by the current user. */
     public Task owned(Long id) {
-        Task task = taskRepository.findById(id).orElseThrow(ResourceNotFoundException::new);
+        Task task = ownership.lookup(id, taskRepository::findById);
         if (task.getDeletedAt() != null) {
             throw new ResourceNotFoundException();
         }
-        currentUser.requireOwned(task.getUser().getId());
-        return task;
+        return ownership.requireOwned(task, t -> t.getUser().getId());
     }
 
     /** An owned task regardless of its soft-deleted state (for restore). */
     public Task ownedIncludingDeleted(Long id) {
-        Task task = taskRepository.findById(id).orElseThrow(ResourceNotFoundException::new);
-        currentUser.requireOwned(task.getUser().getId());
-        return task;
+        return ownership.requireOwned(id, taskRepository::findById, t -> t.getUser().getId());
     }
 
     /** Soft-deletes a task and its children in one write. */

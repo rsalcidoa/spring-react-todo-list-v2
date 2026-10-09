@@ -34,7 +34,7 @@ class TaskAccessTest {
     void setUp() {
         taskRepository = mock(TaskRepository.class);
         currentUser = mock(CurrentUserProvider.class);
-        access = new TaskAccess(taskRepository, currentUser);
+        access = new TaskAccess(taskRepository, new Ownership(currentUser));
     }
 
     private User userWithId(long id, String email) {

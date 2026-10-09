@@ -1,12 +1,10 @@
 package com.example.todo.service;
 
 import com.example.todo.dto.TagResponse;
-import com.example.todo.exception.ResourceNotFoundException;
 import com.example.todo.exception.TagAlreadyExistsException;
 import com.example.todo.model.Tag;
 import com.example.todo.model.User;
 import com.example.todo.repository.TagRepository;
-import com.example.todo.security.CurrentUserProvider;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
@@ -18,11 +16,11 @@ import java.util.Map;
 @Service
 public class TagService {
     private final TagRepository tagRepository;
-    private final CurrentUserProvider currentUser;
+    private final Ownership ownership;
 
-    public TagService(TagRepository tagRepository, CurrentUserProvider currentUser) {
+    public TagService(TagRepository tagRepository, Ownership ownership) {
         this.tagRepository = tagRepository;
-        this.currentUser = currentUser;
+        this.ownership = ownership;
     }
 
     public List<TagResponse> list(User me) {
@@ -51,9 +49,8 @@ public class TagService {
         }
     }
 
-    public void delete(User me, Long id) {
-        Tag tag = tagRepository.findById(id).orElseThrow(ResourceNotFoundException::new);
-        currentUser.requireOwned(tag.getUser().getId());
+    public void delete(Long id) {
+        Tag tag = ownership.requireOwned(id, tagRepository::findById, t -> t.getUser().getId());
         tagRepository.delete(tag);
     }
 
