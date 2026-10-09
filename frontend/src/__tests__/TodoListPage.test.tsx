@@ -104,6 +104,37 @@ describe('TodoListPage Kanban (through the repository seam)', () => {
     await waitFor(() => expect(body.className).not.toMatch(/dragover/));
   });
 
+  it('keeps the drag-over highlight while moving over a child card', async () => {
+    const { repository } = await seedBoard();
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy());
+
+    const body = screen.getByText('Por hacer').closest('div')!.querySelector('div') as HTMLElement;
+    fireEvent.dragEnter(body);
+    expect(body.className).toMatch(/dragover/);
+
+    // Entering a child bubbles a dragenter, and the target change fires a
+    // dragleave on the body even though the pointer is still inside the column.
+    const card = screen.getByText(/Task Alpha/i).closest('[data-task]') as HTMLElement;
+    fireEvent.dragEnter(card);
+    fireEvent.dragLeave(body);
+
+    expect(body.className).toMatch(/dragover/);
+  });
+
+  it('clears the drag-over highlight when the drag leaves the column', async () => {
+    const { repository } = await seedBoard();
+    renderWithRepo(repository);
+    await waitFor(() => expect(screen.queryByText(/Task Alpha/i)).toBeTruthy());
+
+    const body = screen.getByText('Por hacer').closest('div')!.querySelector('div') as HTMLElement;
+    fireEvent.dragEnter(body);
+    expect(body.className).toMatch(/dragover/);
+
+    fireEvent.dragLeave(body);
+    expect(body.className).not.toMatch(/dragover/);
+  });
+
   it('opens the manage projects dialog from the header action', async () => {
     renderWithRepo(new InMemoryTaskRepository());
     await waitFor(() => expect(screen.getByText(/Todas las tareas/i)).toBeTruthy());

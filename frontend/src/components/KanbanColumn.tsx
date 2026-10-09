@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Task, TaskStatus } from '../services/types/task';
 import { dropIndex, type MoveDirection } from '../services/boardInteraction';
 import KanbanCard from './KanbanCard';
@@ -28,6 +28,15 @@ const STATUS_DOT_VAR: Record<string, string> = {
 const KanbanColumn: React.FC<KanbanColumnProps> = ({status, label, tasks, onCardClick, onDrop, onDelete, onQuickAdd, onMove, onReorder}) => {
   const { t, lang } = useT();
   const [dragOver, setDragOver] = useState(false);
+  // Enter/leave events pair per element and bubble, so a depth counter keeps the
+  // highlight on while the pointer is anywhere inside the column and its children.
+  const dragDepth = useRef(0);
+
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    dragDepth.current += 1;
+    setDragOver(true);
+  };
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -36,11 +45,13 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({status, label, tasks, onCard
 
   const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    setDragOver(false);
+    dragDepth.current = Math.max(0, dragDepth.current - 1);
+    if (dragDepth.current === 0) setDragOver(false);
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    dragDepth.current = 0;
     setDragOver(false);
     if (onReorder) {
       const taskId = parseInt((e.dataTransfer as DataTransfer).getData('text/plain'));
@@ -61,6 +72,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({status, label, tasks, onCard
         {label} <span className={styles.count}>{formatNumber(tasks.length, lang)}</span>
       </h3>
       <div className={`${styles.body} ${dragOver ? styles.dragover : ''}`}
+           onDragEnter={handleDragEnter}
            onDragOver={handleDragOver}
            onDragLeave={handleDragLeave}
            onDrop={handleDrop}>
