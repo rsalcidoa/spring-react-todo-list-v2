@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { ThemeProvider, readTheme, useTheme, AVAILABLE_THEMES } from '../context/ThemeContext';
+import { es } from '../i18n/es';
 
 afterEach(cleanup);
 
@@ -27,9 +28,9 @@ describe('readTheme', () => {
     expect(readTheme(storageWith({ theme: 'neon' }))).toBe('ink');
   });
 
-  it('exposes the three themes in Spanish', () => {
+  it('exposes the three themes, labeled through i18n', () => {
     expect(AVAILABLE_THEMES.map(t => t.name)).toEqual(['ink', 'phosphor', 'nord']);
-    expect(AVAILABLE_THEMES.map(t => t.label)).toEqual(['Tinta', 'Fósforo', 'Nórdico']);
+    expect([es['theme.ink'], es['theme.phosphor'], es['theme.nord']]).toEqual(['Tinta', 'Fósforo', 'Nórdico']);
   });
 });
 

@@ -100,6 +100,8 @@ export const es = {
   'task.deleteTag': 'Borrar etiqueta',
   'task.deleteSubtask': 'Borrar subtarea',
   'task.toggleSubtask': 'Alternar',
+  'task.recurring': 'Se repite',
+  'task.delete': 'Borrar tarea',
   'task.titleRequired': 'El título es obligatorio',
   'priority.low': 'Baja',
   'priority.medium': 'Media',

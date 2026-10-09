@@ -102,6 +102,8 @@ export const en: Partial<Record<TranslationKey, string>> = {
   'task.deleteTag': 'Delete tag',
   'task.deleteSubtask': 'Delete subtask',
   'task.toggleSubtask': 'Toggle',
+  'task.recurring': 'Repeats',
+  'task.delete': 'Delete task',
   'task.titleRequired': 'Title is required',
   'priority.low': 'Low',
   'priority.medium': 'Medium',
