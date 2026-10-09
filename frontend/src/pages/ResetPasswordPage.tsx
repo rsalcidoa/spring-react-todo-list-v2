@@ -4,7 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import ErrorBanner from '../components/ErrorBanner';
 import AppControls from '../components/AppControls';
 import { verifyResetToken, changePasswordReset } from '../services/ApiService';
-import { mapApiError } from '../data/TaskRepository';
+import { presentError, errorDetail } from '../services/errorPresenter';
 import { useT } from '../i18n';
 
 const ResetPasswordPage: React.FC = () => {
@@ -34,13 +34,10 @@ const ResetPasswordPage: React.FC = () => {
       await changePasswordReset(token, newPassword);
       navigate('/login');
     } catch (err: unknown) {
-      const mapped = mapApiError(err);
-      if (mapped.message === 'Reset token has expired') {
+      if (errorDetail(err) === 'Reset token has expired') {
         showError(t('auth.reset.expired'));
-      } else if (mapped.code === 'unknown' && mapped.message === 'Error') {
-        showError(t('auth.reset.failed'));
       } else {
-        showError(mapped.message);
+        showError(presentError(err, t, { fallback: t('auth.reset.failed') }));
       }
     }
   };

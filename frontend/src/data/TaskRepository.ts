@@ -44,52 +44,39 @@ export type RepositoryErrorCode = 'conflict' | 'unauthorized' | 'forbidden' | 'n
 export class RepositoryError extends Error {
   readonly code: RepositoryErrorCode;
   readonly status?: number;
+  readonly detail?: string;
 
-  constructor(code: RepositoryErrorCode, message: string, status?: number) {
-    super(message);
+  constructor(code: RepositoryErrorCode, detail?: string, status?: number) {
+    super(detail ?? code);
     this.name = 'RepositoryError';
     this.code = code;
     this.status = status;
+    this.detail = detail;
   }
 }
 
 /** Single interpretation of the HTTP contract, shared by page and modal. */
-export function getApiStatus(e: unknown): number | undefined {
+function getApiStatus(e: unknown): number | undefined {
   return (e as { response?: { status?: number } }).response?.status;
 }
 
-export function getApiMessage(e: unknown): string {
+function getApiDetail(e: unknown): string | undefined {
   const err = e as { response?: { data?: { error?: string } }; message?: string };
-  return err.response?.data?.error || err.message || 'Error';
+  const backend = err.response?.data?.error;
+  if (backend) return backend;
+  return typeof err.message === 'string' && err.message ? err.message : undefined;
 }
 
 export function mapApiError(e: unknown): RepositoryError {
   if (e instanceof RepositoryError) return e;
   const status = getApiStatus(e);
-  const detail = getApiMessage(e);
+  const detail = getApiDetail(e);
   if (status === 409) return new RepositoryError('conflict', detail, status);
   if (status === 401) return new RepositoryError('unauthorized', detail, status);
   if (status === 403) return new RepositoryError('forbidden', detail, status);
   if (status === 404) return new RepositoryError('not-found', detail, status);
   if (status === 400) return new RepositoryError('validation', detail, status);
   return new RepositoryError('unknown', detail, status);
-}
-
-export function toDisplayMessage(
-  e: unknown,
-  fallbacks: { conflict?: string; badRequest?: string; notFound?: string } = {},
-): string {
-  const err = mapApiError(e);
-  switch (err.code) {
-    case 'conflict':
-      return fallbacks.conflict ?? err.message;
-    case 'validation':
-      return fallbacks.badRequest ?? err.message;
-    case 'not-found':
-      return fallbacks.notFound ?? err.message;
-    default:
-      return err.message;
-  }
 }
 
 const normalizeKey = (name: string): string => name.trim().toLowerCase();

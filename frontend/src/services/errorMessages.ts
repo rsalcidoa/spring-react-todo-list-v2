@@ -1,4 +1,4 @@
-import { toDisplayMessage } from '../data/TaskRepository';
+import { presentError } from './errorPresenter';
 import { useT } from '../i18n';
 
 /**
@@ -7,12 +7,11 @@ import { useT } from '../i18n';
  */
 export function useTagErrorText(): (e: unknown) => string {
   const { t } = useT();
-  return (e: unknown) => {
-    const message = toDisplayMessage(e, {
+  return (e: unknown) => presentError(e, t, {
+    fallback: t('tagError.invalid'),
+    override: {
       conflict: t('tagError.duplicate'),
-      badRequest: t('tagError.invalid'),
-      notFound: t('tagError.missing'),
-    });
-    return message === 'Error' ? t('tagError.invalid') : message;
-  };
+      'not-found': t('tagError.missing'),
+    },
+  });
 }

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../services/ApiService';
-import { getApiStatus, getApiMessage } from '../data/TaskRepository';
+import { presentError } from '../services/errorPresenter';
 import { useNavigate, Link } from 'react-router-dom';
 import { useT } from '../i18n';
 import styles from './RegisterPage.module.css';
@@ -32,12 +32,10 @@ export default function RegisterPage() {
       await auth.login(email, password);
       navigate('/tasks');
     } catch (error: unknown) {
-      if (getApiStatus(error) === 409) {
-        const message = getApiMessage(error);
-        showError(message === 'Error' ? t('auth.register.duplicate') : message);
-      } else {
-        showError(t('auth.register.error'));
-      }
+      showError(presentError(error, t, {
+        fallback: t('auth.register.error'),
+        override: { conflict: t('auth.register.duplicate') },
+      }));
     }
   };
 

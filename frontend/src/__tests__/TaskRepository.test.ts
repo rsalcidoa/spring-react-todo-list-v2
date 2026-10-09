@@ -4,7 +4,6 @@ import {
   InMemoryTaskRepository,
   RepositoryError,
   mapApiError,
-  toDisplayMessage,
   type TaskRepository,
 } from '../data/TaskRepository';
 import { TaskInput, Priority, TaskStatus } from '../services/types/task';
@@ -176,19 +175,14 @@ describe('HttpTaskRepository wire mapping', () => {
   });
 });
 
-describe('mapApiError / toDisplayMessage', () => {
+describe('mapApiError', () => {
   it('maps 409/400/404 to codes and keeps the detail', () => {
     expect(mapApiError({ response: { status: 409, data: { error: 'Tag already exists' } } }).code).toBe('conflict');
+    expect(mapApiError({ response: { status: 409, data: { error: 'Tag already exists' } } }).detail).toBe('Tag already exists');
     expect(mapApiError({ response: { status: 400, data: {} } }).code).toBe('validation');
+    expect(mapApiError({ response: { status: 400, data: {} } }).detail).toBeUndefined();
     expect(mapApiError({ response: { status: 404, data: {} } }).code).toBe('not-found');
     expect(mapApiError(new Error('boom')).code).toBe('unknown');
-  });
-
-  it('toDisplayMessage prefers fallbacks, then detail', () => {
-    const conflict = { response: { status: 409, data: { error: 'Tag already exists' } } };
-    expect(toDisplayMessage(conflict, { conflict: 'This tag already exists' })).toBe('This tag already exists');
-    expect(toDisplayMessage(conflict)).toBe('Tag already exists');
-    expect(toDisplayMessage(new Error('Network down'))).toBe('Network down');
   });
 });
 

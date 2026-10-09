@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Project } from '../services/types/task';
-import { toDisplayMessage } from '../data/TaskRepository';
+import { presentError } from '../services/errorPresenter';
 import ErrorBanner from './ErrorBanner';
 import { useT } from '../i18n';
 import styles from './ManageProjectsModal.module.css';
@@ -47,7 +47,7 @@ const ManageProjectsModal: React.FC<ManageProjectsModalProps> = ({ isOpen, onClo
       }
       resetForm();
     } catch (err) {
-      setError({ message: toDisplayMessage(err), id: Date.now() });
+      setError({ message: presentError(err, t), id: Date.now() });
     }
   };
 
@@ -63,7 +63,7 @@ const ManageProjectsModal: React.FC<ManageProjectsModalProps> = ({ isOpen, onClo
       await onDelete(project.id);
       if (editingId === project.id) resetForm();
     } catch (err) {
-      setError({ message: toDisplayMessage(err), id: Date.now() });
+      setError({ message: presentError(err, t), id: Date.now() });
     }
   };
 

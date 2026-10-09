@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { toDisplayMessage, type TaskStore, type OrderingStore, type TagStore, type ProjectStore } from '../data/TaskRepository';
+import { type TaskStore, type OrderingStore, type TagStore, type ProjectStore } from '../data/TaskRepository';
+import { presentError } from '../services/errorPresenter';
+import { useT } from '../i18n';
 import { positionBetween, type BoardView } from '../services/boardInteraction';
 import { applyBoardQuery, compareTasks, type BoardQuery } from '../services/boardQuery';
 import { Task, Tag, Project, TaskInput, TaskStatus, TaskQuery, Priority } from '../services/types/task';
@@ -84,6 +86,7 @@ function applyFilters(tasks: Task[], filters: BoardFilters): Task[] {
 
 /** Deep module owning the board's read state and optimistic mutation policy. */
 export function useBoard(repository: TaskStore & OrderingStore & TagStore & ProjectStore): BoardState {
+  const { t } = useT();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -107,7 +110,7 @@ export function useBoard(repository: TaskStore & OrderingStore & TagStore & Proj
     [tasks, view, query, tagFilter, projectFilter],
   );
 
-  const errorMessage = (e: unknown) => toDisplayMessage(e);
+  const errorMessage = (e: unknown) => presentError(e, t);
 
   const showError = (message: string) => {
     setError({ message, id: Date.now() });
@@ -182,7 +185,7 @@ export function useBoard(repository: TaskStore & OrderingStore & TagStore & Proj
       if (previous !== undefined) {
         setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: previous } : t));
       }
-      showTransientError(`No se pudo mover: ${errorMessage(e)}`);
+      showTransientError(`${t('board.error.move')}: ${errorMessage(e)}`);
     }
   };
 
@@ -199,7 +202,7 @@ export function useBoard(repository: TaskStore & OrderingStore & TagStore & Proj
       await repository.reorder(taskId, status, position);
     } catch (e) {
       setTasks(prev => prev.map(t => t.id === taskId ? previous : t));
-      showTransientError(`No se pudo mover: ${errorMessage(e)}`);
+      showTransientError(`${t('board.error.move')}: ${errorMessage(e)}`);
     }
   };
 
